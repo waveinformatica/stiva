@@ -91,6 +91,10 @@ func NewSSOProvider(ctx context.Context, cfg *SSOConfig) (*ssoProvider, error) {
 		if _, err := url.ParseRequestURI(r.BaseURL); err != nil {
 			return nil, fmt.Errorf("auth: sso %q: invalid cas base url: %w", r.ID, err)
 		}
+	case SSOKindSAML:
+		if err := validateSAMLProvider(r); err != nil {
+			return nil, err
+		}
 	}
 	return p, nil
 }
@@ -409,16 +413,33 @@ func (m *Manager) SSOLoginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot start login"})
 		return
 	}
+	if p.cfg.Kind == SSOKindSAML {
+		// SAML carries no code exchange, so the verifier is unused; the state
+		// still rides along as RelayState for CSRF binding.
+		target, err := p.loginSAMLURL(callback, state)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot start login"})
+			return
+		}
+		c.Redirect(http.StatusFound, target)
+		return
+	}
 	c.Redirect(http.StatusFound, p.authorizeURL(callback, state, verifier))
 }
 
-// SSOCallbackHandler serves GET /auth/sso/:id/callback: it completes the
-// code exchange (or CAS ticket validation), maps the identity, issues a
-// registry session token and hands it to the SPA through the URL fragment,
-// which browsers never send to any server.
+// SSOCallbackHandler serves the provider round-trip: it completes the code
+// exchange (OIDC/OAuth2), the ticket validation (CAS) or the assertion check
+// (SAML), maps the identity, issues a registry session token and hands it to
+// the SPA through the URL fragment, which browsers never send to any server.
+// SAML posts here; every other mechanism redirects with a GET.
 func (m *Manager) SSOCallbackHandler(c *gin.Context) {
 	fail := func(msg string) {
 		c.Redirect(http.StatusFound, "/#sso_error="+url.QueryEscape(msg))
+		// POST callbacks (SAML) carry no response body, and Go's
+		// http.Redirect only writes one for GET: without an explicit flush
+		// the buffered 302 would never reach the wire and browsers would
+		// sit on an empty 200 instead of following it. Harmless for GET.
+		c.Writer.WriteHeaderNow()
 	}
 	p := m.findSSO(c.Param("id"))
 	if p == nil {
@@ -436,7 +457,8 @@ func (m *Manager) SSOCallbackHandler(c *gin.Context) {
 	callback := ssoCallbackURL(c, p.cfg.ID)
 	ctx := c.Request.Context()
 	var u *User
-	if p.cfg.Kind == SSOKindCAS {
+	switch p.cfg.Kind {
+	case SSOKindCAS:
 		ticket := c.Query("ticket")
 		if ticket == "" {
 			fail("missing cas ticket")
@@ -448,7 +470,21 @@ func (m *Manager) SSOCallbackHandler(c *gin.Context) {
 			return
 		}
 		u = p.mapCASUser(name, attrs)
-	} else {
+	case SSOKindSAML:
+		// POST binding is standard; FormValue also accepts a query parameter.
+		resp := c.Request.FormValue("SAMLResponse")
+		stateTok := c.Request.FormValue("RelayState")
+		pid, _, err := parseSSOState(m.secret, stateTok)
+		if err != nil || pid != p.cfg.ID {
+			fail("invalid state")
+			return
+		}
+		u, err = p.validateSAMLResponse(ctx, callback, resp)
+		if err != nil {
+			fail("invalid assertion")
+			return
+		}
+	default:
 		code, stateTok := c.Query("code"), c.Query("state")
 		if code == "" || stateTok == "" {
 			fail("missing code or state")
@@ -499,6 +535,7 @@ func (m *Manager) SSOCallbackHandler(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusFound, "/#sso_token="+tok)
+	c.Writer.WriteHeaderNow()
 }
 
 // firstString returns the first non-empty string found under the given keys.

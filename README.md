@@ -1,5 +1,9 @@
 # Stiva
 
+<p align="center">
+  <img src="docs/logo.png" width="420" alt="Stiva Registry">
+</p>
+
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](go.mod)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](web/package.json)
@@ -58,7 +62,7 @@ released as open source so that anyone running Kubernetes can benefit from it.
   number of registries, with credentials encrypted in the built-in vault.
 - **Authentication**: local users (bcrypt) + LDAP/Active Directory, OIDC and
   OAuth2 token validation, browser **single sign-on** (Microsoft 365, Google,
-  GitHub, GitLab, LinkedIn, generic OIDC/OAuth2/CAS — managed from the UI),
+  GitHub, GitLab, LinkedIn, generic OIDC/OAuth2/CAS/SAML — managed from the UI),
   user-managed **API keys** (usable as client passwords and bearer tokens,
   optionally scoped below the owner's power), optional anonymous access with
   per-identity CIDR filters (e.g. unauthenticated pulls from cluster nodes).
@@ -156,8 +160,10 @@ password form. Token realms (`oidc`, `oauth`) validate IdP-issued bearers
 authorization-code login with PKCE for the web UI: Microsoft 365 (tenant +
 Entra object IDs for groups), Google (email, no groups), GitHub (login +
 organizations as groups), GitLab (incl. self-hosted base URL), LinkedIn
-(email, no groups), plus generic OIDC, OAuth2 and CAS 2.0 servers. Client
-secrets are vault-encrypted and write-only.
+(email, no groups), plus generic OIDC, OAuth2, CAS 2.0 and SAML 2.0 servers.
+Client secrets are vault-encrypted and write-only. SAML uses unsigned
+AuthnRequests and mandatory signed responses, with audience, recipient and
+time window enforced.
 
 **API keys** (the *API keys* page, or Administration → Service Accounts)
 authenticate as their owner — as a client password (`docker login -u <name>`)
@@ -239,6 +245,34 @@ registries synthesize the metadata documents clients expect:
 write-through); `group` aggregates reads across ordered members and writes to
 one; `cache` is a transparent multi-upstream pull-through mirror for
 Kubernetes (see `deploy/`), warmed on demand or via `registry-warmer`.
+
+### APT repository signing
+
+A hosted APT registry can carry a signing key (Administration → Registries →
+edit → Repository signing): the generated `Release` is then also served
+clearsigned as `InRelease` and detached as `Release.gpg`, and the public half
+is published as `KEY.gpg` for apt's `signed-by=`. Keys are RSA-3072 generated
+in the UI, sealed in the vault, rotated by delete-then-create; without a key
+`Release` stays unsigned as before. Client side:
+
+```bash
+curl -fsSL https://registry.example.com/debian/KEY.gpg \
+  | gpg --dearmor | sudo tee /usr/share/keyrings/stiva-debian.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/stiva-debian.gpg] https://registry.example.com/debian/ ./" \
+  | sudo tee /etc/apt/sources.list.d/stiva-debian.list
+sudo apt-get update
+```
+
+Generated `Packages` stanzas carry relative `Filename`s plus `Size`/`SHA256`
+(and legacy hashes), so downloads verify against the signed index.
+
+Deleting manifests and artifacts leaves their blobs behind by design (a blob
+may still be referenced elsewhere). **Garbage collection** reaps them:
+`POST /api/v1/admin/gc` with `{registry?, dry_run?, older_than?}` lists or
+deletes blobs that no manifest links and no artifact object embeds — per
+registry or everywhere, with a grace period (default `1h`) protecting pushes
+still in flight. The Registries admin page offers the same as a preview-then-
+run dialog. Dry-run first on any registry that matters.
 
 ## Kubernetes deployment
 

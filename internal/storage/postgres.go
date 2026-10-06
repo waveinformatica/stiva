@@ -131,6 +131,37 @@ func (m *PostgresMetadataStore) DeleteBlobMeta(registry string, d digest.Digest)
 	return err
 }
 
+// OrphanBlobs lists blobs referenced by nothing — no manifest links it, no
+// artifact object embeds it — and older than the cutoff, so blobs of pushes
+// still in flight (recorded before their manifest links them) are never
+// candidates. One query, no application-side set math.
+func (m *PostgresMetadataStore) OrphanBlobs(registry string, olderThan time.Time) ([]BlobInfo, error) {
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT digest, size, created_at FROM blobs
+		  WHERE registry = $1 AND created_at < $2
+		    AND digest NOT IN (SELECT blob_digest FROM manifest_blobs WHERE registry = $1)
+		    AND digest NOT IN (SELECT digest FROM objects WHERE registry = $1)
+		  ORDER BY size DESC`,
+		registry, olderThan.UnixNano())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BlobInfo
+	for rows.Next() {
+		var b BlobInfo
+		var dg string
+		var created int64
+		if err := rows.Scan(&dg, &b.Size, &created); err != nil {
+			return nil, err
+		}
+		b.Digest = digest.Digest(dg)
+		b.CreatedAt = time.Unix(0, created).UTC()
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
 func (m *PostgresMetadataStore) PutManifest(registry, repo string, d digest.Digest, mediaType string, content []byte) error {
 	if _, err := m.pool.Exec(context.Background(),
 		`INSERT INTO manifests(registry, repo, digest, media_type, content, created_at)
@@ -332,7 +363,8 @@ func (m *PostgresMetadataStore) ListSSOProviders() ([]SSOProviderRecord, error) 
 	rows, err := m.pool.Query(context.Background(),
 		`SELECT id, label, provider, client_id, tenant, base_url, issuer,
 		        authorize_url, token_url, userinfo_url, scope, username_claim,
-		        groups_claim, audience, admin_group, enabled
+		        groups_claim, audience, admin_group, enabled,
+		        entity_id, idp_sso_url, idp_cert
 		   FROM sso_providers ORDER BY id`)
 	if err != nil {
 		return nil, err
@@ -344,7 +376,7 @@ func (m *PostgresMetadataStore) ListSSOProviders() ([]SSOProviderRecord, error) 
 		if err := rows.Scan(&rec.ID, &rec.Label, &rec.Provider, &rec.ClientID,
 			&rec.Tenant, &rec.BaseURL, &rec.Issuer, &rec.AuthorizeURL, &rec.TokenURL,
 			&rec.UserinfoURL, &rec.Scope, &rec.Username, &rec.Groups, &rec.Audience,
-			&rec.AdminGroup, &rec.Enabled); err != nil {
+			&rec.AdminGroup, &rec.Enabled, &rec.EntityID, &rec.IdPSSOURL, &rec.IdPCert); err != nil {
 			return nil, err
 		}
 		out = append(out, rec)
@@ -357,18 +389,20 @@ func (m *PostgresMetadataStore) UpsertSSOProvider(r SSOProviderRecord) error {
 		`INSERT INTO sso_providers(id, label, provider, client_id, tenant, base_url,
 		                           issuer, authorize_url, token_url, userinfo_url, scope,
 		                           username_claim, groups_claim, audience, admin_group,
-		                           enabled, updated_at)
-		 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now())
+		                           enabled, entity_id, idp_sso_url, idp_cert, updated_at)
+		 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,now())
 		 ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, provider = EXCLUDED.provider,
 		   client_id = EXCLUDED.client_id, tenant = EXCLUDED.tenant, base_url = EXCLUDED.base_url,
 		   issuer = EXCLUDED.issuer, authorize_url = EXCLUDED.authorize_url,
 		   token_url = EXCLUDED.token_url, userinfo_url = EXCLUDED.userinfo_url,
 		   scope = EXCLUDED.scope, username_claim = EXCLUDED.username_claim,
 		   groups_claim = EXCLUDED.groups_claim, audience = EXCLUDED.audience,
-		   admin_group = EXCLUDED.admin_group, enabled = EXCLUDED.enabled, updated_at = now()`,
+		   admin_group = EXCLUDED.admin_group, enabled = EXCLUDED.enabled,
+		   entity_id = EXCLUDED.entity_id, idp_sso_url = EXCLUDED.idp_sso_url,
+		   idp_cert = EXCLUDED.idp_cert, updated_at = now()`,
 		r.ID, r.Label, r.Provider, r.ClientID, r.Tenant, r.BaseURL, r.Issuer,
 		r.AuthorizeURL, r.TokenURL, r.UserinfoURL, r.Scope, r.Username, r.Groups,
-		r.Audience, r.AdminGroup, r.Enabled)
+		r.Audience, r.AdminGroup, r.Enabled, r.EntityID, r.IdPSSOURL, r.IdPCert)
 	return err
 }
 

@@ -4,13 +4,18 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"registry/internal/registry"
 )
@@ -303,11 +308,29 @@ func genAPT(be registry.ArtifactBackend, p string) ([]byte, string, bool) {
 			if !strings.HasSuffix(o, ".deb") {
 				continue
 			}
-			ctrl, cerr := debControl(be, o)
+			rc, _, _, err := be.Get(o)
+			if err != nil {
+				continue
+			}
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				continue
+			}
+			ctrl, cerr := readDebControl(data)
 			if cerr != nil || ctrl["Package"] == "" {
 				continue
 			}
-			ctrl["Filename"] = "/" + o
+			// Filename is relative to the repository root; the file hashes
+			// let apt verify the download instead of trusting the transport.
+			ctrl["Filename"] = o
+			ctrl["Size"] = strconv.Itoa(len(data))
+			sum256 := sha256.Sum256(data)
+			ctrl["SHA256"] = hex.EncodeToString(sum256[:])
+			sum1 := sha1.Sum(data)
+			ctrl["SHA1"] = hex.EncodeToString(sum1[:])
+			summd5 := md5.Sum(data)
+			ctrl["MD5sum"] = hex.EncodeToString(summd5[:])
 			stanzas = append(stanzas, ctrlStanza(ctrl))
 		}
 		sort.Strings(stanzas)
@@ -321,21 +344,33 @@ func genAPT(be registry.ArtifactBackend, p string) ([]byte, string, bool) {
 		}
 		return []byte(body), "text/plain", true
 	case strings.HasSuffix(p, "Release") || strings.HasSuffix(p, "InRelease"):
-		// Build a minimal unsigned Release from the Packages content.
-		pkgs, _, ok := genAPT(be, strings.TrimSuffix(p, path.Base(p))+"Packages")
-		if !ok {
+		// Build a Release listing every index present next to it. apt verifies
+		// the indexes against these hashes before trusting a single package.
+		dir := strings.TrimSuffix(p, path.Base(p))
+		var rel strings.Builder
+		rel.WriteString("Date: " + time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 UTC") + "\n")
+		rel.WriteString("SHA256:\n")
+		found := false
+		for _, name := range []string{"Packages", "Packages.gz"} {
+			data, _, ok := genAPT(be, dir+name)
+			if !ok {
+				continue
+			}
+			h := sha256.Sum256(data)
+			fmt.Fprintf(&rel, " %x %d %s\n", h, len(data), name)
+			found = true
+		}
+		if !found {
 			return nil, "", false
 		}
-		h := sha256.Sum256(pkgs)
-		rel := fmt.Sprintf("SHA256:\n %x %d Packages\n", h, len(pkgs))
-		return []byte(rel), "text/plain", true
+		return []byte(rel.String()), "text/plain", true
 	}
 	return nil, "", false
 }
 
 func ctrlStanza(c map[string]string) string {
 	order := []string{"Package", "Version", "Architecture", "Section", "Priority",
-		"Maintainer", "Description", "Filename", "Size"}
+		"Maintainer", "Description", "Filename", "Size", "MD5sum", "SHA1", "SHA256"}
 	var b strings.Builder
 	for _, k := range order {
 		if v, ok := c[k]; ok && v != "" {
@@ -358,24 +393,6 @@ func ctrlStanza(c map[string]string) string {
 	return b.String() + "\n"
 }
 
-// debControl reads the control file of a .deb and returns its fields.
-func debControl(be registry.ArtifactBackend, p string) (map[string]string, error) {
-	rc, _, _, err := be.Get(p)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-	data, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, err
-	}
-	ctrl, err := readDebControl(data)
-	if err != nil {
-		return nil, err
-	}
-	return ctrl, nil
-}
-
 // readDebControl parses a .deb (ar archive) and returns the control tar fields.
 func readDebControl(data []byte) (map[string]string, error) {
 	if len(data) < 8 || string(data[:8]) != "!<arch>\n" {
@@ -385,7 +402,9 @@ func readDebControl(data []byte) (map[string]string, error) {
 	var control []byte
 	for off+60 <= len(data) {
 		hdr := data[off : off+60]
-		name := strings.TrimRight(string(hdr[0:16]), "\x00/")
+		// GNU ar pads short names with spaces after the slash
+		// ("control.tar.gz/  "); strip padding, not content.
+		name := strings.TrimRight(string(hdr[0:16]), " \x00/")
 		sizeField := strings.TrimSpace(string(hdr[48:58]))
 		var size int
 		_, _ = fmt.Sscanf(sizeField, "%d", &size)

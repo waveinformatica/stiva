@@ -130,7 +130,7 @@ func TestSSOPresetsShape(t *testing.T) {
 			}
 		}
 	}
-	if len(seen) != 8 {
-		t.Fatalf("presets = %d, want 8", len(seen))
+	if len(seen) != 9 {
+		t.Fatalf("presets = %d, want 9", len(seen))
 	}
 }

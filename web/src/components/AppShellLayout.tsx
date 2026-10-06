@@ -61,8 +61,8 @@ export default function AppShellLayout({
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            <IconCloud size={22} />
-            <Title order={4}>Registry</Title>
+            <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
+            <Title order={4}>Stiva</Title>
             <Badge variant="light" color="blue">
               OCI
             </Badge>

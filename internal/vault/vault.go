@@ -42,6 +42,8 @@ const (
 	ScopeCredentials = "credentials"
 	// ScopeSSO is SSO provider client secrets.
 	ScopeSSO = "sso"
+	// ScopeAPTSign is APT repository signing keys.
+	ScopeAPTSign = "apt-sign"
 )
 
 var (

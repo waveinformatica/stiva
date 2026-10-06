@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal, Switch,
-  TextInput, PasswordInput, Select, ActionIcon, DataTable, ConfirmModal,
+  TextInput, Textarea, PasswordInput, Select, ActionIcon, DataTable, ConfirmModal,
 } from "../../components/ui";
 import { IconPlus, IconTrash } from "../../components/icons";
 import { api } from "../../lib/api";
@@ -33,6 +33,9 @@ type Provider = {
   admin_group: string;
   enabled: boolean;
   has_secret: boolean;
+  entity_id?: string;
+  idp_sso_url?: string;
+  idp_cert?: string;
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -49,6 +52,9 @@ const FIELD_LABEL: Record<string, string> = {
   groups_claim: "Groups claim",
   audience: "Audience",
   admin_group: "Admin group",
+  entity_id: "Entity ID",
+  idp_sso_url: "IdP single sign-on URL",
+  idp_cert: "IdP signing certificate",
 };
 
 const FIELD_DESC: Record<string, string> = {
@@ -59,6 +65,9 @@ const FIELD_DESC: Record<string, string> = {
   groups_claim: "Empty keeps the preset mapping (or none).",
   audience: "Empty checks the client ID.",
   admin_group: "Members of this group (or Entra object ID) become admins.",
+  entity_id: "Our identifier as registered at the IdP (audience of assertions).",
+  idp_sso_url: "Where browsers are sent to sign in.",
+  idp_cert: "PEM certificate the IdP signs responses with.",
 };
 
 const REQUIRED_KEY: Record<string, string> = {
@@ -89,6 +98,9 @@ const emptyForm = (): Record<string, string> => ({
   groups_claim: "",
   audience: "",
   admin_group: "",
+  entity_id: "",
+  idp_sso_url: "",
+  idp_cert: "",
 });
 
 export default function SSO() {
@@ -166,6 +178,9 @@ export default function SSO() {
       groups_claim: p.groups_claim || "",
       audience: p.audience || "",
       admin_group: p.admin_group || "",
+      entity_id: p.entity_id || "",
+      idp_sso_url: p.idp_sso_url || "",
+      idp_cert: p.idp_cert || "",
     });
     setEnabled(p.enabled);
     setErr(null);
@@ -323,6 +338,18 @@ export default function SSO() {
                 value={form.secret}
                 onChange={set("secret")}
                 required={isRequired(f)}
+              />
+            ) : f === "idp_cert" ? (
+              <Textarea
+                key={f}
+                label={FIELD_LABEL[f]}
+                description={FIELD_DESC[f]}
+                placeholder="-----BEGIN CERTIFICATE-----"
+                value={form[f] || ""}
+                onChange={(e) => setForm({ ...form, [f]: e.currentTarget.value })}
+                required={isRequired(f)}
+                autosize
+                minRows={4}
               />
             ) : (
               <TextInput

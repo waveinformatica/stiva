@@ -89,6 +89,12 @@ export const api = {
     req("DELETE", `/api/v1/admin/registries/${enc(name)}`),
   adminWarmRegistry: (name: string, image: string) =>
     req("POST", `/api/v1/admin/registries/${enc(name)}/warm`, { image }),
+  adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
+  aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
+  aptKeyCreate: (name: string) =>
+    req("POST", `/api/v1/admin/registries/${enc(name)}/apt-key`, {}),
+  aptKeyDelete: (name: string) =>
+    req("DELETE", `/api/v1/admin/registries/${enc(name)}/apt-key`),
 
   // Single sign-on providers (browser login, UI-managed; secrets write-only).
   ssoPresets: () => req("GET", "/api/v1/admin/sso/presets"),

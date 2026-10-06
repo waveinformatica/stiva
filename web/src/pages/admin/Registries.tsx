@@ -16,6 +16,9 @@ import {
   Alert,
   Loader,
   ActionIcon,
+  Stack,
+  ScrollArea,
+  Code,
   Text,
 } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -106,6 +109,12 @@ export default function Registries() {
   const [hostsText, setHostsText] = useState("");
   const [portText, setPortText] = useState("");
   const [upstreamsText, setUpstreamsText] = useState("");
+  const [gcName, setGcName] = useState<string | null>(null);
+  const [gcOlder, setGcOlder] = useState("1h");
+  const [gcReport, setGcReport] = useState<any>(null);
+  const [gcBusy, setGcBusy] = useState(false);
+  const [aptKey, setAptKey] = useState<any>(null);
+  const [aptBusy, setAptBusy] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -132,6 +141,7 @@ export default function Registries() {
     setHostsText("");
     setPortText("");
     setUpstreamsText("");
+    setAptKey(null);
     setOpen(true);
   };
 
@@ -143,7 +153,18 @@ export default function Registries() {
     setHostsText((r.hosts || []).join(", "));
     setPortText(r.port ? String(r.port) : "");
     setUpstreamsText(serializeUpstreams(r.cache_upstreams));
+    setAptKey(null);
+    if (r.format === "apt" && r.type === "hosted") loadAptKey(r.name);
     setOpen(true);
+  };
+
+  const loadAptKey = (name: string) => {
+    setAptBusy(true);
+    api
+      .aptKey(name)
+      .then((k) => setAptKey(k))
+      .catch(() => setAptKey({ missing: true }))
+      .finally(() => setAptBusy(false));
   };
 
   const save = () => {
@@ -188,6 +209,31 @@ export default function Registries() {
   const del = (name: string) => {
     if (!confirm(`Delete registry "${name}"?`)) return;
     api.adminDeleteRegistry(name).then(load).catch((e) => setErr(e.message));
+  };
+
+  const openGC = (name: string) => {
+    setGcName(name);
+    setGcReport(null);
+    setErr(null);
+    runGC(name, gcOlder, true);
+  };
+
+  const runGC = (name: string, olderThan: string, dryRun: boolean) => {
+    setGcBusy(true);
+    setErr(null);
+    api
+      .adminGC({ registry: name, older_than: olderThan, dry_run: dryRun })
+      .then((r) => setGcReport(r.registries?.[0] || r))
+      .catch((e) => setErr(e.message))
+      .finally(() => setGcBusy(false));
+  };
+
+  const aptClientSnippet = () => {
+    const host = hostsText.split(",").map((s) => s.trim()).filter(Boolean)[0] || form.name || "host";
+    const base = form.base_path ? `/${form.base_path}` : "";
+    const repo = `https://${host}${base}/`;
+    const keyring = `/usr/share/keyrings/${form.name || "registry"}.gpg`;
+    return `curl -fsSL ${repo}KEY.gpg | gpg --dearmor | sudo tee ${keyring} > /dev/null\ndeb [signed-by=${keyring}] ${repo} ./`;
   };
 
   if (loading) return <Loader />;
@@ -248,6 +294,9 @@ export default function Registries() {
                     Warm
                   </Button>
                 )}
+                <Button size="compact-xs" variant="light" color="gray" onClick={() => openGC(r.name)}>
+                  GC
+                </Button>
                 <Button size="compact-xs" variant="default" onClick={() => openEdit(r)}>
                   Edit
                 </Button>
@@ -486,6 +535,52 @@ export default function Registries() {
           </div>
         ) : null}
 
+        {form.format === "apt" && form.type === "hosted" ? (
+          <div>
+            <Text fw={600} mt="md">Repository signing</Text>
+            {!editName ? (
+              <Text size="sm" c="dimmed">Save the registry first, then generate a signing key.</Text>
+            ) : aptBusy && !aptKey ? (
+              <Loader size="sm" />
+            ) : aptKey?.missing ? (
+              <Group gap="sm" mt="xs" align="flex-end">
+                <Text size="sm" c="dimmed" style={{ flex: 1 }}>
+                  No signing key — Release is served unsigned.
+                </Text>
+                <Button
+                  size="xs"
+                  loading={aptBusy}
+                  onClick={() => api.aptKeyCreate(editName).then(() => loadAptKey(editName)).catch((e) => setErr(e.message))}
+                >
+                  Generate key
+                </Button>
+              </Group>
+            ) : aptKey ? (
+              <Stack gap="xs" mt="xs">
+                <Group gap="xs">
+                  <Text size="sm" c="dimmed">Fingerprint</Text>
+                  <Code>{aptKey.fingerprint}</Code>
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="red"
+                    loading={aptBusy}
+                    onClick={() => {
+                      if (editName && confirm(`Delete the signing key of "${editName}"? Releases go back to unsigned.`)) {
+                        api.aptKeyDelete(editName).then(() => loadAptKey(editName)).catch((e) => setErr(e.message));
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </Group>
+                <Text size="xs" c="dimmed">Point apt at the signed metadata:</Text>
+                <Code block>{aptClientSnippet()}</Code>
+              </Stack>
+            ) : null}
+          </div>
+        ) : null}
+
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={() => setOpen(false)}>
             Cancel
@@ -493,6 +588,97 @@ export default function Registries() {
           <Button onClick={save}>Save</Button>
         </Group>
       </Modal>
+
+      <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={`Garbage collect ${gcName || ""}`} size="lg">
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Reaps blobs no manifest links and no artifact object embeds. Blobs
+            younger than the grace period are never candidates, which keeps
+            pushes still in flight out of the sweep. Preview first, then run.
+          </Text>
+          <Group gap="sm" align="flex-end">
+            <TextInput
+              label="Grace period"
+              description="Only blobs older than this (e.g. 1h, 30m)"
+              value={gcOlder}
+              onChange={(e) => setGcOlder(e.currentTarget.value)}
+              w={200}
+            />
+            <Button variant="default" size="xs" loading={gcBusy} onClick={() => gcName && runGC(gcName, gcOlder, true)}>
+              Preview
+            </Button>
+          </Group>
+          {gcBusy && !gcReport && <Loader size="sm" />}
+          {gcReport?.skipped ? (
+            <Text size="sm" c="dimmed">{gcReport.skipped}.</Text>
+          ) : gcReport ? (
+            <div>
+              <Group gap="xs" mb="xs">
+                <Badge color={(gcReport.orphans ?? 0) > 0 ? "yellow" : "green"}>
+                  {(gcReport.orphans ?? 0)} orphan{(gcReport.orphans ?? 0) === 1 ? "" : "s"}
+                </Badge>
+                <Text size="sm" c="dimmed">{humanSize(gcReport.orphan_bytes ?? 0)}</Text>
+                {(gcReport.deleted ?? 0) > 0 && (
+                  <Badge color="teal">
+                    deleted {gcReport.deleted} ({humanSize(gcReport.deleted_bytes ?? 0)})
+                  </Badge>
+                )}
+                {gcReport.truncated && <Badge variant="light">list truncated</Badge>}
+              </Group>
+              {(gcReport.blobs || []).length > 0 && (
+                <ScrollArea.Autosize mah={240}>
+                  <DataTable
+                    empty="No orphans."
+                    rowKey={(b: any) => b.digest}
+                    rows={gcReport.blobs}
+                    columns={[
+                      { header: "Digest", render: (b: any) => <Code>{shortDigest(b.digest)}</Code> },
+                      { header: "Size", render: (b: any) => humanSize(b.size) },
+                    ]}
+                  />
+                </ScrollArea.Autosize>
+              )}
+              {(gcReport.errors || []).length > 0 && (
+                <Alert color="red" mt="sm" title="Errors">
+                  {(gcReport.errors || []).join("; ")}
+                </Alert>
+              )}
+              <Group justify="flex-end" mt="md">
+                <Button
+                  color="orange"
+                  loading={gcBusy}
+                  disabled={(gcReport.orphans ?? 0) === 0}
+                  onClick={() => {
+                    if (gcName && confirm(`Delete ${gcReport.orphans} orphan blob(s) (${humanSize(gcReport.orphan_bytes ?? 0)}) from "${gcName}"?`)) {
+                      runGC(gcName, gcOlder, false);
+                    }
+                  }}
+                >
+                  Run garbage collection
+                </Button>
+              </Group>
+            </div>
+          ) : null}
+        </Stack>
+      </Modal>
     </div>
   );
+}
+
+function humanSize(n: number) {
+  if (!n) return "0 B";
+  if (n < 1024) return `${n} B`;
+  const units = ["kB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+function shortDigest(d?: string) {
+  if (!d) return "—";
+  return d.startsWith("sha256:") ? d.slice(7, 19) : d.slice(0, 12);
 }

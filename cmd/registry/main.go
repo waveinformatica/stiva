@@ -130,6 +130,7 @@ func main() {
 	r.GET("/auth/sso", authMgr.SSOListHandler)
 	r.GET("/auth/sso/:id/login", authMgr.SSOLoginHandler)
 	r.GET("/auth/sso/:id/callback", authMgr.SSOCallbackHandler)
+	r.POST("/auth/sso/:id/callback", authMgr.SSOCallbackHandler)
 	r.GET("/auth/me", authMgr.Middleware(), func(c *gin.Context) {
 		if u, ok := c.Get("user"); ok {
 			c.JSON(http.StatusOK, u)

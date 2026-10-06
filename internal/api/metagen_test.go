@@ -114,3 +114,62 @@ func TestGenAPTDeb(t *testing.T) {
 		t.Fatalf("missing package stanza: %s", body)
 	}
 }
+
+// TestDebControlSpacePaddedNames pins the real-world GNU ar layout: short
+// member names are slash-terminated and SPACE-padded ("control.tar.gz/  "),
+// not slash-padded like the helper above. The parser must accept both.
+func TestDebControlSpacePaddedNames(t *testing.T) {
+	arMemberSpace := func(name string, data []byte) []byte {
+		nm := name + "/"
+		for len(nm) < 16 {
+			nm += " "
+		}
+		hdr := append(append(append(append(append([]byte(nm),
+			[]byte("0           ")...), []byte("0     ")...), []byte("0     ")...),
+			[]byte("100644  ")...), []byte(fmt.Sprintf("%10d", len(data)))...)
+		hdr = append(hdr, []byte("`\n")...)
+		out := append(hdr, data...)
+		if len(data)%2 == 1 {
+			out = append(out, '\n')
+		}
+		return out
+	}
+	var out bytes.Buffer
+	out.WriteString("!<arch>\n")
+	out.Write(arMemberSpace("debian-binary", []byte("2.0\n")))
+	out.Write(arMemberSpace("control.tar.gz", mustControlBytes(t)))
+	out.Write(arMemberSpace("data.tar.gz", gzipCompress([]byte("dummy"))))
+
+	parsed, err := readDebControl(out.Bytes())
+	if err != nil {
+		t.Fatalf("space-padded ar: %v", err)
+	}
+	if parsed["Package"] != "realpkg" || parsed["Version"] != "2.0" {
+		t.Fatalf("parsed = %v", parsed)
+	}
+}
+
+func mustControlBytes(t *testing.T) []byte {
+	t.Helper()
+	ctrl := "Package: realpkg\nVersion: 2.0\nArchitecture: amd64\nMaintainer: t@t\nDescription: test\n"
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{Name: "./control", Mode: 0o644, Size: int64(len(ctrl))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte(ctrl)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var gz bytes.Buffer
+	gw := gzip.NewWriter(&gz)
+	if _, err := gw.Write(buf.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return gz.Bytes()
+}

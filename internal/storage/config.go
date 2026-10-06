@@ -1,6 +1,7 @@
 package storage
 
 import "registry/internal/digest"
+import "time"
 
 // MetadataStore persists repository, manifest, tag and blob metadata.
 // Implementations: PostgreSQL (required), with others possible behind this interface.
@@ -23,6 +24,10 @@ type MetadataStore interface {
 	BlobSize(registry string, d digest.Digest) (int64, error)
 	BlobRefCount(registry string, d digest.Digest) (int, error)
 	DeleteBlobMeta(registry string, d digest.Digest) error
+	// OrphanBlobs lists blobs no manifest links and no artifact object
+	// references, older than the cutoff. These are safe to delete: pushes in
+	// flight are younger than any sane grace period.
+	OrphanBlobs(registry string, olderThan time.Time) ([]BlobInfo, error)
 
 	// Manifests
 	PutManifest(registry, repo string, d digest.Digest, mediaType string, content []byte) error
@@ -79,6 +84,17 @@ type SSOProviderRecord struct {
 	Audience     string `json:"audience"`
 	AdminGroup   string `json:"admin_group"`
 	Enabled      bool   `json:"enabled"`
+	// SAML 2.0: SP entity ID, IdP SSO URL and IdP signing certificate (PEM).
+	EntityID  string `json:"entity_id"`
+	IdPSSOURL string `json:"idp_sso_url"`
+	IdPCert   string `json:"idp_cert"`
+}
+
+// BlobInfo describes one stored blob for garbage-collection reports.
+type BlobInfo struct {
+	Digest    digest.Digest `json:"digest"`
+	Size      int64         `json:"size"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 // RegistryRecord is a persisted registry definition. Config holds the full

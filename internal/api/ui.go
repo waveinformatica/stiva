@@ -114,6 +114,14 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 		admin.PUT("/registries/:name", h.adminUpdateRegistry)
 		admin.DELETE("/registries/:name", h.adminDeleteRegistry)
 		admin.POST("/registries/:name/warm", h.adminWarmRegistry)
+
+		// APT repository signing keys (hosted APT registries only).
+		admin.GET("/registries/:name/apt-key", h.adminGetAPTKey)
+		admin.POST("/registries/:name/apt-key", h.adminCreateAPTKey)
+		admin.DELETE("/registries/:name/apt-key", h.adminDeleteAPTKey)
+
+		// Garbage collection: reap orphan blobs (dry runs first).
+		admin.POST("/gc", h.adminGC)
 	}
 }
 

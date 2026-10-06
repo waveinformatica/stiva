@@ -200,6 +200,15 @@ func (h *Handler) artifactDelete(c *gin.Context, be registry.ArtifactBackend, p 
 // maybeGenerateMetadata handles format-specific metadata documents for hosted
 // registries. It returns true when it produced a response.
 func (h *Handler) maybeGenerateMetadata(c *gin.Context, be registry.ArtifactBackend, reg *registry.Registry, p string) bool {
+	if registry.Format(reg.Format) == registry.FormatAPT && registry.Type(reg.Type) == registry.TypeHosted {
+		if body, ct, handled := h.aptSignedMetadata(c, be, reg, p); handled {
+			c.Header("Content-Type", ct)
+			c.Header("Content-Length", strconv.Itoa(len(body)))
+			c.Status(http.StatusOK)
+			c.Writer.Write(body)
+			return true
+		}
+	}
 	switch registry.Format(reg.Format) {
 	case registry.FormatHelm:
 		if p == "index.yaml" {

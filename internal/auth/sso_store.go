@@ -39,6 +39,9 @@ type SSOAdminView struct {
 	AdminGroup string `json:"admin_group"`
 	Enabled    bool   `json:"enabled"`
 	HasSecret  bool   `json:"has_secret"`
+	EntityID   string `json:"entity_id"`
+	IdPSSOURL  string `json:"idp_sso_url"`
+	IdPCert    string `json:"idp_cert"`
 }
 
 // ssoSecretKey scopes the vault entry holding a provider's client secret.
@@ -262,6 +265,7 @@ func ssoInputToRecord(in SSOConfig) storage.SSOProviderRecord {
 		Tenant: in.Tenant, BaseURL: in.BaseURL, Issuer: in.Issuer, AuthorizeURL: in.Authorize,
 		TokenURL: in.Token, UserinfoURL: in.UserInfo, Scope: in.Scope, Username: in.Username,
 		Groups: in.Groups, Audience: in.Audience, AdminGroup: in.AdminGroup, Enabled: in.Enabled,
+		EntityID: in.EntityID, IdPSSOURL: in.IdPSSOURL, IdPCert: in.IdPCert,
 	}
 }
 
@@ -273,6 +277,7 @@ func ssoViewOf(r storage.SSOProviderRecord) SSOAdminView {
 		Tenant: r.Tenant, BaseURL: r.BaseURL, Issuer: r.Issuer, Authorize: r.AuthorizeURL,
 		Token: r.TokenURL, UserInfo: r.UserinfoURL, Scope: r.Scope, Username: r.Username,
 		Groups: r.Groups, Audience: r.Audience, AdminGroup: r.AdminGroup, Enabled: r.Enabled,
+		EntityID: r.EntityID, IdPSSOURL: r.IdPSSOURL, IdPCert: r.IdPCert,
 	}
 	if p, ok := providerPresets[strings.ToLower(strings.TrimSpace(r.Provider))]; ok {
 		v.Kind = p.kind

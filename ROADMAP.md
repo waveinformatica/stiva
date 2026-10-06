@@ -8,15 +8,15 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Multi-format hosted/proxy/group registries with generated metadata
 - [x] Deterministic host/port/base-path routing across registries
 - [x] RBAC with scoped grants + scoped API keys
-- [x] Browser SSO (Microsoft 365, Google, GitHub, GitLab, LinkedIn, OIDC, OAuth2, CAS)
+- [x] Browser SSO (Microsoft 365, Google, GitHub, GitLab, LinkedIn, OIDC, OAuth2, CAS, SAML)
 - [x] Explorer: treeview, global search, per-format browsers
+- [x] Signed APT Release (InRelease / Release.gpg + KEY.gpg, per-registry keys in the vault)
+- [x] Garbage collection (orphan blob reaping, dry-run first)
 
 ## Planned
 
-- [ ] Garbage collection (orphan blob reaping)
 - [ ] Cleanup policies (retention, keep-last-N)
 - [ ] Webhooks & event notifications
-- [ ] Signed metadata / checksum verification (APT `Release`, cosign)
-- [ ] SAML SSO
+- [ ] Checksum verification on download + cosign signature verification
 - [ ] Blob store replication / sharding
 - [ ] Full hosted REST APIs for Conan / p2 clients

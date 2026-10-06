@@ -10,6 +10,7 @@ const (
 	SSOKindOIDC   = "oidc"
 	SSOKindOAuth2 = "oauth2"
 	SSOKindCAS    = "cas"
+	SSOKindSAML   = "saml"
 )
 
 // SSOConfig declares one single-sign-on provider. The Provider selects a
@@ -42,6 +43,11 @@ type SSOConfig struct {
 	Groups     string `json:"groups_claim"`   // claim/field carrying group membership (empty = none)
 	Audience   string `json:"audience"`       // OIDC audience check; defaults to ClientID
 	AdminGroup string `json:"admin_group"`    // group whose members become admins
+	// SAML 2.0 (kind "saml"): our entity ID as registered at the IdP, the
+	// IdP single-sign-on URL, and the IdP signing certificate (PEM, public).
+	EntityID  string `json:"entity_id"`
+	IdPSSOURL string `json:"idp_sso_url"`
+	IdPCert   string `json:"idp_cert"`
 }
 
 // resolvedProvider is an SSOConfig with every preset default applied.
@@ -78,7 +84,7 @@ type SSOPresetInfo struct {
 
 // SSOPresets lists every known preset in a stable order.
 func SSOPresets() []SSOPresetInfo {
-	keys := []string{"microsoft", "google", "github", "gitlab", "linkedin", "oidc", "oauth2", "cas"}
+	keys := []string{"microsoft", "google", "github", "gitlab", "linkedin", "oidc", "oauth2", "cas", "saml"}
 	out := make([]SSOPresetInfo, 0, len(keys))
 	for _, k := range keys {
 		p := providerPresets[k]
@@ -174,6 +180,13 @@ var providerPresets = map[string]providerPreset{
 		require:     []string{"base_url"},
 		fields:      []string{"base_url", "username_claim", "groups_claim", "admin_group"},
 	},
+	"saml": {
+		kind:        SSOKindSAML,
+		displayName: "SAML 2.0",
+		groups:      "groups",
+		require:     []string{"entity_id", "idp_sso_url", "idp_cert"},
+		fields:      []string{"entity_id", "idp_sso_url", "idp_cert", "username_claim", "groups_claim", "admin_group"},
+	},
 }
 
 func gitlabBase(c *SSOConfig) string {
@@ -215,6 +228,12 @@ func resolveProvider(c SSOConfig) (*resolvedProvider, error) {
 				v = c.UserInfo
 			case "base_url":
 				v = c.BaseURL
+			case "entity_id":
+				v = c.EntityID
+			case "idp_sso_url":
+				v = c.IdPSSOURL
+			case "idp_cert":
+				v = c.IdPCert
 			}
 			if strings.TrimSpace(v) == "" {
 				return k
