@@ -1,5 +1,7 @@
-import { AppShell, Burger, Group, Title, Badge, Button, Text, NavLink } from "@mantine/core";
+import { AppShell, Burger, Group, Title, Badge, Button, Text, NavLink, Select } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useTranslation } from "react-i18next";
+import { LANGUAGES } from "../lib/i18n";
 import {
   IconSearch,
   IconUsers,
@@ -44,6 +46,7 @@ export default function AppShellLayout({
   onLogout: () => void;
   children: React.ReactNode;
 }) {
+  const { t, i18n } = useTranslation();
   const link = (key: View, label: string, icon: React.ReactNode) => (
     <NavLink
       label={label}
@@ -66,7 +69,7 @@ export default function AppShellLayout({
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group wrap="nowrap">
-            <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label="Navigation" />
+            <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label={t("nav.navigation")} />
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
             <Title order={4}>Stiva</Title>
             <Badge variant="light" color="blue" visibleFrom="sm">
@@ -74,8 +77,17 @@ export default function AppShellLayout({
             </Badge>
           </Group>
           <Group gap="xs">
+            <Select
+              size="xs"
+              w={130}
+              aria-label={t("nav.language")}
+              data={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+              value={i18n.language?.split("-")[0] || "en"}
+              onChange={(v) => v && i18n.changeLanguage(v)}
+              allowDeselect={false}
+            />
             <Badge color={user.admin ? "grape" : "gray"}>
-              {user.anonymous ? "anonymous" : user.name}
+              {user.anonymous ? t("nav.anonymous") : user.name}
             </Badge>
             <Button
               size="xs"
@@ -83,7 +95,7 @@ export default function AppShellLayout({
               leftSection={<IconLogout size={14} />}
               onClick={onLogout}
             >
-              Logout
+              {t("nav.logout")}
             </Button>
           </Group>
         </Group>
@@ -91,27 +103,27 @@ export default function AppShellLayout({
 
       <AppShell.Navbar p="xs">
         <Text size="xs" tt="uppercase" c="dimmed" fw={700} px="sm" pt="xs">
-          Browse
+          {t("nav.browse")}
         </Text>
-        {link("explorer", "Explorer", <IconSearch size={16} />)}
-        {!user.anonymous && link("apikeys", "API keys", <IconKey size={16} />)}
+        {link("explorer", t("nav.explorer"), <IconSearch size={16} />)}
+        {!user.anonymous && link("apikeys", t("nav.apikeys"), <IconKey size={16} />)}
 
         {user.admin && (
           <>
             <Text size="xs" tt="uppercase" c="dimmed" fw={700} px="sm" pt="md">
-              Administration
+              {t("nav.administration")}
             </Text>
-            {link("users", "Users", <IconUsers size={16} />)}
-            {link("serviceAccounts", "Service Accounts", <IconKey size={16} />)}
-            {link("registries", "Registries", <IconCloud size={16} />)}
-            {link("stores", "Blob Stores", <IconCloud size={16} />)}
-            {link("credentials", "Credentials", <IconKey size={16} />)}
-            {link("roles", "Roles", <IconShield size={16} />)}
-            {link("groups", "Groups", <IconUsers size={16} />)}
-            {link("grants", "Grants", <IconShield size={16} />)}
-            {link("anonymous", "Anonymous Access", <IconUsers size={16} />)}
-            {link("sso", "Single sign-on", <IconKey size={16} />)}
-            {link("settings", "Settings", <IconSettings size={16} />)}
+            {link("users", t("nav.users"), <IconUsers size={16} />)}
+            {link("serviceAccounts", t("nav.serviceAccounts"), <IconKey size={16} />)}
+            {link("registries", t("nav.registries"), <IconCloud size={16} />)}
+            {link("stores", t("nav.stores"), <IconCloud size={16} />)}
+            {link("credentials", t("nav.credentials"), <IconKey size={16} />)}
+            {link("roles", t("nav.roles"), <IconShield size={16} />)}
+            {link("groups", t("nav.groups"), <IconUsers size={16} />)}
+            {link("grants", t("nav.grants"), <IconShield size={16} />)}
+            {link("anonymous", t("nav.anonymousAccess"), <IconUsers size={16} />)}
+            {link("sso", t("nav.sso"), <IconKey size={16} />)}
+            {link("settings", t("nav.settings"), <IconSettings size={16} />)}
           </>
         )}
       </AppShell.Navbar>

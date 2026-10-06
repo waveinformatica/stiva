@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   TextInput, ActionIcon, DataTable, ConfirmModal, Tooltip,
@@ -15,6 +16,7 @@ type Role = {
 };
 
 export default function Roles() {
+  const { t } = useTranslation();
   const [roles, setRoles] = useState<Role[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,40 +87,39 @@ export default function Roles() {
   return (
     <div>
       <PageHeader
-        title="Roles"
+        title={t("roles.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New role
+            {t("roles.newRole")}
           </Button>
         }
       />
 
       {err && !open && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        A role is a set of permissions. It grants nothing on its own — it takes effect when a
-        grant ties it to someone within a scope.
+        {t("roles.intro")}
       </Text>
 
       <DataTable<Role>
         rows={roles}
         rowKey={(r) => r.name}
-        empty="No role yet."
+        empty={t("roles.empty")}
         columns={[
           {
-            header: "Name",
+            header: t("roles.nameHeader"),
             render: (r) => (
               <Stack gap={0}>
                 <Group gap="xs">
                   <Text fw={500}>{r.name}</Text>
                   {r.built_in && (
-                    <Tooltip label="Built in: it holds every permission, including ones added in future releases, and cannot be changed or deleted.">
+                    <Tooltip label={t("roles.builtInTip")}>
                       <Badge size="sm" color="grape">
-                        built-in
+                        {t("roles.builtIn")}
                       </Badge>
                     </Tooltip>
                   )}
@@ -132,7 +133,7 @@ export default function Roles() {
             ),
           },
           {
-            header: "Permissions",
+            header: t("roles.permissionsHeader"),
             render: (r) => (
               <Group gap={4}>
                 {(r.permissions || []).map((p) => (
@@ -149,7 +150,7 @@ export default function Roles() {
             render: (r) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(r)} disabled={r.built_in}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon
                   color="red"
@@ -168,35 +169,35 @@ export default function Roles() {
       <Modal
         opened={open}
         onClose={() => setOpen(false)}
-        title={editName ? `Edit ${editName}` : "New role"}
+        title={editName ? t("roles.editTitle", { name: editName }) : t("roles.newTitle")}
         size="lg"
       >
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <TextInput
-            label="Name"
-            placeholder="kosmos-dev"
+            label={t("roles.nameLabel")}
+            placeholder={t("roles.namePlaceholder")}
             value={name}
             disabled={!!editName}
             onChange={(e) => setName(e.currentTarget.value)}
           />
           <TextInput
-            label="Description"
-            placeholder="What someone holding this role is meant to do"
+            label={t("roles.descriptionLabel")}
+            placeholder={t("roles.descriptionPlaceholder")}
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <PermissionPicker value={perms} onChange={setPerms} />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={save}>
-              {editName ? "Save changes" : "Create role"}
+              {editName ? t("common.saveChanges") : t("roles.createRole")}
             </Button>
           </Group>
         </Stack>
@@ -204,8 +205,8 @@ export default function Roles() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete role"
-        message={`Delete ${confirmDel?.name}? Every grant using it is removed too.`}
+        title={t("roles.deleteTitle")}
+        message={t("roles.deleteMessage", { name: confirmDel?.name })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}

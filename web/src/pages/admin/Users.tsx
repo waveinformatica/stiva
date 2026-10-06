@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, DataTable, Badge, Button, Modal, TextInput, PasswordInput, Switch,
   Group, Text, Stack, Alert, ConfirmModal, ActionIcon, Code, Loader,
@@ -15,6 +16,7 @@ interface UserRow {
 type Grant = { id: number; subject: string; role: string; scope: string };
 
 export default function Users() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [groups, setGroups] = useState<{ name: string; members: string[] }[]>([]);
@@ -104,33 +106,32 @@ export default function Users() {
   return (
     <div>
       <PageHeader
-        title="Users"
+        title={t("users.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>
-            New user
+            {t("users.newUser")}
           </Button>
         }
       />
 
       {err && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        An account grants nothing by itself. What someone can do comes from the grants made to
-        them, to a group they belong to, or to everyone signed in.
+        {t("users.intro")}
       </Text>
 
       <DataTable<UserRow>
         rows={users}
         rowKey={(u) => u.name}
-        empty="No user."
+        empty={t("users.empty")}
         columns={[
-          { header: "Name", render: (u) => <Text fw={500}>{u.name}</Text> },
+          { header: t("users.nameHeader"), render: (u) => <Text fw={500}>{u.name}</Text> },
           {
-            header: "Groups",
+            header: t("users.groupsHeader"),
             render: (u) => {
               const mine = groups.filter((g) => (g.members || []).includes(u.name));
               return mine.length ? (
@@ -143,28 +144,28 @@ export default function Users() {
                 </Group>
               ) : (
                 <Text size="xs" c="dimmed">
-                  none
+                  {t("users.noGroups")}
                 </Text>
               );
             },
           },
           {
-            header: "Access",
+            header: t("users.accessHeader"),
             render: (u) => {
               const a = accessOf(u.name);
               const admin = a.some((g) => g.role === "system:admin");
               return (
                 <Group gap={4}>
-                  {admin && <Badge color="grape">administrator</Badge>}
-                  <Badge variant="light">{a.length} grant{a.length === 1 ? "" : "s"}</Badge>
+                  {admin && <Badge color="grape">{t("users.administrator")}</Badge>}
+                  <Badge variant="light">{t("users.grantCount", { count: a.length })}</Badge>
                 </Group>
               );
             },
           },
           {
-            header: "Status",
+            header: t("users.statusHeader"),
             render: (u) =>
-              u.disabled ? <Badge color="red">disabled</Badge> : <Badge color="green">active</Badge>,
+              u.disabled ? <Badge color="red">{t("users.disabled")}</Badge> : <Badge color="green">{t("users.active")}</Badge>,
             width: 110,
           },
           {
@@ -178,10 +179,10 @@ export default function Users() {
                   leftSection={<IconShield size={14} />}
                   onClick={() => setAccessOpen(u.name)}
                 >
-                  Access
+                  {t("users.access")}
                 </Button>
                 <Button size="xs" variant="default" onClick={() => openEdit(u)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(u.name)}>
                   <IconTrash size={16} />
@@ -192,46 +193,45 @@ export default function Users() {
         ]}
       />
 
-      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New user">
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title={t("users.newTitle")}>
         <Stack>
-          <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+          <TextInput label={t("users.nameLabel")} value={name} onChange={(e) => setName(e.currentTarget.value)} />
           <PasswordInput
-            label="Password"
+            label={t("users.passwordLabel")}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
           <Text size="xs" c="dimmed">
-            The account starts with no access at all. Give it a grant, or add it to a group that
-            already has one.
+            {t("users.createHint")}
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button onClick={create}>Create</Button>
+            <Button onClick={create}>{t("common.create")}</Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={editOpen} onClose={() => setEditOpen(false)} title={`Edit ${editTarget}`}>
+      <Modal opened={editOpen} onClose={() => setEditOpen(false)} title={t("users.editTitle", { name: editTarget })}>
         <Stack>
           <PasswordInput
-            label="New password"
-            placeholder="leave empty to keep the current one"
+            label={t("users.newPasswordLabel")}
+            placeholder={t("users.newPasswordPlaceholder")}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
           <Switch
-            label="Disabled"
-            description="A disabled account cannot sign in, and does not count as an administrator."
+            label={t("users.disabledLabel")}
+            description={t("users.disabledDesc")}
             checked={disabled}
             onChange={(e) => setDisabled(e.currentTarget.checked)}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setEditOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button onClick={saveEdit}>Save</Button>
+            <Button onClick={saveEdit}>{t("common.save")}</Button>
           </Group>
         </Stack>
       </Modal>
@@ -239,13 +239,13 @@ export default function Users() {
       <Modal
         opened={!!accessOpen}
         onClose={() => setAccessOpen(null)}
-        title={`What ${accessOpen} can do`}
+        title={t("users.accessTitle", { name: accessOpen })}
         size="lg"
       >
         <Stack gap="sm">
           {accessOpen && accessOf(accessOpen).length === 0 ? (
             <Text size="sm" c="dimmed">
-              No grant reaches this account. It can sign in and see nothing.
+              {t("users.noAccess")}
             </Text>
           ) : (
             accessOpen &&
@@ -257,26 +257,26 @@ export default function Users() {
                   </Text>
                   <Text size="xs" c="dimmed">
                     {g.subject === "user:" + accessOpen
-                      ? "granted directly"
+                      ? t("users.grantedDirect")
                       : g.subject === "authenticated"
-                        ? "granted to everyone signed in"
-                        : `through ${g.subject.replace("group:", "group ")}`}
+                        ? t("users.grantedEveryone")
+                        : t("users.grantedThrough", { group: g.subject.replace("group:", "") })}
                   </Text>
                 </Stack>
-                <Code>{g.scope === "*" ? "* (everywhere)" : g.scope}</Code>
+                <Code>{g.scope === "*" ? t("users.everywhere") : g.scope}</Code>
               </Group>
             ))
           )}
           <Text size="xs" c="dimmed">
-            Grants are managed on the Grants page.
+            {t("users.grantsHint")}
           </Text>
         </Stack>
       </Modal>
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete user"
-        message={`Delete ${confirmDel}? Grants made directly to this account stop applying.`}
+        title={t("users.deleteTitle")}
+        message={t("users.deleteMessage", { name: confirmDel })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}

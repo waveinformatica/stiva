@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Stack, Group, Select, TextInput, Text, Code } from "./ui";
 import { api } from "../lib/api";
 
@@ -11,6 +12,7 @@ import { api } from "../lib/api";
  * namespace, and a grant that did not say which would be guessing.
  */
 export function ScopeBuilder({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+  const { t } = useTranslation();
   const [registries, setRegistries] = useState<{ name: string; format: string }[]>([]);
 
   useEffect(() => {
@@ -53,18 +55,18 @@ export function ScopeBuilder({ value, onChange }: { value: string; onChange: (s:
     <Stack gap="xs">
       <Group gap="sm" align="flex-end">
         <Select
-          label="Format"
-          description="* = everywhere"
-          data={[{ value: "*", label: "* (every format)" }, ...formats.map((f) => ({ value: f, label: f }))]}
+          label={t("scope.formatLabel")}
+          description={t("scope.formatDesc")}
+          data={[{ value: "*", label: t("scope.everyFormat") }, ...formats.map((f) => ({ value: f, label: f }))]}
           value={parts.format}
           onChange={(v) => emit(v || "*", "*", "*")}
           allowDeselect={false}
           w={170}
         />
         <Select
-          label="Registry"
+          label={t("scope.registryLabel")}
           data={[
-            { value: "*", label: "* (every registry of this format)" },
+            { value: "*", label: t("scope.everyRegistry") },
             ...inFormat.map((r) => ({ value: r.name, label: r.name })),
           ]}
           value={parts.registry}
@@ -75,9 +77,9 @@ export function ScopeBuilder({ value, onChange }: { value: string; onChange: (s:
         />
       </Group>
       <TextInput
-        label="Repository pattern"
-        description="* covers one path segment, ** any number. kosmos/** means the repositories under kosmos/, not one named kosmos."
-        placeholder="* (the whole registry)"
+        label={t("scope.patternLabel")}
+        description={t("scope.patternDesc")}
+        placeholder={t("scope.patternPlaceholder")}
         value={parts.pattern === "*" ? "" : parts.pattern}
         onChange={(e) => emit(parts.format, parts.registry, e.currentTarget.value || "*")}
         disabled={parts.format === "*"}

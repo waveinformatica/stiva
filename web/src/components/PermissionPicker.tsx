@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Stack, Text, Checkbox, Group, Badge, Divider, Alert } from "./ui";
 import { api } from "../lib/api";
 
@@ -22,6 +23,7 @@ export function PermissionPicker({
   onChange: (v: string[]) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [perms, setPerms] = useState<PermissionInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
@@ -72,19 +74,19 @@ export function PermissionPicker({
   return (
     <Stack gap="sm">
       {err && (
-        <Alert color="red" title="Permissions">
+        <Alert color="red" title={t("roles.permissionsTitle")}>
           {err}
         </Alert>
       )}
       {section(
-        "Registry",
-        "Apply wherever the grant using this role points.",
+        t("roles.registrySection"),
+        t("roles.registryHint"),
         perms.filter((p) => !p.admin),
       )}
       <Divider />
       {section(
-        "Administration",
-        "Always global: a grant cannot narrow these to one registry.",
+        t("roles.adminSection"),
+        t("roles.adminHint"),
         perms.filter((p) => p.admin),
       )}
       {value.length > 0 && (

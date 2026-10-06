@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal, Switch,
   TextInput, Textarea, PasswordInput, Select, ActionIcon, DataTable, ConfirmModal,
@@ -58,16 +59,16 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 const FIELD_DESC: Record<string, string> = {
-  tenant: "Entra directory tenant. Never use common unless any Microsoft account may sign in.",
-  base_url: "Self-hosted base (GitLab) or CAS server base.",
-  scope: "Space-separated. Empty keeps the preset scopes.",
-  username_claim: "Empty keeps the preset mapping.",
-  groups_claim: "Empty keeps the preset mapping (or none).",
-  audience: "Empty checks the client ID.",
-  admin_group: "Members of this group (or Entra object ID) become admins.",
-  entity_id: "Our identifier as registered at the IdP (audience of assertions).",
-  idp_sso_url: "Where browsers are sent to sign in.",
-  idp_cert: "PEM certificate the IdP signs responses with.",
+  tenant: "sso.fieldDesc.tenant",
+  base_url: "sso.fieldDesc.base_url",
+  scope: "sso.fieldDesc.scope",
+  username_claim: "sso.fieldDesc.username_claim",
+  groups_claim: "sso.fieldDesc.groups_claim",
+  audience: "sso.fieldDesc.audience",
+  admin_group: "sso.fieldDesc.admin_group",
+  entity_id: "sso.fieldDesc.entity_id",
+  idp_sso_url: "sso.fieldDesc.idp_sso_url",
+  idp_cert: "sso.fieldDesc.idp_cert",
 };
 
 const REQUIRED_KEY: Record<string, string> = {
@@ -104,6 +105,7 @@ const emptyForm = (): Record<string, string> => ({
 });
 
 export default function SSO() {
+  const { t } = useTranslation();
   const [presets, setPresets] = useState<Preset[]>([]);
   const [list, setList] = useState<Provider[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -227,32 +229,31 @@ export default function SSO() {
   return (
     <div>
       <PageHeader
-        title="Single sign-on"
+        title={t("sso.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New provider
+            {t("sso.newProvider")}
           </Button>
         }
       />
 
       {err && !open && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        Browser login buttons for the sign-in page. Providers activate immediately —
-        no restart. Client secrets are stored encrypted and can never be read back.
+        {t("sso.intro")}
       </Text>
 
       <DataTable<Provider>
         rows={list}
         rowKey={(p) => p.id}
-        empty="No provider yet. Add Microsoft 365, Google, GitHub, GitLab, LinkedIn, or a generic OIDC/OAuth2/CAS endpoint."
+        empty={t("sso.empty")}
         columns={[
           {
-            header: "Provider",
+            header: t("sso.providerHeader"),
             render: (p) => (
               <Stack gap={0}>
                 <Text fw={500}>{p.label || p.id}</Text>
@@ -263,18 +264,18 @@ export default function SSO() {
             ),
           },
           {
-            header: "Mechanism",
+            header: t("sso.mechanismHeader"),
             render: (p) => <Badge variant="light">{p.kind}</Badge>,
           },
           {
-            header: "Status",
+            header: t("sso.statusHeader"),
             render: (p) => (
               <Group gap={4}>
-                {p.enabled ? <Badge color="green">enabled</Badge> : <Badge color="gray">disabled</Badge>}
+                {p.enabled ? <Badge color="green">{t("sso.enabled")}</Badge> : <Badge color="gray">{t("sso.disabled")}</Badge>}
                 {p.has_secret ? (
-                  <Badge color="blue" variant="light">secret set</Badge>
+                  <Badge color="blue" variant="light">{t("sso.secretSet")}</Badge>
                 ) : (
-                  <Badge color="yellow" variant="light">no secret</Badge>
+                  <Badge color="yellow" variant="light">{t("sso.noSecret")}</Badge>
                 )}
               </Group>
             ),
@@ -285,7 +286,7 @@ export default function SSO() {
             render: (p) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(p)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(p)}>
                   <IconTrash size={16} />
@@ -296,32 +297,32 @@ export default function SSO() {
         ]}
       />
 
-      <Modal opened={open} onClose={() => setOpen(false)} title={editId ? `Edit ${editId}` : "New provider"} size="lg">
+      <Modal opened={open} onClose={() => setOpen(false)} title={editId ? t("sso.editTitle", { id: editId }) : t("sso.newTitle")} size="lg">
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <Group gap="sm" grow>
             <TextInput
-              label="ID"
-              description="Unique handle in login URLs (a-z, 0-9, dashes)."
-              placeholder="m365"
+              label={t("sso.idLabel")}
+              description={t("sso.idDesc")}
+              placeholder={t("sso.idPlaceholder")}
               value={form.id}
               disabled={!!editId}
               onChange={set("id")}
             />
             <TextInput
-              label="Label"
-              description="Button text on the sign-in page."
-              placeholder="Microsoft 365"
+              label={t("sso.labelLabel")}
+              description={t("sso.labelDesc")}
+              placeholder={t("sso.labelPlaceholder")}
               value={form.label}
               onChange={set("label")}
             />
           </Group>
           <Select
-            label="Provider"
+            label={t("sso.providerLabel")}
             data={presets.map((x) => ({ value: x.key, label: `${x.label} (${x.kind})` }))}
             value={form.provider}
             onChange={(v) => v && pickPreset(v)}
@@ -333,8 +334,8 @@ export default function SSO() {
             f === "secret" ? (
               <PasswordInput
                 key={f}
-                label={FIELD_LABEL[f]}
-                description={editId ? "Leave empty to keep the stored secret." : undefined}
+                label={t("sso.field." + f, FIELD_LABEL[f])}
+                description={editId ? t("sso.keepSecret") : undefined}
                 value={form.secret}
                 onChange={set("secret")}
                 required={isRequired(f)}
@@ -342,8 +343,8 @@ export default function SSO() {
             ) : f === "idp_cert" ? (
               <Textarea
                 key={f}
-                label={FIELD_LABEL[f]}
-                description={FIELD_DESC[f]}
+                label={t("sso.field." + f, FIELD_LABEL[f])}
+                description={t(FIELD_DESC[f])}
                 placeholder="-----BEGIN CERTIFICATE-----"
                 value={form[f] || ""}
                 onChange={(e) => setForm({ ...form, [f]: e.currentTarget.value })}
@@ -355,7 +356,7 @@ export default function SSO() {
               <TextInput
                 key={f}
                 label={FIELD_LABEL[f] || f}
-                description={FIELD_DESC[f]}
+                description={t(FIELD_DESC[f])}
                 value={form[f] || ""}
                 onChange={set(f)}
                 required={isRequired(f)}
@@ -363,18 +364,18 @@ export default function SSO() {
             ),
           )}
           <TextInput
-            label="Admin group"
-            description={FIELD_DESC.admin_group}
+            label={t("sso.adminGroupLabel")}
+            description={t("sso.fieldDesc.admin_group")}
             value={form.admin_group}
             onChange={set("admin_group")}
           />
-          <Switch label="Enabled" checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} />
+          <Switch label={t("sso.enabledLabel")} checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={save}>
-              {editId ? "Save changes" : "Create provider"}
+              {editId ? t("common.saveChanges") : t("sso.createProvider")}
             </Button>
           </Group>
         </Stack>
@@ -382,8 +383,8 @@ export default function SSO() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete provider"
-        message={`Delete ${confirmDel?.label || confirmDel?.id}? Its client secret is dropped too, and its login button disappears immediately.`}
+        title={t("sso.deleteTitle")}
+        message={t("sso.deleteMessage", { name: confirmDel?.label || confirmDel?.id })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}

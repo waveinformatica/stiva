@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   PageHeader,
@@ -96,6 +97,7 @@ const emptyForm = (): Reg => ({
 });
 
 export default function Registries() {
+  const { t } = useTranslation();
   const [list, setList] = useState<Reg[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,7 +209,7 @@ export default function Registries() {
   };
 
   const del = (name: string) => {
-    if (!confirm(`Delete registry "${name}"?`)) return;
+    if (!confirm(t("registries.deletePrompt", { name }))) return;
     api.adminDeleteRegistry(name).then(load).catch((e) => setErr(e.message));
   };
 
@@ -237,26 +239,26 @@ export default function Registries() {
   };
 
   if (loading) return <Loader />;
-  if (err) return <Alert color="red" title="Error">{err}</Alert>;
+  if (err) return <Alert color="red" title={t("common.error")}>{err}</Alert>;
 
   return (
     <div>
       <PageHeader
-        title="Registries"
+        title={t("registries.title")}
         actions={
           <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openNew}>
-            New registry
+            {t("registries.newRegistry")}
           </Button>
         }
       />
-      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
       <DataTable
         rowKey={(r) => r.name}
         rows={list}
         columns={[
-          { header: "Name", render: (r) => <b>{r.name}</b> },
+          { header: t("registries.nameHeader"), render: (r) => <b>{r.name}</b> },
           {
-            header: "Type",
+            header: t("registries.typeHeader"),
             render: (r) => (
               <Badge color={r.type === "group" ? "grape" : r.type === "proxy" ? "orange" : r.type === "cache" ? "cyan" : "indigo"}>
                 {r.type}
@@ -264,15 +266,15 @@ export default function Registries() {
             ),
           },
           {
-            header: "Format",
+            header: t("registries.formatHeader"),
             render: (r) => <Badge variant="outline">{r.format}</Badge>,
           },
           {
-            header: "Status",
+            header: t("registries.statusHeader"),
             render: (r) => (
               <Group gap={4}>
-                {r.online ? <Badge color="green">online</Badge> : <Badge color="gray">offline</Badge>}
-                {r.default && <Badge color="teal">default</Badge>}
+                {r.online ? <Badge color="green">{t("registries.online")}</Badge> : <Badge color="gray">{t("registries.offline")}</Badge>}
+                {r.default && <Badge color="teal">{t("registries.defaultBadge")}</Badge>}
                 {(r.port ?? 0) > 0 && <Badge variant="outline">:{r.port ?? 0}</Badge>}
               </Group>
             ),
@@ -287,7 +289,7 @@ export default function Registries() {
                     variant="light"
                     color="cyan"
                     onClick={() => {
-                      const img = window.prompt("Warm image into this cache (e.g. gcr.io/x/y:v1):");
+                      const img = window.prompt(t("registries.warmPrompt"));
                       if (img) api.adminWarmRegistry(r.name, img).then(load).catch((e) => setErr(e.message));
                     }}
                   >
@@ -298,7 +300,7 @@ export default function Registries() {
                   GC
                 </Button>
                 <Button size="compact-xs" variant="default" onClick={() => openEdit(r)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => del(r.name)}>
                   <IconTrash size={14} />
@@ -309,23 +311,23 @@ export default function Registries() {
         ]}
       />
 
-      <Modal opened={open} onClose={() => setOpen(false)} title={editName ? `Edit ${editName}` : "New registry"} size="lg">
+      <Modal opened={open} onClose={() => setOpen(false)} title={editName ? t("registries.editTitle", { name: editName }) : t("registries.newTitle")} size="lg">
         <Group gap="sm" grow>
           <TextInput
-            label="Name"
+            label={t("registries.nameLabel")}
             value={form.name}
             disabled={!!editName}
             onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
           />
           <Select
-            label="Type"
+            label={t("registries.typeLabel")}
             data={form.format === "oci" ? ["hosted", "proxy", "group", "cache"] : ["hosted", "proxy", "group"]}
             value={form.type}
             onChange={(v) => setForm({ ...form, type: v || "hosted" })}
             allowDeselect={false}
           />
           <Select
-            label="Format"
+            label={t("registries.formatLabel")}
             data={[
               { value: "oci", label: "oci (container images)" },
               { value: "helm", label: "helm (chart repo)" },
@@ -369,21 +371,21 @@ export default function Registries() {
         </Group>
 
         <Group gap="sm" mt="sm">
-          <Switch label="Online" checked={form.online} onChange={(e) => setForm({ ...form, online: e.currentTarget.checked })} />
-          <Switch label="Default (host routing)" checked={!!form.default} onChange={(e) => setForm({ ...form, default: e.currentTarget.checked })} />
+          <Switch label={t("registries.onlineLabel")} checked={form.online} onChange={(e) => setForm({ ...form, online: e.currentTarget.checked })} />
+          <Switch label={t("registries.defaultLabel")} checked={!!form.default} onChange={(e) => setForm({ ...form, default: e.currentTarget.checked })} />
         </Group>
 
         <Group gap="sm" mt="sm">
           <TextInput
-            label="Virtual hosts (comma separated)"
-            placeholder="docker.internal, registry.example.com"
+            label={t("registries.hostsLabel")}
+            placeholder={t("registries.hostsPlaceholder")}
             value={hostsText}
             onChange={(e) => setHostsText(e.currentTarget.value)}
             style={{ flex: 1 }}
           />
           <TextInput
-            label="Dedicated TCP port"
-            placeholder="5001"
+            label={t("registries.portLabel")}
+            placeholder={t("registries.portPlaceholder")}
             value={portText}
             onChange={(e) => setPortText(e.currentTarget.value)}
             w={160}
@@ -392,9 +394,9 @@ export default function Registries() {
 
         {form.format !== "oci" ? (
           <TextInput
-            label="Base path (shared host routing)"
-            description="URL prefix on the virtual hosts above, e.g. maven-central serves https://host/maven-central/…. The longest matching prefix wins; empty keeps the legacy catch-all."
-            placeholder={form.name ? `${form.name} (registry name)` : "registry-name"}
+            label={t("registries.basePathLabel")}
+            description={t("registries.basePathDesc")}
+            placeholder={form.name ? t("registries.basePathPlaceholder", { name: form.name }) : t("registries.basePathPlaceholderEmpty")}
             mt="sm"
             value={form.base_path || ""}
             onChange={(e) => setForm({ ...form, base_path: e.currentTarget.value })}
@@ -405,8 +407,8 @@ export default function Registries() {
           <div style={{ marginTop: "0.75rem" }}>
             <Group gap="sm" align="flex-end">
               <Select
-                label="Blob store"
-                placeholder={storeList.length ? "Select a store" : "No store yet — create one"}
+                label={t("registries.blobStoreLabel")}
+                placeholder={storeList.length ? t("registries.blobStorePlaceholder") : t("registries.blobStoreEmpty")}
                 data={storeList.map((s: any) => ({
                   value: s.name,
                   label: `${s.name} (${s.kind})`,
@@ -423,7 +425,7 @@ export default function Registries() {
                 variant={newStore ? "filled" : "default"}
                 onClick={() => setNewStore(newStore ? null : emptyStore())}
               >
-                {newStore ? "Cancel" : "New store"}
+                {newStore ? t("common.cancel") : t("registries.newStore")}
               </Button>
             </Group>
 
@@ -432,7 +434,7 @@ export default function Registries() {
                 <BlobStoreForm
                   value={newStore}
                   onChange={setNewStore}
-                  submitLabel="Create and use"
+                  submitLabel={t("registries.createAndUse")}
                   onSaved={(saved) => {
                     // Created here, selected here: the registry form never asks
                     // for storage details of its own.
@@ -445,8 +447,7 @@ export default function Registries() {
             )}
 
             <Text size="xs" c="dimmed" mt={6}>
-              The registry gets its own namespace inside the store automatically, so several
-              registries can share one backend safely.
+              {t("registries.storeNote")}
             </Text>
           </div>
         ) : null}
@@ -454,19 +455,19 @@ export default function Registries() {
         {form.type === "proxy" ? (
           <div>
             <TextInput
-              label="Remote URL"
+              label={t("registries.remoteUrlLabel")}
               placeholder="https://registry-1.docker.io"
               mt="sm"
               value={form.remote_url || ""}
               onChange={(e) => setForm({ ...form, remote_url: e.currentTarget.value })}
             />
             <Group gap="sm" mt="sm">
-              <TextInput label="Remote user" value={form.remote_user || ""} onChange={(e) => setForm({ ...form, remote_user: e.currentTarget.value })} style={{ flex: 1 }} />
-              <PasswordInput label="Remote password" value={form.remote_pass || ""} onChange={(e) => setForm({ ...form, remote_pass: e.currentTarget.value })} style={{ flex: 1 }} />
+              <TextInput label={t("registries.remoteUserLabel")} value={form.remote_user || ""} onChange={(e) => setForm({ ...form, remote_user: e.currentTarget.value })} style={{ flex: 1 }} />
+              <PasswordInput label={t("registries.remotePasswordLabel")} value={form.remote_pass || ""} onChange={(e) => setForm({ ...form, remote_pass: e.currentTarget.value })} style={{ flex: 1 }} />
             </Group>
             <Group gap="sm" mt="sm">
-              <TextInput label="Remote token (static bearer)" value={form.remote_token || ""} onChange={(e) => setForm({ ...form, remote_token: e.currentTarget.value })} style={{ flex: 1 }} />
-              <Switch mt="lg" label="Allow writes (write-through)" checked={!!form.proxy_allow_write} onChange={(e) => setForm({ ...form, proxy_allow_write: e.currentTarget.checked })} />
+              <TextInput label={t("registries.remoteTokenLabel")} value={form.remote_token || ""} onChange={(e) => setForm({ ...form, remote_token: e.currentTarget.value })} style={{ flex: 1 }} />
+              <Switch mt="lg" label={t("registries.allowWritesLabel")} checked={!!form.proxy_allow_write} onChange={(e) => setForm({ ...form, proxy_allow_write: e.currentTarget.checked })} />
             </Group>
           </div>
         ) : null}
@@ -474,14 +475,14 @@ export default function Registries() {
         {form.type === "cache" ? (
           <div>
             <TextInput
-              label="Default upstream (host-less repos, e.g. Docker Hub)"
+              label={t("registries.defaultUpstreamLabel")}
               placeholder="https://registry-1.docker.io"
               mt="sm"
               value={form.cache_default_upstream || ""}
               onChange={(e) => setForm({ ...form, cache_default_upstream: e.currentTarget.value })}
             />
             <Textarea
-              label="Upstreams (one per line: host=url [user pass])"
+              label={t("registries.upstreamsLabel")}
               placeholder={"gcr.io=https://gcr.io\nquay.io=https://quay.io\nmyreg:5000=http://myreg:5000 insecure"}
               mt="sm"
               autosize
@@ -489,10 +490,8 @@ export default function Registries() {
               value={upstreamsText}
               onChange={(e) => setUpstreamsText(e.currentTarget.value)}
             />
-            <Alert color="blue" mt="sm" title="Pull-through cache">
-              Acts as a transparent mirror: every pull is served from the local store and, on a
-              miss, fetched from the upstream resolved by the repo host (host-less repos use the
-              default upstream). Writes are rejected. Point containerd mirrors at this registry.
+            <Alert color="blue" mt="sm" title={t("registries.cacheTitle")}>
+              {t("registries.cacheBody")}
             </Alert>
           </div>
         ) : null}
@@ -500,8 +499,8 @@ export default function Registries() {
         {form.type === "group" ? (
           <div>
             <MultiSelect
-              label="Member registries (read aggregation, in order)"
-              description="Reads are served by the first member that has the repository; order matters. Deselect and reselect to reorder."
+              label={t("registries.membersLabel")}
+              description={t("registries.membersDesc")}
               mt="sm"
               data={list.filter((r) => r.name !== editName).map((r) => r.name)}
               value={form.members || []}
@@ -514,13 +513,13 @@ export default function Registries() {
                   write_member: v.includes(form.write_member) ? form.write_member : v[0] || "",
                 })
               }
-              placeholder={list.length > 1 ? "Select member registries" : "No other registry to aggregate"}
+              placeholder={list.length > 1 ? t("registries.membersPlaceholder") : t("registries.membersEmpty")}
               searchable
               clearable
-              nothingFoundMessage="No match"
+              nothingFoundMessage={t("registries.noMatch")}
             />
             <Select
-              label="Write member (default target for pushes)"
+              label={t("registries.writeMemberLabel")}
               mt="sm"
               data={(form.members || []).filter((m) => list.find((r) => r.name === m)?.type !== "group")}
               value={form.write_member || null}
@@ -529,7 +528,7 @@ export default function Registries() {
             />
             {!(form.members || []).length ? (
               <Text size="xs" c="dimmed" mt={6}>
-                A group needs at least one member registry.
+                {t("registries.groupNeedsMember")}
               </Text>
             ) : null}
           </div>
@@ -537,28 +536,28 @@ export default function Registries() {
 
         {form.format === "apt" && form.type === "hosted" ? (
           <div>
-            <Text fw={600} mt="md">Repository signing</Text>
+            <Text fw={600} mt="md">{t("registries.signingTitle")}</Text>
             {!editName ? (
-              <Text size="sm" c="dimmed">Save the registry first, then generate a signing key.</Text>
+              <Text size="sm" c="dimmed">{t("registries.saveFirstSigning")}</Text>
             ) : aptBusy && !aptKey ? (
               <Loader size="sm" />
             ) : aptKey?.missing ? (
               <Group gap="sm" mt="xs" align="flex-end">
                 <Text size="sm" c="dimmed" style={{ flex: 1 }}>
-                  No signing key — Release is served unsigned.
+                  {t("registries.noSigningKey")}
                 </Text>
                 <Button
                   size="xs"
                   loading={aptBusy}
                   onClick={() => api.aptKeyCreate(editName).then(() => loadAptKey(editName)).catch((e) => setErr(e.message))}
                 >
-                  Generate key
+                  {t("registries.generateKey")}
                 </Button>
               </Group>
             ) : aptKey ? (
               <Stack gap="xs" mt="xs">
                 <Group gap="xs">
-                  <Text size="sm" c="dimmed">Fingerprint</Text>
+                  <Text size="sm" c="dimmed">{t("registries.fingerprint")}</Text>
                   <Code>{aptKey.fingerprint}</Code>
                   <Button
                     size="compact-xs"
@@ -566,7 +565,7 @@ export default function Registries() {
                     color="red"
                     loading={aptBusy}
                     onClick={() => {
-                      if (editName && confirm(`Delete the signing key of "${editName}"? Releases go back to unsigned.`)) {
+                      if (editName && confirm(t("registries.deleteKeyPrompt", { name: editName }))) {
                         api.aptKeyDelete(editName).then(() => loadAptKey(editName)).catch((e) => setErr(e.message));
                       }
                     }}
@@ -574,7 +573,7 @@ export default function Registries() {
                     Delete
                   </Button>
                 </Group>
-                <Text size="xs" c="dimmed">Point apt at the signed metadata:</Text>
+                <Text size="xs" c="dimmed">{t("registries.pointApt")}</Text>
                 <Code block style={{ overflowWrap: "anywhere" }}>{aptClientSnippet()}</Code>
               </Stack>
             ) : null}
@@ -583,29 +582,27 @@ export default function Registries() {
 
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={() => setOpen(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
-          <Button onClick={save}>Save</Button>
+          <Button onClick={save}>{t("common.save")}</Button>
         </Group>
       </Modal>
 
-      <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={`Garbage collect ${gcName || ""}`} size="lg">
+      <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={t("registries.gcTitle", { name: gcName || "" })} size="lg">
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
-            Reaps blobs no manifest links and no artifact object embeds. Blobs
-            younger than the grace period are never candidates, which keeps
-            pushes still in flight out of the sweep. Preview first, then run.
+            {t("registries.gcIntro")}
           </Text>
           <Group gap="sm" align="flex-end">
             <TextInput
-              label="Grace period"
-              description="Only blobs older than this (e.g. 1h, 30m)"
+              label={t("registries.graceLabel")}
+              description={t("registries.graceDesc")}
               value={gcOlder}
               onChange={(e) => setGcOlder(e.currentTarget.value)}
               w={200}
             />
             <Button variant="default" size="xs" loading={gcBusy} onClick={() => gcName && runGC(gcName, gcOlder, true)}>
-              Preview
+              {t("registries.preview")}
             </Button>
           </Group>
           {gcBusy && !gcReport && <Loader size="sm" />}
@@ -615,31 +612,31 @@ export default function Registries() {
             <div>
               <Group gap="xs" mb="xs">
                 <Badge color={(gcReport.orphans ?? 0) > 0 ? "yellow" : "green"}>
-                  {(gcReport.orphans ?? 0)} orphan{(gcReport.orphans ?? 0) === 1 ? "" : "s"}
+                  {t("registries.orphanCount", { count: gcReport.orphans ?? 0 })}
                 </Badge>
                 <Text size="sm" c="dimmed">{humanSize(gcReport.orphan_bytes ?? 0)}</Text>
                 {(gcReport.deleted ?? 0) > 0 && (
                   <Badge color="teal">
-                    deleted {gcReport.deleted} ({humanSize(gcReport.deleted_bytes ?? 0)})
+                    {t("registries.deletedCount", { count: gcReport.deleted, size: humanSize(gcReport.deleted_bytes ?? 0) })}
                   </Badge>
                 )}
-                {gcReport.truncated && <Badge variant="light">list truncated</Badge>}
+                {gcReport.truncated && <Badge variant="light">{t("registries.truncated")}</Badge>}
               </Group>
               {(gcReport.blobs || []).length > 0 && (
                 <ScrollArea.Autosize mah={240}>
                   <DataTable
-                    empty="No orphans."
+                    empty={t("registries.noOrphans")}
                     rowKey={(b: any) => b.digest}
                     rows={gcReport.blobs}
                     columns={[
-                      { header: "Digest", render: (b: any) => <Code>{shortDigest(b.digest)}</Code> },
-                      { header: "Size", render: (b: any) => humanSize(b.size) },
+                      { header: t("registries.digestHeader"), render: (b: any) => <Code>{shortDigest(b.digest)}</Code> },
+                      { header: t("registries.sizeHeader"), render: (b: any) => humanSize(b.size) },
                     ]}
                   />
                 </ScrollArea.Autosize>
               )}
               {(gcReport.errors || []).length > 0 && (
-                <Alert color="red" mt="sm" title="Errors">
+                <Alert color="red" mt="sm" title={t("registries.errorsTitle")}>
                   {(gcReport.errors || []).join("; ")}
                 </Alert>
               )}
@@ -649,12 +646,12 @@ export default function Registries() {
                   loading={gcBusy}
                   disabled={(gcReport.orphans ?? 0) === 0}
                   onClick={() => {
-                    if (gcName && confirm(`Delete ${gcReport.orphans} orphan blob(s) (${humanSize(gcReport.orphan_bytes ?? 0)}) from "${gcName}"?`)) {
+                    if (gcName && confirm(t("registries.deleteOrphansPrompt", { count: gcReport.orphans, size: humanSize(gcReport.orphan_bytes ?? 0), name: gcName }))) {
                       runGC(gcName, gcOlder, false);
                     }
                   }}
                 >
-                  Run garbage collection
+                  {t("registries.runGc")}
                 </Button>
               </Group>
             </div>

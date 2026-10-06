@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   Select, ActionIcon, DataTable, ConfirmModal, Code,
@@ -10,6 +11,7 @@ import { api } from "../../lib/api";
 type Grant = { id: number; subject: string; role: string; scope: string };
 
 export default function Grants() {
+  const { t } = useTranslation();
   const [grants, setGrants] = useState<Grant[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [users, setUsers] = useState<string[]>([]);
@@ -104,8 +106,8 @@ export default function Grants() {
 
   const subjectBadge = (s: string) => {
     if (s === "anonymous") return <Badge color="gray">anonymous</Badge>;
-    if (s === "authenticated") return <Badge color="cyan">any signed-in user</Badge>;
-    if (s.startsWith("group:")) return <Badge color="teal">group {s.slice(6)}</Badge>;
+    if (s === "authenticated") return <Badge color="cyan">{t("grants.anySignedIn")}</Badge>;
+    if (s.startsWith("group:")) return <Badge color="teal">{t("grants.groupBadge", { name: s.slice(6) })}</Badge>;
     return <Badge color="blue">{s.replace("user:", "")}</Badge>;
   };
 
@@ -114,36 +116,35 @@ export default function Grants() {
   return (
     <div>
       <PageHeader
-        title="Grants"
+        title={t("grants.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New grant
+            {t("grants.newGrant")}
           </Button>
         }
       />
 
       {err && !open && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        A grant is what makes a role take effect: it ties one to somebody, within a scope.
-        Nothing is permitted without one.
+        {t("grants.intro")}
       </Text>
 
       <DataTable<Grant>
         rows={grants}
         rowKey={(g) => String(g.id)}
-        empty="No grant yet — nobody can do anything."
+        empty={t("grants.empty")}
         columns={[
-          { header: "Who", render: (g) => subjectBadge(g.subject), width: 220 },
-          { header: "Role", render: (g) => <Text size="sm">{g.role}</Text>, width: 180 },
+          { header: t("grants.whoHeader"), render: (g) => subjectBadge(g.subject), width: 220 },
+          { header: t("grants.roleHeader"), render: (g) => <Text size="sm">{g.role}</Text>, width: 180 },
           {
-            header: "Where",
+            header: t("grants.whereHeader"),
             render: (g) => (
-              <Code>{g.scope === "*" ? "* (everywhere)" : g.scope}</Code>
+              <Code>{g.scope === "*" ? t("grants.everywhere") : g.scope}</Code>
             ),
           },
           {
@@ -152,7 +153,7 @@ export default function Grants() {
             render: (g) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(g)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(g)}>
                   <IconTrash size={16} />
@@ -163,21 +164,21 @@ export default function Grants() {
         ]}
       />
 
-      <Modal opened={open} onClose={() => setOpen(false)} title={editId === null ? "New grant" : "Edit grant"} size="lg">
+      <Modal opened={open} onClose={() => setOpen(false)} title={editId === null ? t("grants.newTitle") : t("grants.editTitle")} size="lg">
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <Group gap="sm" align="flex-end">
             <Select
-              label="Who"
+              label={t("grants.whoLabel")}
               data={[
-                { value: "user", label: "A user" },
-                { value: "group", label: "A group" },
-                { value: "authenticated", label: "Any signed-in user" },
-                { value: "anonymous", label: "Anonymous callers" },
+                { value: "user", label: t("grants.whoUser") },
+                { value: "group", label: t("grants.whoGroup") },
+                { value: "authenticated", label: t("grants.whoAuthenticated") },
+                { value: "anonymous", label: t("grants.whoAnonymous") },
               ]}
               value={kind}
               onChange={(v) => {
@@ -189,7 +190,7 @@ export default function Grants() {
             />
             {(kind === "user" || kind === "group") && (
               <Select
-                label={kind === "user" ? "User" : "Group"}
+                label={kind === "user" ? t("grants.userLabel") : t("grants.groupLabel")}
                 data={kind === "user" ? users : groups}
                 value={who || null}
                 onChange={(v) => setWho(v || "")}
@@ -200,7 +201,7 @@ export default function Grants() {
           </Group>
 
           <Select
-            label="Role"
+            label={t("grants.roleLabel")}
             data={roles}
             value={role || null}
             onChange={(v) => setRole(v || "")}
@@ -210,18 +211,17 @@ export default function Grants() {
           <ScopeBuilder value={scope} onChange={setScope} />
 
           {kind === "anonymous" && (
-            <Alert color="yellow" title="Anonymous callers">
-              A role holding administrative permissions is refused here. Anonymous access is for
-              reading, and typically for image pulls from inside the cluster.
+            <Alert color="yellow" title={t("grants.anonTitle")}>
+              {t("grants.anonBody")}
             </Alert>
           )}
 
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={save} disabled={!role || ((kind === "user" || kind === "group") && !who)}>
-              {editId === null ? "Create grant" : "Save changes"}
+              {editId === null ? t("grants.createGrant") : t("common.saveChanges")}
             </Button>
           </Group>
         </Stack>
@@ -229,8 +229,8 @@ export default function Grants() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Remove grant"
-        message={`Remove ${confirmDel?.role} from ${confirmDel?.subject}? If it is the last one that leaves somebody able to administer, the change is refused and nothing is lost.`}
+        title={t("grants.removeTitle")}
+        message={t("grants.removeMessage", { role: confirmDel?.role, subject: confirmDel?.subject })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}

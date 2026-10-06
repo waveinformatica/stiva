@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTree, type TreeNodeData } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Badge,
@@ -125,10 +126,11 @@ function humanSize(n?: number) {
 const shortDigest = (d?: string) => (d ? (d.startsWith("sha256:") ? d.slice(7, 19) : d.slice(0, 12)) : "—");
 
 function CopyAction({ value, label }: { value: string; label?: string }) {
+  const { t } = useTranslation();
   return (
     <CopyButton value={value} timeout={1500}>
       {({ copied, copy }) => (
-        <Tooltip label={label ?? (copied ? "Copied" : "Copy")} withArrow>
+        <Tooltip label={label ?? (copied ? t("browser.copied") : t("browser.copy"))} withArrow>
           <ActionIcon size="sm" variant="subtle" color={copied ? "teal" : "gray"} onClick={copy}>
             <IconCopy size={13} />
           </ActionIcon>
@@ -149,6 +151,7 @@ export default function RepoBrowser({
   endpoint?: string;
   focusRepo?: FocusRepo | null;
 }) {
+  const { t } = useTranslation();
   const [repos, setRepos] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const [repo, setRepo] = useState("");
@@ -269,15 +272,15 @@ export default function RepoBrowser({
       <Card withBorder padding="sm" w={narrow ? "100%" : 300} style={{ flexShrink: 0 }}>
         <TextInput
           size="xs"
-          placeholder="Filter repositories…"
+          placeholder={t("browser.filterPlaceholder")}
           leftSection={<IconSearch size={14} />}
           value={filter}
           onChange={(e) => setFilter(e.currentTarget.value)}
         />
         <Group justify="space-between" mt="xs" mb={4}>
           <Text size="xs" c="dimmed">
-            {repos.length} repositor{repos.length === 1 ? "y" : "ies"}
-            {filter.trim() ? ` · ${countRepos(nodes)} matching` : ""}
+            {t("browser.repoCount", { count: repos.length })}
+            {filter.trim() ? ` · ${t("browser.matchingCount", { count: countRepos(nodes) })}` : ""}
           </Text>
           <Button
             size="compact-xs"
@@ -286,7 +289,7 @@ export default function RepoBrowser({
             onClick={loadRepos}
             loading={loading}
           >
-            Refresh
+            {t("common.refresh")}
           </Button>
         </Group>
         <ScrollArea h={narrow ? 300 : 480} type="auto" offsetScrollbars>
@@ -294,7 +297,7 @@ export default function RepoBrowser({
             <Loader size="sm" />
           ) : data.length === 0 ? (
             <Text size="sm" c="dimmed" p="xs">
-              {filter.trim() ? `No repository matches “${filter.trim()}”.` : "No repositories yet."}
+              {filter.trim() ? t("browser.noMatch", { query: filter.trim() }) : t("browser.noRepos")}
             </Text>
           ) : (
             <Tree
@@ -303,7 +306,7 @@ export default function RepoBrowser({
               selectOnClick
               expandOnClick
               levelOffset="sm"
-              aria-label="Repositories"
+              aria-label={t("browser.repositories")}
             />
           )}
         </ScrollArea>
@@ -311,7 +314,7 @@ export default function RepoBrowser({
 
       <Card withBorder padding="md" style={{ flex: 1, minWidth: narrow ? "100%" : 0 }}>
         {!repo ? (
-          <EmptyState message="Select a repository on the left to see its tags." />
+          <EmptyState message={t("browser.selectRepo")} />
         ) : (
           <Stack gap="sm">
             <Group justify="space-between" wrap="wrap">
@@ -321,7 +324,7 @@ export default function RepoBrowser({
                   {repo}
                 </Text>
                 <Badge variant="light" color="gray">
-                  {tags.length} tag{tags.length === 1 ? "" : "s"}
+                  {t("browser.tagCount", { count: tags.length })}
                 </Badge>
               </Group>
               <Group gap={4} wrap="wrap">
@@ -330,22 +333,22 @@ export default function RepoBrowser({
               </Group>
             </Group>
 
-            {err && <Alert color="red" title="Error">{err}</Alert>}
+            {err && <Alert color="red" title={t("common.error")}>{err}</Alert>}
 
             {loading && tags.length === 0 ? (
               <Loader size="sm" />
             ) : tags.length === 0 ? (
               <Text size="sm" c="dimmed">
-                This repository has no tags. Push an image to create one.
+                {t("browser.noTags")}
               </Text>
             ) : (
               <DataTable
-                empty="No tags in this repository."
+                empty={t("browser.noTagsInRepo")}
                 rowKey={(t) => t}
                 rows={tags}
                 columns={[
                   {
-                    header: "Tag",
+                    header: t("browser.tagHeader"),
                     render: (t) => (
                       <Button
                         variant={t === tag ? "light" : "subtle"}
@@ -358,7 +361,7 @@ export default function RepoBrowser({
                     ),
                   },
                   {
-                    header: "Pull",
+                    header: t("browser.pullHeader"),
                     width: "45%",
                     render: (t) => (
                       <Group gap={4} wrap="wrap">
@@ -384,14 +387,14 @@ export default function RepoBrowser({
                     <Text size="xs" c="dimmed">
                       {manifest.digest}
                     </Text>
-                    <CopyAction value={manifest.digest} label="Copy digest" />
+                    <CopyAction value={manifest.digest} label={t("browser.copyDigest")} />
                   </Group>
                 </Group>
 
                 {config && (
                   <Group gap="xs" mb={4} wrap="wrap">
                     <Text size="xs" c="dimmed" w={70}>
-                      config
+                      {t("browser.config")}
                     </Text>
                     <Text size="xs" c="dimmed">
                       {humanSize(config.size)}
@@ -406,7 +409,7 @@ export default function RepoBrowser({
                     {layers.map((l, i) => (
                       <Group key={l.digest || i} gap="xs" wrap="wrap">
                         <Text size="xs" c="dimmed" w={70}>
-                          layer {i}
+                          {t("browser.layer", { index: i })}
                         </Text>
                         <Badge size="xs" variant="light" color="gray" w={110} style={{ flexShrink: 0 }}>
                           {l.mediaType?.split(".").pop()}
@@ -420,7 +423,7 @@ export default function RepoBrowser({
                     ))}
                     <Group gap="xs" justify="flex-end">
                       <Text size="xs" c="dimmed">
-                        total {humanSize(layers.reduce((a: number, l: any) => a + (l.size || 0), 0))}
+                        {t("browser.totalSize", { size: humanSize(layers.reduce((a: number, l: any) => a + (l.size || 0), 0)) })}
                       </Text>
                     </Group>
                   </Stack>
@@ -431,7 +434,7 @@ export default function RepoBrowser({
                     {childManifests.map((m: any) => (
                       <Group key={m.digest} gap="xs" wrap="wrap">
                         <Text size="xs" c="dimmed" w={70}>
-                          manifest
+                          {t("browser.manifestLabel")}
                         </Text>
                         <Badge size="xs" variant="light" color="blue">
                           {m.platform ? `${m.platform.os}/${m.platform.architecture}` : "—"}
@@ -448,7 +451,7 @@ export default function RepoBrowser({
 
                 <Group gap="xs" mt="xs">
                   <Button size="compact-xs" variant="subtle" onClick={() => setShowRaw(!showRaw)}>
-                    {showRaw ? "Hide raw manifest" : "Show raw manifest"}
+                    {showRaw ? t("browser.hideRaw") : t("browser.showRaw")}
                   </Button>
                 </Group>
                 {showRaw && (

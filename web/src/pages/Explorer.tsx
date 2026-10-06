@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Tabs, Pill } from "@mantine/core";
 import {
   PageHeader,
@@ -69,6 +70,7 @@ function describeArtifact(format: string, p: string) {
 }
 
 export default function Explorer() {
+  const { t } = useTranslation();
   const [regs, setRegs] = useState<Reg[]>([]);
   const [registry, setRegistry] = useState("");
   const [tab, setTab] = useState<string | null>("browse");
@@ -90,12 +92,12 @@ export default function Explorer() {
   return (
     <div>
       <PageHeader
-        title="Explorer"
+        title={t("explorer.title")}
         actions={
           <Select
             w={240}
             size="xs"
-            placeholder="Registry"
+            placeholder={t("explorer.registryPlaceholder")}
             data={regs.map((r) => ({
               value: r.name,
               label: `${r.name} (${r.format})`,
@@ -113,10 +115,10 @@ export default function Explorer() {
       <Tabs value={tab} onChange={setTab}>
         <Tabs.List mb="md">
           <Tabs.Tab value="browse" leftSection={<IconFolder size={14} />}>
-            Browse
+            {t("explorer.browseTab")}
           </Tabs.Tab>
           <Tabs.Tab value="search" leftSection={<IconSearch size={14} />}>
-            Search
+            {t("explorer.searchTab")}
           </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="browse">
@@ -133,7 +135,7 @@ export default function Explorer() {
             )
           ) : (
             <Text c="dimmed" size="sm">
-              Select a registry.
+              {t("explorer.selectRegistry")}
             </Text>
           )}
         </Tabs.Panel>
@@ -163,6 +165,7 @@ function ArtifactBrowser({
   endpoint?: string;
   basePath?: string;
 }) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -199,14 +202,14 @@ function ArtifactBrowser({
           </Code>
         ) : null}
         <Button variant="default" size="xs" leftSection={<IconRefresh size={14} />} onClick={load}>
-          Refresh
+          {t("common.refresh")}
         </Button>
       </Group>
-      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
       {loading && <Loader />}
       {!loading && grouped.length === 0 && (
         <Text c="dimmed" size="sm">
-          No artifacts in this registry yet.
+          {t("explorer.noArtifacts")}
         </Text>
       )}
       <Stack gap="xs">
@@ -217,7 +220,7 @@ function ArtifactBrowser({
                 {pkg}
               </Text>
               <Badge variant="light" color="gray">
-                {files.length} file{files.length === 1 ? "" : "s"}
+                {t("explorer.fileCount", { count: files.length })}
               </Badge>
             </Group>
             <Stack gap={2}>
@@ -234,7 +237,7 @@ function ArtifactBrowser({
                     variant="subtle"
                     target="_blank"
                   >
-                    Download
+                    {t("common.download")}
                   </Button>
                 </Group>
               ))}
@@ -255,6 +258,7 @@ function GlobalSearch({
   onOpenRegistry: (name: string) => void;
   onBrowse: (repo?: string) => void;
 }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [format, setFormat] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -284,7 +288,7 @@ function GlobalSearch({
       <Group mb="md">
         <TextInput
           style={{ flex: 1, minWidth: 200 }}
-          placeholder="Search artifacts across all registries…"
+          placeholder={t("explorer.searchPlaceholder")}
           leftSection={<IconSearch size={16} />}
           value={q}
           onChange={(e) => setQ(e.currentTarget.value)}
@@ -293,21 +297,21 @@ function GlobalSearch({
         <Select
           w={180}
           size="xs"
-          placeholder="Format"
+          placeholder={t("explorer.formatPlaceholder")}
           clearable
           data={formats}
           value={format}
           onChange={setFormat}
         />
         <Button size="xs" onClick={run} leftSection={<IconSearch size={14} />}>
-          Search
+          {t("common.search")}
         </Button>
       </Group>
-      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
       {loading && <Loader />}
       {searched && !loading && results.length === 0 && (
         <Text c="dimmed" size="sm">
-          No matches for “{q}”.
+          {t("explorer.noMatches", { query: q })}
         </Text>
       )}
       <Stack gap="xs">
@@ -329,7 +333,7 @@ function GlobalSearch({
                   variant="subtle"
                   target="_blank"
                 >
-                  Download
+                  {t("common.download")}
                 </Button>
               ) : (
                 <Button
@@ -340,7 +344,7 @@ function GlobalSearch({
                     onBrowse(r.kind === "repo" ? r.name : undefined);
                   }}
                 >
-                  Browse
+                  {t("common.browse")}
                 </Button>
               )}
             </Group>

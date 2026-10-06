@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader,
   Card,
@@ -17,6 +18,7 @@ import {
 import { api, MeResponse } from "../../lib/api";
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -65,13 +67,13 @@ export default function Settings() {
     setErr(null);
     setOk(null);
     if (next !== confirm) {
-      setErr("The two new passwords do not match.");
+      setErr(t("settings.passwordMismatch"));
       setBusy(false);
       return;
     }
     try {
       await api.changePassword(cur, next);
-      setOk("Password updated.");
+      setOk(t("settings.passwordUpdated"));
       setCur("");
       setNext("");
       setConfirm("");
@@ -83,37 +85,37 @@ export default function Settings() {
   };
 
   if (!me) return <Loader />;
-  if (err && !me) return <Alert color="red" title="Error">{err}</Alert>;
+  if (err && !me) return <Alert color="red" title={t("common.error")}>{err}</Alert>;
 
   return (
     <div>
-      <PageHeader title="Settings" />
+      <PageHeader title={t("settings.title")} />
       <Group grow mb="md">
-        <StatCard label="Repositories" value={stats?.repositories ?? 0} />
-        <StatCard label="Tags" value={stats?.tags ?? 0} />
+        <StatCard label={t("settings.repositoriesStat")} value={stats?.repositories ?? 0} />
+        <StatCard label={t("settings.tagsStat")} value={stats?.tags ?? 0} />
       </Group>
       <Card withBorder padding="md" mb="md">
         <Text fw={700} mb="xs">
-          Current session
+          {t("settings.sessionTitle")}
         </Text>
         <Stack gap={4}>
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              User
+              {t("settings.userLabel")}
             </Text>
             <Text size="sm">{me.user.name}</Text>
           </Group>
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              Role
+              {t("settings.roleLabel")}
             </Text>
             <Badge color={me.user.admin ? "grape" : "gray"}>
-              {me.user.admin ? "administrator" : "user"}
+              {me.user.admin ? t("settings.administrator") : t("settings.regularUser")}
             </Badge>
           </Group>
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              Groups
+              {t("settings.groupsLabel")}
             </Text>
             <Text size="sm">{(me.user.groups || []).join(", ") || "—"}</Text>
           </Group>
@@ -122,47 +124,46 @@ export default function Settings() {
 
       <Card withBorder padding="md" mb="md">
         <Text fw={700} mb="xs">
-          Change password
+          {t("settings.changePasswordTitle")}
         </Text>
         {me.user.password_change_required && (
-          <Alert color="yellow" mb="sm" title="Action required">
-            You are still using a temporary password. Change it to continue using the
-            registry.
+          <Alert color="yellow" mb="sm" title={t("settings.actionRequired")}>
+            {t("settings.tempPasswordBody")}
           </Alert>
         )}
         {err && (
-          <Alert color="red" mb="sm" title="Error">
+          <Alert color="red" mb="sm" title={t("common.error")}>
             {err}
           </Alert>
         )}
         {ok && (
-          <Alert color="teal" mb="sm" title="Done">
+          <Alert color="teal" mb="sm" title={t("common.done")}>
             {ok}
           </Alert>
         )}
         <form onSubmit={changePassword}>
           <Stack gap="xs">
             <PasswordInput
-              label="Current password"
+              label={t("login.currentPassword")}
               value={cur}
               onChange={(e) => setCur(e.currentTarget.value)}
               required
             />
             <PasswordInput
-              label="New password"
+              label={t("login.newPassword")}
               value={next}
               onChange={(e) => setNext(e.currentTarget.value)}
               required
             />
             <PasswordInput
-              label="Confirm new password"
+              label={t("login.confirmNewPassword")}
               value={confirm}
               onChange={(e) => setConfirm(e.currentTarget.value)}
               required
             />
             <Group justify="flex-end">
               <Button type="submit" loading={busy}>
-                Update password
+                {t("settings.updatePassword")}
               </Button>
             </Group>
           </Stack>
@@ -171,27 +172,21 @@ export default function Settings() {
 
       <Card withBorder padding="md" mb="md">
         <Group justify="space-between" mb="xs">
-          <Text fw={700}>Anonymous access</Text>
+          <Text fw={700}>{t("settings.anonTitle")}</Text>
           <Switch
             checked={allowAnon}
             onChange={(e) => toggleAnon(e.currentTarget.checked)}
             disabled={settingsBusy}
-            label={allowAnon ? "Allowed" : "Denied"}
+            label={allowAnon ? t("settings.allowed") : t("settings.denied")}
           />
         </Group>
         <Text size="sm" c="dimmed">
-          When denied (default), every request must be authenticated. When allowed,
-          unauthenticated requests are mapped to the <Code>anonymous</Code> subject;
-          grant it a role scoped to the registry under{" "}
-          <Text span fw={600}>Administration → Roles and Grants</Text> to decide what
-          anonymous clients may do.
+          {t("settings.anonBodyPre")} <Code>anonymous</Code> {t("settings.anonBodyPost")}
         </Text>
       </Card>
 
       <Text size="xs" c="dimmed" mt="md">
-        Server configuration (PostgreSQL connection, blob store backend, authentication
-        realms) is provided via command-line flags or a JSON config file at startup —
-        not through the UI, by design. See the project README for details.
+        {t("settings.serverNote")}
       </Text>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Stack, Group, Select, TextInput, Switch, Button, Alert, Text } from "./ui";
 import { SecretField } from "./SecretField";
 import { api } from "../lib/api";
@@ -56,7 +57,7 @@ export function BlobStoreForm({
   onChange,
   onSaved,
   nameLocked,
-  submitLabel = "Save store",
+  submitLabel,
 }: {
   value: BlobStore;
   onChange: (s: BlobStore) => void;
@@ -64,6 +65,7 @@ export function BlobStoreForm({
   nameLocked?: boolean;
   submitLabel?: string;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const s = value;
@@ -75,7 +77,7 @@ export function BlobStoreForm({
   const save = async () => {
     setErr(null);
     if (!s.name.trim()) {
-      setErr("The store needs a name.");
+      setErr(t("stores.needName"));
       return;
     }
     setBusy(true);
@@ -92,22 +94,22 @@ export function BlobStoreForm({
   return (
     <Stack gap="sm">
       {err && (
-        <Alert color="red" title="Could not save">
+        <Alert color="red" title={t("common.saveFailed")}>
           {err}
         </Alert>
       )}
 
       <Group gap="sm" align="flex-start">
         <TextInput
-          label="Name"
-          placeholder="minio-main"
+          label={t("stores.nameLabel")}
+          placeholder={t("stores.namePlaceholder")}
           value={s.name}
           disabled={nameLocked}
           onChange={(e) => set({ name: e.currentTarget.value })}
           style={{ flex: 1 }}
         />
         <Select
-          label="Type"
+          label={t("stores.typeLabel")}
           data={["file", "s3", "gcs", "azure"]}
           value={s.kind}
           onChange={(v) => onChange(withKind(s, v || "s3"))}
@@ -117,28 +119,25 @@ export function BlobStoreForm({
       </Group>
 
       <TextInput
-        label="Description"
-        placeholder="What this backend is, in a few words"
+        label={t("stores.descriptionLabel")}
+        placeholder={t("stores.descriptionPlaceholder")}
         value={s.description || ""}
         onChange={(e) => set({ description: e.currentTarget.value })}
       />
 
       <Text size="xs" c="dimmed">
-        Several registries can share one store. Each is given its own namespace inside it
-        automatically, so they never overwrite or delete each other's data — there is no path to
-        set here.
+        {t("stores.sharedNote")}
       </Text>
 
       {s.kind === "file" && (
         <>
           <TextInput
-            label="Root path"
+            label={t("stores.rootLabel")}
             value={s.file?.root || ""}
             onChange={(e) => onChange({ ...s, file: { root: e.currentTarget.value } })}
           />
           <Text size="xs" c="dimmed">
-            A filesystem store lives on one node. Every registry using it is pinned there, and
-            follows that node down.
+            {t("stores.fileNote")}
           </Text>
         </>
       )}
@@ -147,13 +146,13 @@ export function BlobStoreForm({
         <>
           <Group gap="sm">
             <TextInput
-              label="Bucket"
+              label={t("stores.bucketLabel")}
               value={s.s3?.bucket || ""}
               onChange={(e) => setS3({ bucket: e.currentTarget.value })}
               style={{ flex: 1 }}
             />
             <TextInput
-              label="Region"
+              label={t("stores.regionLabel")}
               value={s.s3?.region || ""}
               onChange={(e) => setS3({ region: e.currentTarget.value })}
               w={160}
@@ -161,21 +160,21 @@ export function BlobStoreForm({
           </Group>
           <Group gap="sm">
             <TextInput
-              label="Endpoint"
-              placeholder="http://minio.storage.svc.cluster.local — leave empty for AWS"
+              label={t("stores.endpointLabel")}
+              placeholder={t("stores.endpointPlaceholder")}
               value={s.s3?.endpoint || ""}
               onChange={(e) => setS3({ endpoint: e.currentTarget.value })}
               style={{ flex: 1 }}
             />
           </Group>
           <Switch
-            label="Path-style addressing"
+            label={t("stores.pathStyleLabel")}
             checked={!!s.s3?.force_path_style}
             onChange={(e) => setS3({ force_path_style: e.currentTarget.checked })}
           />
           <SecretField
-            label="Secret access key"
-            description="Leave the credential unset to use the ambient AWS credential chain instead."
+            label={t("stores.secretKeyLabel")}
+            description={t("stores.secretKeyDesc")}
             value={s.s3?.secret_key || ""}
             onChange={(ref) => setS3({ secret_key: ref })}
             suggestedName={s.name ? `${s.name}-secret-key` : ""}
@@ -194,14 +193,14 @@ export function BlobStoreForm({
       {s.kind === "gcs" && (
         <Group gap="sm">
           <TextInput
-            label="Bucket"
+            label={t("stores.bucketLabel")}
             value={s.gcs?.bucket || ""}
             onChange={(e) => onChange({ ...s, gcs: { ...(s.gcs || { bucket: "" }), bucket: e.currentTarget.value } })}
             style={{ flex: 1 }}
           />
           <TextInput
-            label="Credentials file"
-            placeholder="empty = application default credentials"
+            label={t("stores.gcsCredentialsLabel")}
+            placeholder={t("stores.gcsCredentialsPlaceholder")}
             value={s.gcs?.credentials_file || ""}
             onChange={(e) =>
               onChange({ ...s, gcs: { ...(s.gcs || { bucket: "" }), credentials_file: e.currentTarget.value } })
@@ -214,15 +213,15 @@ export function BlobStoreForm({
       {s.kind === "azure" && (
         <>
           <TextInput
-            label="Container"
+            label={t("stores.containerLabel")}
             value={s.azure?.container || ""}
             onChange={(e) =>
               onChange({ ...s, azure: { ...(s.azure || { container: "" }), container: e.currentTarget.value } })
             }
           />
           <SecretField
-            label="Connection string"
-            description="Carries the account key, so it is always stored as a credential."
+            label={t("stores.connectionLabel")}
+            description={t("stores.connectionDesc")}
             value={s.azure?.connection_string || ""}
             onChange={(ref) =>
               onChange({ ...s, azure: { ...(s.azure || { container: "" }), connection_string: ref } })
@@ -234,7 +233,7 @@ export function BlobStoreForm({
 
       <Group justify="flex-end" mt="xs">
         <Button loading={busy} onClick={save}>
-          {submitLabel}
+          {submitLabel || t("stores.saveStore")}
         </Button>
       </Group>
     </Stack>

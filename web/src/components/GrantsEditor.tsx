@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Group, TextInput, Select, Button, ActionIcon, Stack, Text } from "./ui";
 import { IconPlus, IconTrash } from "./icons";
 import { api } from "../lib/api";
@@ -10,6 +11,7 @@ export type KeyGrant = { role: string; scope: string };
 // entry must still pass the owner's own grants at request time, so a key can
 // never exceed its owner however it is scoped here.
 export function GrantsEditor({ value, onChange }: { value: KeyGrant[]; onChange: (v: KeyGrant[]) => void }) {
+  const { t } = useTranslation();
   const [roles, setRoles] = useState<{ name: string; description?: string }[]>([]);
 
   useEffect(() => {
@@ -28,17 +30,17 @@ export function GrantsEditor({ value, onChange }: { value: KeyGrant[]; onChange:
   return (
     <Stack gap="xs">
       <Text size="sm" fw={500}>
-        Restrictions <Text span c="dimmed" fw={400}>(optional)</Text>
+        {t("grantsEditor.title")} <Text span c="dimmed" fw={400}>{t("grantsEditor.optional")}</Text>
       </Text>
       {value.length === 0 ? (
         <Text size="sm" c="dimmed">
-          No restrictions — the key carries the owner's full power.
+          {t("grantsEditor.empty")}
         </Text>
       ) : (
         value.map((g, i) => (
           <Group key={i} gap="sm" align="flex-end">
             <Select
-              label={i === 0 ? "Role" : undefined}
+              label={i === 0 ? t("grantsEditor.role") : undefined}
               data={roles.map((r) => ({ value: r.name, label: r.description ? `${r.name} — ${r.description}` : r.name }))}
               value={g.role}
               onChange={(v) => update(i, { ...g, role: v || "" })}
@@ -46,7 +48,7 @@ export function GrantsEditor({ value, onChange }: { value: KeyGrant[]; onChange:
               style={{ flex: 1 }}
             />
             <TextInput
-              label={i === 0 ? "Scope" : undefined}
+              label={i === 0 ? t("grantsEditor.scope") : undefined}
               placeholder="docker:prod:team/**"
               value={g.scope}
               onChange={(e) => update(i, { ...g, scope: e.currentTarget.value })}
@@ -65,12 +67,12 @@ export function GrantsEditor({ value, onChange }: { value: KeyGrant[]; onChange:
           leftSection={<IconPlus size={14} />}
           onClick={() => onChange([...value, { role: roles[0]?.name || "", scope: "" }])}
         >
-          Add restriction
+          {t("grantsEditor.add")}
         </Button>
       </Group>
       <Text size="xs" c="dimmed">
-        Scope shape is <Text span ff="monospace">format:registry:pattern</Text>, e.g.{" "}
-        <Text span ff="monospace">docker:prod:team/**</Text> or <Text span ff="monospace">*</Text> for everything.
+        {t("grantsEditor.shapeIntro")} <Text span ff="monospace">format:registry:pattern</Text>, {t("grantsEditor.shapeExample")}{" "}
+        <Text span ff="monospace">docker:prod:team/**</Text> {t("grantsEditor.shapeOr")} <Text span ff="monospace">*</Text> {t("grantsEditor.shapeAll")}
       </Text>
     </Stack>
   );

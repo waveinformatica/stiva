@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader,
   DataTable,
@@ -27,6 +28,7 @@ interface KeyRow {
 }
 
 export default function ServiceAccounts() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<KeyRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,16 +75,16 @@ export default function ServiceAccounts() {
   return (
     <div>
       <PageHeader
-        title="Service Accounts"
+        title={t("serviceAccounts.title")}
         actions={
           <Button leftSection={<IconPlus size={14} />} onClick={() => { setCreatedKey(null); setCreateOpen(true); }}>
-            New key
+            {t("serviceAccounts.newKey")}
           </Button>
         }
       />
-      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
       {createdKey && (
-        <Alert color="teal" mb="md" title="API key created — copy it now">
+        <Alert color="teal" mb="md" title={t("serviceAccounts.createdTitle")}>
           <Code block style={{ overflowWrap: "anywhere" }}>{createdKey}</Code>
         </Alert>
       )}
@@ -90,14 +92,14 @@ export default function ServiceAccounts() {
         rowKey={(r) => r.masked + r.username}
         rows={rows}
         columns={[
-          { header: "Username", render: (r) => <Text fw={600}>{r.username}</Text> },
-          { header: "Label", render: (r) => r.label || "—" },
-          { header: "Key", render: (r) => <Code>{r.masked}</Code> },
+          { header: t("serviceAccounts.usernameHeader"), render: (r) => <Text fw={600}>{r.username}</Text> },
+          { header: t("serviceAccounts.labelHeader"), render: (r) => r.label || "—" },
+          { header: t("serviceAccounts.keyHeader"), render: (r) => <Code>{r.masked}</Code> },
           {
-            header: "Restrictions",
+            header: t("serviceAccounts.restrictionsHeader"),
             render: (r) =>
               (r.grants || []).length === 0 ? (
-                <Text size="xs" c="dimmed">full access</Text>
+                <Text size="xs" c="dimmed">{t("serviceAccounts.fullAccess")}</Text>
               ) : (
                 <Group gap={4}>
                   {(r.grants || []).map((g, i) => (
@@ -107,7 +109,7 @@ export default function ServiceAccounts() {
               ),
           },
           {
-            header: "Actions",
+            header: t("serviceAccounts.actionsHeader"),
             render: (r) => (
               <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(r.key || r.masked)}>
                 <IconTrash size={16} />
@@ -117,22 +119,22 @@ export default function ServiceAccounts() {
         ]}
       />
 
-      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New service account" centered size="lg">
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title={t("serviceAccounts.newTitle")} centered size="lg">
         <Stack>
-          <TextInput label="Username" value={username} onChange={(e) => setUsername(e.currentTarget.value)} />
-          <TextInput label="Label" value={label} onChange={(e) => setLabel(e.currentTarget.value)} />
+          <TextInput label={t("serviceAccounts.usernameLabel")} value={username} onChange={(e) => setUsername(e.currentTarget.value)} />
+          <TextInput label={t("serviceAccounts.labelLabel")} value={label} onChange={(e) => setLabel(e.currentTarget.value)} />
           <GrantsEditor value={grants} onChange={setGrants} />
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button leftSection={<IconKey size={14} />} onClick={submitCreate}>Generate key</Button>
+            <Button variant="default" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
+            <Button leftSection={<IconKey size={14} />} onClick={submitCreate}>{t("serviceAccounts.generate")}</Button>
           </Group>
         </Stack>
       </Modal>
 
       <ConfirmModal
         opened={confirmDel !== null}
-        title="Revoke key"
-        message="Revoking a service account key immediately blocks its access."
+        title={t("serviceAccounts.revokeTitle")}
+        message={t("serviceAccounts.revokeMessage")}
         danger
         onCancel={() => setConfirmDel(null)}
         onConfirm={submitDelete}

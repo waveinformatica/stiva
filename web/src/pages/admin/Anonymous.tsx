@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   TextInput, Textarea, Switch, ActionIcon, DataTable, ConfirmModal, Code,
@@ -14,6 +15,7 @@ type Identity = {
 };
 
 export default function Anonymous() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Identity[]>([]);
   const [trustedProxies, setTrustedProxies] = useState(0);
   const [grantCount, setGrantCount] = useState<Record<string, number>>({});
@@ -105,56 +107,48 @@ export default function Anonymous() {
   return (
     <div>
       <PageHeader
-        title="Anonymous access"
+        title={t("anonymous.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New identity
+            {t("anonymous.newIdentity")}
           </Button>
         }
       />
 
       {err && !open && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        A caller with no credentials is matched against these in order, and the first that fits
-        becomes the principal. From then on it is treated like any other identity: what it may do
-        comes from the grants made to it. Address-restricted identities are tried first, so a
-        catch-all never hides a narrower rule.
+        {t("anonymous.intro")}
       </Text>
 
       {trustedProxies === 0 && rows.some((r) => (r.cidrs || []).length > 0) && (
-        <Alert color="orange" title="Address filters are not being applied as you expect" mb="md">
-          No proxy hop is trusted, so the address seen is the one the connection came from — for
-          traffic through the gateway that is the gateway itself, not the caller. Until{" "}
-          <Code>REGISTRY_TRUSTED_PROXIES</Code> is set to match the number of proxies in front of
-          the registry, a CIDR rule cannot tell an outside caller from an in-cluster one. Reading
-          the header without that would be worse: anyone could claim any address.
+        <Alert color="orange" title={t("anonymous.proxyTitle")} mb="md">
+          {t("anonymous.proxyBodyPre")} <Code>REGISTRY_TRUSTED_PROXIES</Code> {t("anonymous.proxyBodyPost")}
         </Alert>
       )}
 
       {catchAlls.length > 1 && (
-        <Alert color="yellow" title="More than one catch-all" mb="md">
-          {catchAlls.map((c) => c.name).join(", ")} all accept any address. Only the first is ever
-          reached.
+        <Alert color="yellow" title={t("anonymous.catchAllTitle")} mb="md">
+          {t("anonymous.catchAllBody", { names: catchAlls.map((c) => c.name).join(", ") })}
         </Alert>
       )}
 
       <DataTable<Identity>
         rows={rows}
         rowKey={(i) => i.name}
-        empty="No anonymous identity. Callers without credentials are refused."
+        empty={t("anonymous.empty")}
         columns={[
           {
-            header: "Identity",
+            header: t("anonymous.identityHeader"),
             render: (i) => (
               <Stack gap={0}>
                 <Group gap="xs">
                   <Text fw={500}>{i.name}</Text>
-                  {i.disabled && <Badge color="red" size="sm">disabled</Badge>}
+                  {i.disabled && <Badge color="red" size="sm">{t("anonymous.disabledBadge")}</Badge>}
                 </Group>
                 {i.description && (
                   <Text size="xs" c="dimmed">
@@ -165,7 +159,7 @@ export default function Anonymous() {
             ),
           },
           {
-            header: "Recognised by",
+            header: t("anonymous.recognisedHeader"),
             render: (i) =>
               (i.cidrs || []).length ? (
                 <Group gap={4}>
@@ -175,19 +169,20 @@ export default function Anonymous() {
                 </Group>
               ) : (
                 <Badge color="orange" variant="light">
-                  any address
+                  {t("anonymous.anyAddress")}
                 </Badge>
               ),
           },
           {
-            header: "Grants",
+            header: t("anonymous.grantsHeader"),
             width: 120,
             render: (i) => {
               const own = grantCount[i.name] || 0;
               const shared = grantCount["*any*"] || 0;
               return (
                 <Text size="xs" c={own + shared ? undefined : "dimmed"}>
-                  {own} own{shared ? ` + ${shared} shared` : ""}
+                  {t("anonymous.ownCount", { count: own })}
+                  {shared > 0 ? ` + ${t("anonymous.sharedCount", { count: shared })}` : ""}
                 </Text>
               );
             },
@@ -198,7 +193,7 @@ export default function Anonymous() {
             render: (i) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(i)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(i)}>
                   <IconTrash size={16} />
@@ -212,32 +207,32 @@ export default function Anonymous() {
       <Modal
         opened={open}
         onClose={() => setOpen(false)}
-        title={editName ? `Edit ${editName}` : "New anonymous identity"}
+        title={editName ? t("anonymous.editTitle", { name: editName }) : t("anonymous.newTitle")}
         size="lg"
       >
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <TextInput
-            label="Name"
-            placeholder="anon-kubernetes"
-            description="Grants are made to this name, the same way as for a user."
+            label={t("anonymous.nameLabel")}
+            placeholder={t("anonymous.namePlaceholder")}
+            description={t("anonymous.nameDesc")}
             value={name}
             disabled={!!editName}
             onChange={(e) => setName(e.currentTarget.value)}
           />
           <TextInput
-            label="Description"
-            placeholder="Image pulls from the cluster nodes"
+            label={t("anonymous.descriptionLabel")}
+            placeholder={t("anonymous.descriptionPlaceholder")}
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <Textarea
-            label="Addresses"
-            description="One CIDR per line. Leave empty to accept any address — that makes this a catch-all, and it is tried after every restricted identity."
+            label={t("anonymous.addressesLabel")}
+            description={t("anonymous.addressesDesc")}
             placeholder={"172.16.0.0/16\n192.168.2.0/24"}
             autosize
             minRows={3}
@@ -245,21 +240,20 @@ export default function Anonymous() {
             onChange={(e) => setCidrText(e.currentTarget.value)}
           />
           <Switch
-            label="Disabled"
-            description="Kept, but never matched."
+            label={t("anonymous.disabledLabel")}
+            description={t("anonymous.disabledDesc")}
             checked={disabled}
             onChange={(e) => setDisabled(e.currentTarget.checked)}
           />
           <Text size="xs" c="dimmed">
-            An identity grants nothing on its own. After creating it, give it a grant — typically
-            a read-only role scoped to the registries it should pull from.
+            {t("anonymous.createHint")}
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={save}>
-              {editName ? "Save changes" : "Create identity"}
+              {editName ? t("common.saveChanges") : t("anonymous.createIdentity")}
             </Button>
           </Group>
         </Stack>
@@ -267,8 +261,8 @@ export default function Anonymous() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete anonymous identity"
-        message={`Delete ${confirmDel?.name}? Callers it used to recognise fall through to the next matching identity, or are refused if there is none.`}
+        title={t("anonymous.deleteTitle")}
+        message={t("anonymous.deleteMessage", { name: confirmDel?.name })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}

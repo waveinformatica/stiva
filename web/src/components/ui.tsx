@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   Group,
@@ -114,8 +115,9 @@ export function DataTable<T>({
   rowKey: (row: T) => string;
   empty?: string;
 }) {
+  const { t } = useTranslation();
   if (rows.length === 0) {
-    return <EmptyState message={empty || "No data."} />;
+    return <EmptyState message={empty || t("common.noData")} />;
   }
   return (
     <ScrollArea>
@@ -158,16 +160,17 @@ export function ConfirmModal({
   onCancel: () => void;
   danger?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <Modal opened={opened} onClose={onCancel} title={title} centered>
       <Stack>
         <Text size="sm">{message}</Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button color={danger ? "red" : "blue"} onClick={onConfirm}>
-            Confirm
+            {t("common.confirm")}
           </Button>
         </Group>
       </Stack>

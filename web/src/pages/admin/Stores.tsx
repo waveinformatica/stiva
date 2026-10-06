@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Card, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   ActionIcon, DataTable, ConfirmModal,
@@ -10,6 +11,7 @@ import { api } from "../../lib/api";
 type Row = BlobStore & { used_by?: string[] };
 
 export default function Stores() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,16 +68,16 @@ export default function Stores() {
   return (
     <div>
       <PageHeader
-        title="Blob stores"
+        title={t("stores.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New store
+            {t("stores.newStore")}
           </Button>
         }
       />
 
       {err && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
@@ -83,10 +85,10 @@ export default function Stores() {
       <DataTable<Row>
         rows={rows}
         rowKey={(r) => r.name}
-        empty="No store yet. Create one before adding a registry — a registry needs somewhere to put its blobs."
+        empty={t("stores.empty")}
         columns={[
           {
-            header: "Name",
+            header: t("stores.nameHeader"),
             render: (r) => (
               <Stack gap={0}>
                 <Text fw={500}>{r.name}</Text>
@@ -98,23 +100,23 @@ export default function Stores() {
               </Stack>
             ),
           },
-          { header: "Type", render: (r) => <Badge color="indigo">{r.kind}</Badge>, width: 110 },
-          { header: "Target", render: (r) => <Text size="sm">{summary(r)}</Text> },
+          { header: t("stores.typeHeader"), render: (r) => <Badge color="indigo">{r.kind}</Badge>, width: 110 },
+          { header: t("stores.targetHeader"), render: (r) => <Text size="sm">{summary(r)}</Text> },
           {
-            header: "Credential",
+            header: t("stores.credentialHeader"),
             render: (r) => {
               const ref = r.s3?.secret_key || r.azure?.connection_string || "";
               return ref ? (
                 <Text size="xs">{ref.replace("vault://", "")}</Text>
               ) : (
                 <Text size="xs" c="dimmed">
-                  ambient
+                  {t("stores.ambient")}
                 </Text>
               );
             },
           },
           {
-            header: "Used by",
+            header: t("stores.usedByHeader"),
             render: (r) =>
               r.used_by?.length ? (
                 <Group gap={4}>
@@ -126,7 +128,7 @@ export default function Stores() {
                 </Group>
               ) : (
                 <Text size="xs" c="dimmed">
-                  unused
+                  {t("stores.unused")}
                 </Text>
               ),
           },
@@ -136,7 +138,7 @@ export default function Stores() {
             render: (r) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(r)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(r)}>
                   <IconTrash size={16} />
@@ -150,14 +152,14 @@ export default function Stores() {
       <Modal
         opened={open}
         onClose={() => setOpen(false)}
-        title={editName ? `Edit ${editName}` : "New blob store"}
+        title={editName ? t("stores.editTitle", { name: editName }) : t("stores.newTitle")}
         size="lg"
       >
         <BlobStoreForm
           value={form}
           onChange={setForm}
           nameLocked={!!editName}
-          submitLabel={editName ? "Save changes" : "Create store"}
+          submitLabel={editName ? t("common.saveChanges") : t("stores.createStore")}
           onSaved={() => {
             setOpen(false);
             load();
@@ -167,11 +169,11 @@ export default function Stores() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete blob store"
+        title={t("stores.deleteTitle")}
         message={
           confirmDel?.used_by?.length
-            ? `${confirmDel.name} is used by ${confirmDel.used_by.join(", ")}. Detach those registries first.`
-            : `Delete ${confirmDel?.name}? The stored objects are not removed — only this definition.`
+            ? t("stores.deleteUsedMessage", { name: confirmDel.name, users: confirmDel.used_by.join(", ") })
+            : t("stores.deleteMessage", { name: confirmDel?.name })
         }
         danger
         onConfirm={remove}
@@ -180,12 +182,10 @@ export default function Stores() {
 
       <Card withBorder mt="lg" padding="md">
         <Text size="sm" fw={500} mb={4}>
-          Credentials
+          {t("stores.credentialsTitle")}
         </Text>
         <Text size="xs" c="dimmed">
-          Access keys and connection strings are held encrypted and referenced by name, so one
-          credential can serve several stores and rotating it is a single edit. A stored value is
-          never shown again — it can be replaced, not read.
+          {t("stores.credentialsBody")}
         </Text>
       </Card>
     </div>

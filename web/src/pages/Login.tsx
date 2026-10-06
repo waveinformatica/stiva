@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   TextInput,
@@ -17,6 +18,7 @@ import { IconCloud } from "../components/icons";
 type SSOProvider = { id: string; label: string; kind: string };
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     if (hash.includes("sso_error=")) {
       const msg = new URLSearchParams(hash.slice(1)).get("sso_error");
       window.location.hash = "";
-      setErr(msg || "Single sign-on failed.");
+      setErr(msg || t("login.ssoFailed"));
     }
   }, []);
 
@@ -66,7 +68,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         onLogin();
       }
     } catch (e) {
-      setErr(e instanceof ApiError ? "Invalid username or password." : (e as Error).message);
+      setErr(e instanceof ApiError ? t("login.invalidCredentials") : (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -77,12 +79,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     setBusy(true);
     setErr(null);
     if (newPassword.length < 1) {
-      setErr("Choose a new password.");
+      setErr(t("login.chooseNewPassword"));
       setBusy(false);
       return;
     }
     if (newPassword !== confirm) {
-      setErr("The two passwords do not match.");
+      setErr(t("login.passwordsDoNotMatch"));
       setBusy(false);
       return;
     }
@@ -104,38 +106,38 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <Card withBorder w={{ base: "calc(100vw - 2rem)", xs: 360 }} padding="xl" radius="md">
           <Group justify="center" mb="md">
             <IconCloud size={28} />
-            <Title order={3}>Change password</Title>
+            <Title order={3}>{t("login.changePassword")}</Title>
           </Group>
-          <Alert color="yellow" mb="md" title="Password change required">
-            You are using a temporary password. Set a personal password to continue.
+          <Alert color="yellow" mb="md" title={t("login.changeRequiredTitle")}>
+            {t("login.changeRequiredBody")}
           </Alert>
           {err && (
-            <Alert color="red" mb="md" title="Error">
+            <Alert color="red" mb="md" title={t("common.error")}>
               {err}
             </Alert>
           )}
           <form onSubmit={doChange}>
             <Stack>
               <PasswordInput
-                label="Current password"
+                label={t("login.currentPassword")}
                 value={password}
                 onChange={(e) => setPassword(e.currentTarget.value)}
                 required
               />
               <PasswordInput
-                label="New password"
+                label={t("login.newPassword")}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.currentTarget.value)}
                 required
               />
               <PasswordInput
-                label="Confirm new password"
+                label={t("login.confirmNewPassword")}
                 value={confirm}
                 onChange={(e) => setConfirm(e.currentTarget.value)}
                 required
               />
               <Button type="submit" fullWidth loading={busy}>
-                Set password &amp; continue
+                {t("login.setPasswordContinue")}
               </Button>
             </Stack>
           </form>
@@ -151,35 +153,35 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           <img src="/stiva-logo.png" alt="Stiva" style={{ width: 180, height: "auto" }} />
         </Group>
         <Text size="sm" c="dimmed" mb="md" ta="center">
-          Sign in to browse and administer artifacts.
+          {t("login.subtitle")}
         </Text>
         {err && (
-          <Alert color="red" mb="md" title="Login failed">
+          <Alert color="red" mb="md" title={t("login.loginFailed")}>
             {err}
           </Alert>
         )}
         <form onSubmit={submit}>
           <Stack>
             <TextInput
-              label="Username"
+              label={t("login.username")}
               value={username}
               onChange={(e) => setUsername(e.currentTarget.value)}
               required
             />
-            <PasswordInput
-              label="Password"
-              value={password}
+              <PasswordInput
+                label={t("login.password")}
+                value={password}
               onChange={(e) => setPassword(e.currentTarget.value)}
               required
             />
             <Button type="submit" fullWidth loading={busy}>
-              Sign in
+              {t("login.signIn")}
             </Button>
           </Stack>
         </form>
         {providers.length > 0 && (
           <>
-            <Divider label="or continue with" labelPosition="center" my="md" />
+            <Divider label={t("login.orContinueWith")} labelPosition="center" my="md" />
             <Stack gap="xs">
               {providers.map((p) => (
                 <Button

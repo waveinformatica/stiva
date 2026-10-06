@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Stack, Text, Group, Button, Select, PasswordInput, TextInput, Alert } from "./ui";
 import { api } from "../lib/api";
 
@@ -35,6 +36,7 @@ export function SecretField({
   publicFields?: { key: string; label: string; value: string; onChange: (v: string) => void }[];
   suggestedName?: string;
 }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [secrets, setSecrets] = useState<SecretEntry[]>([]);
   const [name, setName] = useState(suggestedName || "");
@@ -59,7 +61,7 @@ export function SecretField({
   const create = async () => {
     setErr(null);
     if (!name.trim() || !plain) {
-      setErr("Name and value are both required.");
+      setErr(t("secrets.nameValueRequired"));
       return;
     }
     setBusy(true);
@@ -115,22 +117,22 @@ export function SecretField({
           variant={mode === "existing" ? "filled" : "default"}
           onClick={() => setMode("existing")}
         >
-          Use existing
+          {t("secrets.useExisting")}
         </Button>
         <Button size="xs" variant={mode === "new" ? "filled" : "default"} onClick={() => setMode("new")}>
-          Create new
+          {t("secrets.createNew")}
         </Button>
       </Group>
 
       {err && (
-        <Alert color="red" title="Credential">
+        <Alert color="red" title={t("secrets.credentialTitle")}>
           {err}
         </Alert>
       )}
 
       {mode === "existing" ? (
         <Select
-          placeholder={secrets.length ? "Select a credential" : "No credentials yet — create one"}
+          placeholder={secrets.length ? t("secrets.selectPlaceholder") : t("secrets.emptyPlaceholder")}
           data={secrets.map((s) => ({
             value: s.key,
             label: s.description ? `${s.key} — ${s.description}` : s.key,
@@ -139,26 +141,26 @@ export function SecretField({
           onChange={(v) => onChange(v ? `vault://${v}` : "")}
           searchable
           clearable
-          nothingFoundMessage="No credential matches"
+          nothingFoundMessage={t("secrets.nothingFound")}
         />
       ) : (
         <Stack gap="xs">
           <TextInput
-            label="Credential name"
-            placeholder="minio-registry-rw"
-            description="How you will refer to it elsewhere. Give it a name you will recognise in six months."
+            label={t("secrets.nameLabel")}
+            placeholder={t("secrets.namePlaceholder")}
+            description={t("secrets.nameDesc")}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
           />
           <PasswordInput
-            label="Value"
-            description="Stored encrypted. It cannot be read back afterwards — only replaced."
+            label={t("secrets.valueLabel")}
+            description={t("secrets.valueDesc")}
             value={plain}
             onChange={(e) => setPlain(e.currentTarget.value)}
           />
           <Group justify="flex-end">
             <Button size="xs" loading={busy} onClick={create}>
-              Save credential
+              {t("secrets.saveCredential")}
             </Button>
           </Group>
         </Stack>
@@ -166,7 +168,7 @@ export function SecretField({
 
       {selected && (
         <Text size="xs" c="dimmed">
-          Using <strong>{selected}</strong>
+          {t("secrets.using")} <strong>{selected}</strong>
         </Text>
       )}
     </Stack>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   TextInput, PasswordInput, ActionIcon, DataTable, ConfirmModal, Code,
@@ -15,6 +16,7 @@ type Secret = {
 };
 
 export default function Credentials() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Secret[]>([]);
   const [usedBy, setUsedBy] = useState<Record<string, string[]>>({});
   const [err, setErr] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export default function Credentials() {
   return (
     <div>
       <PageHeader
-        title="Credentials"
+        title={t("credentials.title")}
         actions={
           <Button
             leftSection={<IconPlus size={16} />}
@@ -124,30 +126,28 @@ export default function Credentials() {
               setCreateOpen(true);
             }}
           >
-            New credential
+            {t("credentials.newCredential")}
           </Button>
         }
       />
 
       {err && !createOpen && !rotateTarget && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        Stored encrypted and referenced by name, so one credential can serve several stores and
-        rotating it is a single edit. A value goes in once and is never shown again — it can be
-        replaced, not read.
+        {t("credentials.intro")}
       </Text>
 
       <DataTable<Secret>
         rows={rows}
         rowKey={(s) => s.key}
-        empty="No credential yet."
+        empty={t("credentials.empty")}
         columns={[
           {
-            header: "Name",
+            header: t("credentials.nameHeader"),
             render: (s) => (
               <Stack gap={0}>
                 <Text fw={500}>{s.key}</Text>
@@ -160,7 +160,7 @@ export default function Credentials() {
             ),
           },
           {
-            header: "Public part",
+            header: t("credentials.publicHeader"),
             render: (s) =>
               Object.keys(s.public || {}).length ? (
                 <Group gap={4}>
@@ -172,12 +172,12 @@ export default function Credentials() {
                 </Group>
               ) : (
                 <Text size="xs" c="dimmed">
-                  none
+                  {t("credentials.none")}
                 </Text>
               ),
           },
           {
-            header: "Used by",
+            header: t("credentials.usedByHeader"),
             render: (s) =>
               usedBy[s.key]?.length ? (
                 <Group gap={4}>
@@ -194,7 +194,7 @@ export default function Credentials() {
               ),
           },
           {
-            header: "Updated",
+            header: t("credentials.updatedHeader"),
             width: 170,
             render: (s) => (
               <Text size="xs" c="dimmed">
@@ -217,7 +217,7 @@ export default function Credentials() {
                     setRotateTarget(s);
                   }}
                 >
-                  Rotate
+                  {t("credentials.rotate")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(s)}>
                   <IconTrash size={16} />
@@ -228,51 +228,51 @@ export default function Credentials() {
         ]}
       />
 
-      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New credential">
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title={t("credentials.newTitle")}>
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <TextInput
-            label="Name"
-            placeholder="minio-registry-rw"
-            description="How you will refer to it elsewhere. Pick something you will recognise in six months."
+            label={t("credentials.nameLabel")}
+            placeholder={t("credentials.namePlaceholder")}
+            description={t("credentials.nameDesc")}
             value={key}
             onChange={(e) => setKey(e.currentTarget.value)}
           />
           <TextInput
-            label="Description"
+            label={t("credentials.descriptionLabel")}
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <Group gap="sm" grow>
             <TextInput
-              label="Public field"
-              description="The non-secret half, kept alongside"
+              label={t("credentials.publicFieldLabel")}
+              description={t("credentials.publicFieldDesc")}
               value={publicKeyName}
               onChange={(e) => setPublicKeyName(e.currentTarget.value)}
             />
             <TextInput
-              label="Its value"
-              placeholder="registry"
+              label={t("credentials.publicValueLabel")}
+              placeholder={t("credentials.publicValuePlaceholder")}
               value={publicValue}
               onChange={(e) => setPublicValue(e.currentTarget.value)}
             />
           </Group>
           <PasswordInput
-            label="Secret value"
-            description="Encrypted at rest. It cannot be read back afterwards."
+            label={t("credentials.secretLabel")}
+            description={t("credentials.secretDesc")}
             value={value}
             onChange={(e) => setValue(e.currentTarget.value)}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={create} disabled={!key || !value}>
-              Create
+              {t("common.create")}
             </Button>
           </Group>
         </Stack>
@@ -281,35 +281,33 @@ export default function Credentials() {
       <Modal
         opened={!!rotateTarget}
         onClose={() => setRotateTarget(null)}
-        title={`Rotate ${rotateTarget?.key}`}
+        title={t("credentials.rotateTitle", { key: rotateTarget?.key })}
       >
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <Text size="sm">
-            Everything referencing this credential picks up the new value immediately. That is the
-            point of naming credentials instead of copying them.
+            {t("credentials.rotateHint")}
           </Text>
           {usedBy[rotateTarget?.key || ""]?.length ? (
-            <Alert color="yellow" title="In use">
-              {usedBy[rotateTarget!.key].join(", ")} will start using the new value at once. Make
-              sure it is already valid at the provider.
+            <Alert color="yellow" title={t("credentials.inUseTitle")}>
+              {t("credentials.inUseBody", { names: usedBy[rotateTarget!.key].join(", ") })}
             </Alert>
           ) : null}
           <PasswordInput
-            label="New value"
+            label={t("credentials.newValueLabel")}
             value={value}
             onChange={(e) => setValue(e.currentTarget.value)}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setRotateTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={rotate} disabled={!value}>
-              Rotate
+              {t("credentials.rotate")}
             </Button>
           </Group>
         </Stack>
@@ -317,11 +315,11 @@ export default function Credentials() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete credential"
+        title={t("credentials.deleteTitle")}
         message={
           usedBy[confirmDel?.key || ""]?.length
-            ? `${confirmDel?.key} is used by ${usedBy[confirmDel!.key].join(", ")}. Detach it there first — the server refuses the deletion.`
-            : `Delete ${confirmDel?.key}? The value is gone for good.`
+            ? t("credentials.deleteUsedMessage", { key: confirmDel?.key, names: usedBy[confirmDel!.key].join(", ") })
+            : t("credentials.deleteMessage", { key: confirmDel?.key })
         }
         danger
         onConfirm={remove}

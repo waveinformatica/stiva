@@ -11,8 +11,11 @@
   "dependencies": {
     "@mantine/core": "^8.0.0",
     "@mantine/hooks": "^8.0.0",
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

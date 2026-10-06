@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader,
   DataTable,
@@ -27,6 +28,7 @@ interface KeyRow {
 }
 
 export default function ApiKeys({ anonymous }: { anonymous?: boolean }) {
+  const { t } = useTranslation();
   const [rows, setRows] = useState<KeyRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,9 +80,9 @@ export default function ApiKeys({ anonymous }: { anonymous?: boolean }) {
   if (anonymous) {
     return (
       <div>
-        <PageHeader title="API keys" />
-        <Alert color="blue" title="Sign in required">
-          API keys belong to a named account. Anonymous callers have no account to own one with.
+        <PageHeader title={t("apikeys.title")} />
+        <Alert color="blue" title={t("apikeys.signinRequiredTitle")}>
+          {t("apikeys.signinRequiredBody")}
         </Alert>
       </div>
     );
@@ -91,36 +93,34 @@ export default function ApiKeys({ anonymous }: { anonymous?: boolean }) {
   return (
     <div>
       <PageHeader
-        title="API keys"
+        title={t("apikeys.title")}
         actions={
           <Button leftSection={<IconPlus size={14} />} onClick={() => { setCreatedKey(null); setCreateOpen(true); }}>
-            New key
+            {t("apikeys.newKey")}
           </Button>
         }
       />
-      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
       {createdKey && (
-        <Alert color="teal" mb="md" title="API key created — copy it now">
+        <Alert color="teal" mb="md" title={t("apikeys.createdTitle")}>
           <Code block style={{ overflowWrap: "anywhere" }}>{createdKey}</Code>
         </Alert>
       )}
       <Text size="sm" c="dimmed" mb="md">
-        Keys authenticate as you: as a client password (<Text span ff="monospace">docker login -u your-name</Text>)
-        and as a bearer token for the API. Optional restrictions narrow the key;
-        every request must still pass your own grants, so a key can never exceed you.
+        {t("apikeys.intro")}
       </Text>
       <DataTable
         rowKey={(r) => r.masked}
         rows={rows}
-        empty="No keys yet. Create one for each service or script."
+        empty={t("apikeys.empty")}
         columns={[
-          { header: "Label", render: (r) => r.label || "—" },
-          { header: "Key", render: (r) => <Code>{r.masked}</Code> },
+          { header: t("apikeys.labelHeader"), render: (r) => r.label || "—" },
+          { header: t("apikeys.keyHeader"), render: (r) => <Code>{r.masked}</Code> },
           {
-            header: "Restrictions",
+            header: t("apikeys.restrictionsHeader"),
             render: (r) =>
               (r.grants || []).length === 0 ? (
-                <Text size="xs" c="dimmed">full access</Text>
+                <Text size="xs" c="dimmed">{t("apikeys.fullAccess")}</Text>
               ) : (
                 <Group gap={4}>
                   {(r.grants || []).map((g, i) => (
@@ -141,26 +141,26 @@ export default function ApiKeys({ anonymous }: { anonymous?: boolean }) {
         ]}
       />
 
-      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="New API key" centered size="lg">
+      <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title={t("apikeys.newTitle")} centered size="lg">
         <Stack>
           {err && (
-            <Alert color="red" title="Could not create key">
+            <Alert color="red" title={t("apikeys.createFailed")}>
               {err}
             </Alert>
           )}
-          <TextInput label="Label" placeholder="ci-push, backup script…" value={label} onChange={(e) => setLabel(e.currentTarget.value)} />
+          <TextInput label={t("apikeys.labelLabel")} placeholder={t("apikeys.labelPlaceholder")} value={label} onChange={(e) => setLabel(e.currentTarget.value)} />
           <GrantsEditor value={grants} onChange={setGrants} />
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button leftSection={<IconKey size={14} />} loading={busy} onClick={submitCreate}>Generate key</Button>
+            <Button variant="default" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
+            <Button leftSection={<IconKey size={14} />} loading={busy} onClick={submitCreate}>{t("apikeys.generate")}</Button>
           </Group>
         </Stack>
       </Modal>
 
       <ConfirmModal
         opened={confirmDel !== null}
-        title="Revoke key"
-        message="Revoking a key immediately blocks its access. Services using it stop working."
+        title={t("apikeys.revokeTitle")}
+        message={t("apikeys.revokeMessage")}
         danger
         onConfirm={submitDelete}
         onCancel={() => setConfirmDel(null)}

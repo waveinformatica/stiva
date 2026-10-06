@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
   TextInput, MultiSelect, ActionIcon, DataTable, ConfirmModal,
@@ -9,6 +10,7 @@ import { api } from "../../lib/api";
 type Grp = { name: string; description: string; members: string[] };
 
 export default function Groups() {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState<Grp[]>([]);
   const [users, setUsers] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -82,33 +84,31 @@ export default function Groups() {
   return (
     <div>
       <PageHeader
-        title="Groups"
+        title={t("groups.title")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
-            New group
+            {t("groups.newGroup")}
           </Button>
         }
       />
 
       {err && !open && (
-        <Alert color="red" title="Error" mb="md" withCloseButton onClose={() => setErr(null)}>
+        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
           {err}
         </Alert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
-        Grant a role to a group and it reaches every member. Identities arriving from LDAP or
-        OIDC bring their own groups as claims; these are for local accounts, and both resolve
-        the same way.
+        {t("groups.intro")}
       </Text>
 
       <DataTable<Grp>
         rows={groups}
         rowKey={(g) => g.name}
-        empty="No group yet."
+        empty={t("groups.empty")}
         columns={[
           {
-            header: "Name",
+            header: t("groups.nameHeader"),
             render: (g) => (
               <Stack gap={0}>
                 <Text fw={500}>{g.name}</Text>
@@ -121,7 +121,7 @@ export default function Groups() {
             ),
           },
           {
-            header: "Members",
+            header: t("groups.membersHeader"),
             render: (g) =>
               g.members?.length ? (
                 <Group gap={4}>
@@ -143,7 +143,7 @@ export default function Groups() {
             render: (g) => (
               <Group gap="xs" justify="flex-end">
                 <Button size="xs" variant="default" onClick={() => openEdit(g)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(g)}>
                   <IconTrash size={16} />
@@ -154,28 +154,28 @@ export default function Groups() {
         ]}
       />
 
-      <Modal opened={open} onClose={() => setOpen(false)} title={editName ? `Edit ${editName}` : "New group"}>
+      <Modal opened={open} onClose={() => setOpen(false)} title={editName ? t("groups.editTitle", { name: editName }) : t("groups.newTitle")}>
         <Stack>
           {err && (
-            <Alert color="red" title="Could not save">
+            <Alert color="red" title={t("common.saveFailed")}>
               {err}
             </Alert>
           )}
           <TextInput
-            label="Name"
-            placeholder="devs"
+            label={t("groups.nameLabel")}
+            placeholder={t("groups.namePlaceholder")}
             value={name}
             disabled={!!editName}
             onChange={(e) => setName(e.currentTarget.value)}
           />
           <TextInput
-            label="Description"
+            label={t("groups.descriptionLabel")}
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <MultiSelect
-            label="Members"
-            description="Local accounts. Federated identities join through their own group claims."
+            label={t("groups.membersLabel")}
+            description={t("groups.membersDesc")}
             data={users}
             value={members}
             onChange={setMembers}
@@ -184,10 +184,10 @@ export default function Groups() {
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button loading={busy} onClick={save}>
-              {editName ? "Save changes" : "Create group"}
+              {editName ? t("common.saveChanges") : t("groups.createGroup")}
             </Button>
           </Group>
         </Stack>
@@ -195,8 +195,8 @@ export default function Groups() {
 
       <ConfirmModal
         opened={!!confirmDel}
-        title="Delete group"
-        message={`Delete ${confirmDel?.name}? Grants made to it are removed too, so its members lose whatever they reached through it.`}
+        title={t("groups.deleteTitle")}
+        message={t("groups.deleteMessage", { name: confirmDel?.name })}
         danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}
