@@ -1,0 +1,26 @@
+name: Bug report
+description: Something broken or behaving insecurely
+labels: [bug]
+body:
+  - type: input
+    attributes:
+      label: Stiva version
+      description: Image tag or commit (`registry --version` if available, else the deployed digest)
+      validations:
+        required: true
+  - type: textarea
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead
+      validations:
+        required: true
+  - type: textarea
+    attributes:
+      label: Logs / errors
+      description: Server log lines and client output (redact tokens and secrets)
+  - type: checkboxes
+    attributes:
+      label: Security
+      options:
+        - label: I have read SECURITY.md and this is NOT a vulnerability report
+          required: true

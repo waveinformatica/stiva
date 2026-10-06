@@ -1,0 +1,19 @@
+name: Feature request
+description: An idea worth discussing before any code
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What cannot be done today, and who needs it
+      validations:
+        required: true
+  - type: textarea
+    attributes:
+      label: Proposal
+      description: How it could work, including what should explicitly NOT happen (auth/authz implications if any)
+  - type: checkboxes
+    attributes:
+      label: Alternatives
+      options:
+        - label: I checked ROADMAP.md and this is not already planned

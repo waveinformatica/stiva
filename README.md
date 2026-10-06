@@ -14,6 +14,9 @@ Registries come in four types — `hosted`, `proxy`, `group`, `cache` — and ca
 share a host through virtual hostnames, dedicated ports and URL base paths,
 with deterministic longest-match routing.
 
+Coming from Nexus, Artifactory or Harbor? See [how Stiva
+compares](docs/COMPARISON.md).
+
 > Status: production-shaped and used daily, under active development. The OCI
 > surface is fully functional; see [ROADMAP.md](./ROADMAP.md) for what's next.
 
@@ -57,7 +60,8 @@ released as open source so that anyone running Kubernetes can benefit from it.
   OAuth2 token validation, browser **single sign-on** (Microsoft 365, Google,
   GitHub, GitLab, LinkedIn, generic OIDC/OAuth2/CAS — managed from the UI),
   user-managed **API keys** (usable as client passwords and bearer tokens,
-  optionally scoped below the owner's power), optional anonymous access.
+  optionally scoped below the owner's power), optional anonymous access with
+  per-identity CIDR filters (e.g. unauthenticated pulls from cluster nodes).
 - **Authorization**: role-based access control — a permission vocabulary,
   named roles, and grants binding a subject to a role within a
   `format:registry:pattern` scope.
@@ -160,8 +164,17 @@ authenticate as their owner — as a client password (`docker login -u <name>`)
 and as a bearer token — with optional `(role, scope)` restrictions. Every
 request must pass the key's restrictions *and* the owner's grants, so a key
 can never exceed its owner; sessions minted from a key stay bound to it, and
-revocation applies immediately. Anonymous access is off by default and, when
-enabled, maps callers to the `anonymous` subject.
+revocation applies immediately.
+
+**Anonymous access with CIDR filters** covers callers that cannot
+authenticate at all — typically Kubernetes nodes pulling images. Anonymous
+access is off by default; when enabled, named anonymous identities
+(Administration → Anonymous access) each carry their own CIDR allowlist and
+their own grants. Address-restricted identities are matched first, so e.g. an
+identity limited to the pod CIDR with pull-only grants serves the cluster
+while the rest of the world still gets a challenge. Caller addresses are
+resolved spoof-safe behind proxies (rightmost untrusted `X-Forwarded-For`
+entry, governed by `REGISTRY_TRUSTED_PROXIES`).
 
 ## Authorization (RBAC)
 
