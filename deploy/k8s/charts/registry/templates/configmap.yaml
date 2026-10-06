@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "registry.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+data:
+  REGISTRY_WEB_DIR: {{ .Values.config.webDir | quote }}
+  REGISTRY_AUTH_TTL: {{ .Values.config.authTtl | quote }}
+  REGISTRY_UPLOADS: {{ .Values.config.uploadsDir | quote }}
+  REGISTRY_TRUSTED_PROXIES: {{ .Values.config.trustedProxies | default 0 | quote }}
+  {{- range $k, $v := .Values.config.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

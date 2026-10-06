@@ -1,0 +1,38 @@
+{{- if and .Values.ingress.enabled (eq (.Values.ingress.mode | default "ingress") "ingress") }}
+{{- $fullname := include "registry.fullname" . }}
+{{- $hosts := .Values.ingress.hosts }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    {{- range $host := $hosts }}
+    - hosts:
+        - {{ $host }}
+      secretName: {{ $.Values.ingress.tls.secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $host := $hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}
+                port:
+                  number: {{ $.Values.service.port }}
+    {{- end }}
+{{- end }}

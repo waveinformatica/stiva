@@ -1,0 +1,54 @@
+{
+ "listen_addr": ":8080",
+ "postgres_dsn": "postgres://registry:registry@localhost:5432/registry?sslmode=disable",
+ "uploads_dir": "./uploads",
+ "read_only": false,
+ "blob": {
+  "type": "s3",
+  "s3_bucket": "my-registry-blobs",
+  "s3_region": "eu-west-1",
+  "s3_endpoint": "",
+  "s3_prefix": "registry",
+  "s3_access_key": "AKIA...",
+  "s3_secret_key": "********",
+  "s3_force_path_style": false
+ },
+ "auth": {
+  "enabled": true,
+  "allow_anonymous": true,
+  "token_ttl": "24h",
+  "realms": [
+   "local",
+   "ldap",
+   "oidc",
+   "oauth",
+   "anonymous"
+  ],
+  "local": {
+   "postgres_dsn": ""
+  },
+  "ldap": {
+   "url": "ldaps://ldap.example.com:636",
+   "bind_dn": "cn=registry,ou=serviceaccounts,dc=example,dc=com",
+   "bind_password": "********",
+   "user_base_dn": "ou=users,dc=example,dc=com",
+   "user_filter": "(sAMAccountName=%s)",
+   "user_name_attr": "cn",
+   "start_tls": false,
+   "group_filter": "(memberUid=%s)"
+  },
+  "oidc": {
+   "issuer": "https://keycloak.example.com/realms/master",
+   "client_id": "registry",
+   "audience": "registry",
+   "username_claim": "preferred_username",
+   "groups_claim": "groups"
+  },
+  "oauth": {
+   "provider": "github",
+   "userinfo_url": "https://api.github.com/user",
+   "map_username": "login",
+   "map_groups": ""
+  }
+ }
+}

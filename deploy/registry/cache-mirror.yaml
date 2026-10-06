@@ -1,0 +1,64 @@
+# Configures containerd on every node to use the cache registry as a pull-through
+# mirror for ALL registries ("*" endpoint). Every image pull from any node is then
+# served (and cached) by the "cache" registry instead of hitting the upstream
+# directly. This is the Kubernetes integration that makes the cache transparent.
+#
+# NOTE: this is best-effort for the common containerd layout where config drops
+# live in /etc/containerd/conf.d and containerd is managed by systemd. If your
+# distribution stores containerd config elsewhere, or uses a different runtime,
+# adapt the hostPath and the restart command accordingly.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-mirror
+  namespace: registry
+data:
+  registry-mirror.toml: |
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."*"]
+      endpoint = ["http://registry.registry.svc:8080"]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: registry-mirror
+  namespace: registry
+  labels:
+    app.kubernetes.io/name: registry-mirror
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: registry-mirror
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: registry-mirror
+    spec:
+      hostPID: true
+      containers:
+        - name: mirror
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              CONF_DIR=/host/etc/containerd/conf.d
+              mkdir -p "$CONF_DIR"
+              cp /etc/registry-mirror/registry-mirror.toml "$CONF_DIR/registry-mirror.toml"
+              echo "wrote containerd mirror drop-in; restarting containerd"
+              nsenter -t 1 -m -- systemctl restart containerd || true
+              sleep 3600
+          volumeMounts:
+            - name: host-etc-containerd
+              mountPath: /host/etc/containerd
+            - name: config
+              mountPath: /etc/registry-mirror
+          securityContext:
+            privileged: true
+      volumes:
+        - name: host-etc-containerd
+          hostPath:
+            path: /etc/containerd
+        - name: config
+          configMap:
+            name: registry-mirror

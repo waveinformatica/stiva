@@ -1,0 +1,90 @@
+# Pre-warm controller for cache registries. It watches every workload in the
+# cluster, extracts the referenced container images, and asks the "cache" registry
+# to pull them into its local store (POST /api/v1/admin/registries/cache/warm).
+# This makes images available in the cache before nodes pull them.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: registry-warmer
+  namespace: registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: registry-warmer
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: registry-warmer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: registry-warmer
+subjects:
+  - kind: ServiceAccount
+    name: registry-warmer
+    namespace: registry
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-warmer
+  namespace: registry
+stringData:
+  # An admin token for the cache registry (REGISTRY_WARMER_TOKEN). Create one via
+  # the UI (Service Accounts) or API, then fill it in (or manage the secret out of band).
+  token: "REPLACE_WITH_ADMIN_TOKEN"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-warmer
+  namespace: registry
+  labels:
+    app.kubernetes.io/name: registry-warmer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: registry-warmer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: registry-warmer
+    spec:
+      serviceAccountName: registry-warmer
+      containers:
+        - name: warmer
+          image: ghcr.io/your-org/registry:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/app/registry-warmer"]
+          env:
+            - name: REGISTRY_WARMER_CACHE_URL
+              value: "http://registry.registry.svc:8080"
+            - name: REGISTRY_WARMER_REGISTRY
+              value: "cache"
+            - name: REGISTRY_WARMER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: registry-warmer
+                  key: token
+            - name: REGISTRY_WARMER_INTERVAL
+              value: "10m"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi

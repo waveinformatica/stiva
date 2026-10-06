@@ -1,0 +1,68 @@
+{{- if .Values.cacheMirror.enabled }}
+{{- $fullname := include "registry.fullname" . }}
+{{- $name := printf "%s-mirror" $fullname }}
+{{- $endpoint := printf "http://%s:%s" $fullname (toString .Values.service.port) }}
+{{- $restart := .Values.cacheMirror.restartCommand | join " " }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+data:
+  registry-mirror.toml: |
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."*"]
+      endpoint = ["{{ $endpoint }}"]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache-mirror
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+    spec:
+      hostPID: true
+      containers:
+        - name: mirror
+          image: {{ .Values.cacheMirror.image }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              CONF_DIR=/host{{ $.Values.cacheMirror.containerdConfDir }}
+              mkdir -p "$CONF_DIR"
+              cp /etc/registry-mirror/registry-mirror.toml "$CONF_DIR/registry-mirror.toml"
+              echo "wrote containerd mirror drop-in; restarting containerd"
+              nsenter -t 1 -m -- {{ $restart }} || true
+              sleep 3600
+          volumeMounts:
+            - name: host-etc-containerd
+              mountPath: /host/etc/containerd
+            - name: config
+              mountPath: /etc/registry-mirror
+          securityContext:
+            privileged: true
+          {{- with .Values.cacheMirror.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: host-etc-containerd
+          hostPath:
+            path: /etc/containerd
+        - name: config
+          configMap:
+            name: {{ $name }}
+{{- end }}

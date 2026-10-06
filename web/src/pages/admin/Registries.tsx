@@ -1,0 +1,498 @@
+import { useEffect, useState } from "react";
+import {
+  Card,
+  PageHeader,
+  DataTable,
+  Badge,
+  Button,
+  Modal,
+  Group,
+  TextInput,
+  PasswordInput,
+  Select,
+  MultiSelect,
+  Switch,
+  Textarea,
+  Alert,
+  Loader,
+  ActionIcon,
+  Text,
+} from "../../components/ui";
+import { api } from "../../lib/api";
+import { BlobStoreForm, emptyStore, type BlobStore } from "../../components/BlobStoreForm";
+import { IconPlus, IconTrash } from "../../components/icons";
+
+type Reg = {
+  name: string;
+  format: string;
+  type: string;
+  online: boolean;
+  default?: boolean;
+  hosts?: string[];
+  port?: number;
+  blob?: any;
+  blob_store?: string;
+  remote_url?: string;
+  remote_user?: string;
+  remote_pass?: string;
+  remote_token?: string;
+  proxy_allow_write?: boolean;
+  cache_default_upstream?: string;
+  cache_upstreams?: Record<string, { url: string; user?: string; pass?: string; token?: string; insecure?: boolean }>;
+  members: string[];
+  write_member: string;
+  base_path: string;
+};
+
+// Parse the "host=url user pass" per-line upstream textarea into the map.
+function parseUpstreams(text: string): Record<string, any> {
+  const out: Record<string, any> = {};
+  text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const eq = line.indexOf("=");
+      if (eq < 0) return;
+      const host = line.slice(0, eq).trim();
+      const rest = line
+        .slice(eq + 1)
+        .trim()
+        .split(/\s+/);
+      const def: any = { url: rest[0] };
+      if (rest[1]) def.user = rest[1];
+      if (rest[2]) def.pass = rest[2];
+      out[host] = def;
+    });
+  return out;
+}
+
+function serializeUpstreams(map?: Record<string, any>): string {
+  if (!map) return "";
+  return Object.entries(map)
+    .map(([h, d]) => (d.user ? `${h}=${d.url} ${d.user} ${d.pass || ""}` : `${h}=${d.url}`))
+    .join("\n");
+}
+
+const emptyForm = (): Reg => ({
+  name: "",
+  format: "oci",
+  type: "hosted",
+  online: true,
+  default: false,
+  hosts: [],
+  port: 0,
+  blob: { type: "file", root: "" },
+  remote_url: "",
+  proxy_allow_write: false,
+  cache_default_upstream: "",
+  cache_upstreams: {},
+  members: [],
+  write_member: "",
+  base_path: "",
+});
+
+export default function Registries() {
+  const [list, setList] = useState<Reg[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editName, setEditName] = useState<string | null>(null);
+  const [form, setForm] = useState<Reg>(emptyForm());
+  // Storage is a reference to a named store, never configuration typed in here.
+  const [storeName, setStoreName] = useState<string>("");
+  const [storeList, setStoreList] = useState<any[]>([]);
+  const [newStore, setNewStore] = useState<BlobStore | null>(null);
+  const [hostsText, setHostsText] = useState("");
+  const [portText, setPortText] = useState("");
+  const [upstreamsText, setUpstreamsText] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    setErr(null);
+    api
+      .adminRegistries()
+      .then((r) => setList(r.registries))
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+  useEffect(() => {
+    api
+      .blobStores()
+      .then((r: any) => setStoreList(r.blob_stores || []))
+      .catch(() => setStoreList([]));
+  }, []);
+
+  const openNew = () => {
+    setEditName(null);
+    setForm(emptyForm());
+    setStoreName("");
+    setNewStore(null);
+    setHostsText("");
+    setPortText("");
+    setUpstreamsText("");
+    setOpen(true);
+  };
+
+  const openEdit = (r: Reg) => {
+    setEditName(r.name);
+    setForm({ ...emptyForm(), ...r });
+    setStoreName(r.blob_store || "");
+    setNewStore(null);
+    setHostsText((r.hosts || []).join(", "));
+    setPortText(r.port ? String(r.port) : "");
+    setUpstreamsText(serializeUpstreams(r.cache_upstreams));
+    setOpen(true);
+  };
+
+  const save = () => {
+    const payload: any = {
+      ...form,
+      hosts: hostsText.split(",").map((s) => s.trim()).filter(Boolean),
+      port: portText ? parseInt(portText, 10) : 0,
+    };
+    delete payload.blob;
+    if (payload.type === "hosted" || payload.type === "proxy" || payload.type === "cache") {
+      payload.blob_store = storeName;
+    }
+    if (payload.type !== "proxy") {
+      delete payload.remote_url;
+      delete payload.remote_user;
+      delete payload.remote_pass;
+      delete payload.remote_token;
+      delete payload.proxy_allow_write;
+    }
+    if (payload.type !== "group") {
+      delete payload.members;
+      delete payload.write_member;
+    }
+    if (payload.type === "cache") {
+      payload.cache_default_upstream = form.cache_default_upstream || undefined;
+      payload.cache_upstreams = parseUpstreams(upstreamsText);
+    } else {
+      delete payload.cache_default_upstream;
+      delete payload.cache_upstreams;
+    }
+    const call = editName
+      ? api.adminUpdateRegistry(editName, payload)
+      : api.adminCreateRegistry(payload);
+    call
+      .then(() => {
+        setOpen(false);
+        load();
+      })
+      .catch((e) => setErr(e.message));
+  };
+
+  const del = (name: string) => {
+    if (!confirm(`Delete registry "${name}"?`)) return;
+    api.adminDeleteRegistry(name).then(load).catch((e) => setErr(e.message));
+  };
+
+  if (loading) return <Loader />;
+  if (err) return <Alert color="red" title="Error">{err}</Alert>;
+
+  return (
+    <div>
+      <PageHeader
+        title="Registries"
+        actions={
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openNew}>
+            New registry
+          </Button>
+        }
+      />
+      {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
+      <DataTable
+        rowKey={(r) => r.name}
+        rows={list}
+        columns={[
+          { header: "Name", render: (r) => <b>{r.name}</b> },
+          {
+            header: "Type",
+            render: (r) => (
+              <Badge color={r.type === "group" ? "grape" : r.type === "proxy" ? "orange" : r.type === "cache" ? "cyan" : "indigo"}>
+                {r.type}
+              </Badge>
+            ),
+          },
+          {
+            header: "Format",
+            render: (r) => <Badge variant="outline">{r.format}</Badge>,
+          },
+          {
+            header: "Status",
+            render: (r) => (
+              <Group gap={4}>
+                {r.online ? <Badge color="green">online</Badge> : <Badge color="gray">offline</Badge>}
+                {r.default && <Badge color="teal">default</Badge>}
+                {(r.port ?? 0) > 0 && <Badge variant="outline">:{r.port ?? 0}</Badge>}
+              </Group>
+            ),
+          },
+          {
+            header: "",
+            render: (r) => (
+              <Group gap={4} justify="flex-end">
+                {r.type === "cache" && (
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="cyan"
+                    onClick={() => {
+                      const img = window.prompt("Warm image into this cache (e.g. gcr.io/x/y:v1):");
+                      if (img) api.adminWarmRegistry(r.name, img).then(load).catch((e) => setErr(e.message));
+                    }}
+                  >
+                    Warm
+                  </Button>
+                )}
+                <Button size="compact-xs" variant="default" onClick={() => openEdit(r)}>
+                  Edit
+                </Button>
+                <ActionIcon color="red" variant="subtle" onClick={() => del(r.name)}>
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Group>
+            ),
+          },
+        ]}
+      />
+
+      <Modal opened={open} onClose={() => setOpen(false)} title={editName ? `Edit ${editName}` : "New registry"} size="lg">
+        <Group gap="sm" grow>
+          <TextInput
+            label="Name"
+            value={form.name}
+            disabled={!!editName}
+            onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
+          />
+          <Select
+            label="Type"
+            data={form.format === "oci" ? ["hosted", "proxy", "group", "cache"] : ["hosted", "proxy", "group"]}
+            value={form.type}
+            onChange={(v) => setForm({ ...form, type: v || "hosted" })}
+            allowDeselect={false}
+          />
+          <Select
+            label="Format"
+            data={[
+              { value: "oci", label: "oci (container images)" },
+              { value: "helm", label: "helm (chart repo)" },
+              { value: "maven", label: "maven (jar/pom repo)" },
+              { value: "npm", label: "npm (package repo)" },
+              { value: "pypi", label: "pypi (python packages)" },
+              { value: "go", label: "go (modules)" },
+              { value: "raw", label: "raw (binary store)" },
+              { value: "nuget", label: "nuget (.nupkg)" },
+              { value: "rubygems", label: "rubygems (.gem)" },
+              { value: "composer", label: "composer (php)" },
+              { value: "conda", label: "conda (packages)" },
+              { value: "apt", label: "apt (debian .deb)" },
+              { value: "yum", label: "yum (rpm)" },
+              { value: "conan", label: "conan (C/C++)" },
+              { value: "cocoapods", label: "cocoapods (iOS)" },
+              { value: "cran", label: "cran (R)" },
+              { value: "elpa", label: "elpa (emacs)" },
+              { value: "p2", label: "p2 (eclipse)" },
+              { value: "opkg", label: "opkg (embedded)" },
+              { value: "chef", label: "chef (cookbooks)" },
+              { value: "puppet", label: "puppet (modules)" },
+              { value: "vagrant", label: "vagrant (boxes)" },
+              { value: "sbt", label: "sbt (scala)" },
+              { value: "ivy", label: "ivy" },
+              { value: "gradle", label: "gradle" },
+              { value: "git-lfs", label: "git-lfs" },
+            ]}
+            value={form.format}
+            onChange={(v) => {
+              const f = v || "oci";
+              setForm({
+                ...form,
+                format: f,
+                base_path: f === "oci" ? "" : form.base_path || form.name,
+              });
+            }}
+            allowDeselect={false}
+            w={200}
+          />
+        </Group>
+
+        <Group gap="sm" mt="sm">
+          <Switch label="Online" checked={form.online} onChange={(e) => setForm({ ...form, online: e.currentTarget.checked })} />
+          <Switch label="Default (host routing)" checked={!!form.default} onChange={(e) => setForm({ ...form, default: e.currentTarget.checked })} />
+        </Group>
+
+        <Group gap="sm" mt="sm">
+          <TextInput
+            label="Virtual hosts (comma separated)"
+            placeholder="docker.internal, registry.example.com"
+            value={hostsText}
+            onChange={(e) => setHostsText(e.currentTarget.value)}
+            style={{ flex: 1 }}
+          />
+          <TextInput
+            label="Dedicated TCP port"
+            placeholder="5001"
+            value={portText}
+            onChange={(e) => setPortText(e.currentTarget.value)}
+            w={160}
+          />
+        </Group>
+
+        {form.format !== "oci" ? (
+          <TextInput
+            label="Base path (shared host routing)"
+            description="URL prefix on the virtual hosts above, e.g. maven-central serves https://host/maven-central/…. The longest matching prefix wins; empty keeps the legacy catch-all."
+            placeholder={form.name ? `${form.name} (registry name)` : "registry-name"}
+            mt="sm"
+            value={form.base_path || ""}
+            onChange={(e) => setForm({ ...form, base_path: e.currentTarget.value })}
+          />
+        ) : null}
+
+        {form.type === "hosted" || form.type === "proxy" || form.type === "cache" ? (
+          <div style={{ marginTop: "0.75rem" }}>
+            <Group gap="sm" align="flex-end">
+              <Select
+                label="Blob store"
+                placeholder={storeList.length ? "Select a store" : "No store yet — create one"}
+                data={storeList.map((s: any) => ({
+                  value: s.name,
+                  label: `${s.name} (${s.kind})`,
+                }))}
+                value={storeName || null}
+                onChange={(v) => {
+                  setStoreName(v || "");
+                  setNewStore(null);
+                }}
+                allowDeselect={false}
+                style={{ flex: 1 }}
+              />
+              <Button
+                variant={newStore ? "filled" : "default"}
+                onClick={() => setNewStore(newStore ? null : emptyStore())}
+              >
+                {newStore ? "Cancel" : "New store"}
+              </Button>
+            </Group>
+
+            {newStore && (
+              <Card withBorder mt="sm" padding="md">
+                <BlobStoreForm
+                  value={newStore}
+                  onChange={setNewStore}
+                  submitLabel="Create and use"
+                  onSaved={(saved) => {
+                    // Created here, selected here: the registry form never asks
+                    // for storage details of its own.
+                    setStoreName(saved.name);
+                    setNewStore(null);
+                    api.blobStores().then((r: any) => setStoreList(r.blob_stores || []));
+                  }}
+                />
+              </Card>
+            )}
+
+            <Text size="xs" c="dimmed" mt={6}>
+              The registry gets its own namespace inside the store automatically, so several
+              registries can share one backend safely.
+            </Text>
+          </div>
+        ) : null}
+
+        {form.type === "proxy" ? (
+          <div>
+            <TextInput
+              label="Remote URL"
+              placeholder="https://registry-1.docker.io"
+              mt="sm"
+              value={form.remote_url || ""}
+              onChange={(e) => setForm({ ...form, remote_url: e.currentTarget.value })}
+            />
+            <Group gap="sm" mt="sm">
+              <TextInput label="Remote user" value={form.remote_user || ""} onChange={(e) => setForm({ ...form, remote_user: e.currentTarget.value })} style={{ flex: 1 }} />
+              <PasswordInput label="Remote password" value={form.remote_pass || ""} onChange={(e) => setForm({ ...form, remote_pass: e.currentTarget.value })} style={{ flex: 1 }} />
+            </Group>
+            <Group gap="sm" mt="sm">
+              <TextInput label="Remote token (static bearer)" value={form.remote_token || ""} onChange={(e) => setForm({ ...form, remote_token: e.currentTarget.value })} style={{ flex: 1 }} />
+              <Switch mt="lg" label="Allow writes (write-through)" checked={!!form.proxy_allow_write} onChange={(e) => setForm({ ...form, proxy_allow_write: e.currentTarget.checked })} />
+            </Group>
+          </div>
+        ) : null}
+
+        {form.type === "cache" ? (
+          <div>
+            <TextInput
+              label="Default upstream (host-less repos, e.g. Docker Hub)"
+              placeholder="https://registry-1.docker.io"
+              mt="sm"
+              value={form.cache_default_upstream || ""}
+              onChange={(e) => setForm({ ...form, cache_default_upstream: e.currentTarget.value })}
+            />
+            <Textarea
+              label="Upstreams (one per line: host=url [user pass])"
+              placeholder={"gcr.io=https://gcr.io\nquay.io=https://quay.io\nmyreg:5000=http://myreg:5000 insecure"}
+              mt="sm"
+              autosize
+              minRows={3}
+              value={upstreamsText}
+              onChange={(e) => setUpstreamsText(e.currentTarget.value)}
+            />
+            <Alert color="blue" mt="sm" title="Pull-through cache">
+              Acts as a transparent mirror: every pull is served from the local store and, on a
+              miss, fetched from the upstream resolved by the repo host (host-less repos use the
+              default upstream). Writes are rejected. Point containerd mirrors at this registry.
+            </Alert>
+          </div>
+        ) : null}
+
+        {form.type === "group" ? (
+          <div>
+            <MultiSelect
+              label="Member registries (read aggregation, in order)"
+              description="Reads are served by the first member that has the repository; order matters. Deselect and reselect to reorder."
+              mt="sm"
+              data={list.filter((r) => r.name !== editName).map((r) => r.name)}
+              value={form.members || []}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  members: v,
+                  // The write target must be one of the members, otherwise the
+                  // definition is rejected on save.
+                  write_member: v.includes(form.write_member) ? form.write_member : v[0] || "",
+                })
+              }
+              placeholder={list.length > 1 ? "Select member registries" : "No other registry to aggregate"}
+              searchable
+              clearable
+              nothingFoundMessage="No match"
+            />
+            <Select
+              label="Write member (default target for pushes)"
+              mt="sm"
+              data={(form.members || []).filter((m) => list.find((r) => r.name === m)?.type !== "group")}
+              value={form.write_member || null}
+              onChange={(v) => setForm({ ...form, write_member: v ?? "" })}
+              allowDeselect
+            />
+            {!(form.members || []).length ? (
+              <Text size="xs" c="dimmed" mt={6}>
+                A group needs at least one member registry.
+              </Text>
+            ) : null}
+          </div>
+        ) : null}
+
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={save}>Save</Button>
+        </Group>
+      </Modal>
+    </div>
+  );
+}

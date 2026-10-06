@@ -1,0 +1,183 @@
+# Default values for the registry Helm chart.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # registry: set to your image registry (e.g. ghcr.io/your-org). Empty => no prefix.
+  registry: ""
+  repository: registry
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Extra envFrom sources merged into the registry container, e.g. an existing
+# Secret holding object-store credentials that this chart should not own:
+#   extraEnvFrom:
+#     - secretRef:
+#         name: registry-s3
+extraEnvFrom: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Create a dedicated Namespace for the release. When false the chart assumes the
+# release namespace already exists.
+createNamespace: true
+
+service:
+  type: ClusterIP
+  # Cluster-internal port. Pods reference images as
+  # <release>-registry:<port>/<repo>:<tag> (default 5000, like Docker Hub).
+  port: 5000
+  targetPort: 8080
+
+containerPort: 8080
+
+# ---------------------------------------------------------------------------
+# Ingress / exposing the registry.
+#
+# Explicit mode — there is exactly one behaviour, selected by `mode`:
+#   - "ingress"   : a standard Kubernetes Ingress (nginx by default)
+#   - "istio-vs"  : an Istio VirtualService bound to `istio.gateway`
+#
+# The registry resolves the incoming Host header to a registry definition (the
+# definitions are created via the UI/API with a matching `hosts` field), so list
+# here EVERY external hostname you assigned to a registry. All hosts are routed
+# to the single service; the registry itself dispatches per Host.
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  mode: ingress
+  className: nginx
+  hosts:
+    - registry.example.com
+  istio:
+    gateway: istio-ingressgateway/istio-ingressgateway
+  tls:
+    enabled: false
+    secretName: ""
+  annotations: {}
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+# PostgreSQL metadata store (REQUIRED). When enabled a bitnami/postgresql
+# subchart is deployed; otherwise point `postgresql.external` at an existing
+# instance. There is no other supported metadata backend.
+postgresql:
+  enabled: true
+  auth:
+    username: registry
+    password: changeme
+    database: registry
+  primary:
+    service:
+      ports:
+        postgresql: 5432
+  external:
+    host: ""
+    port: 5432
+    username: registry
+    password: changeme
+    database: registry
+    sslmode: disable
+
+# Application configuration → REGISTRY_* environment variables.
+config:
+  webDir: "/app/web/dist"
+  authTtl: "24h"
+  uploadsDir: "/data/uploads"
+  # How many X-Forwarded-For hops were appended by proxies in front of the
+  # registry. Address-based anonymous identities are only as trustworthy as this
+  # number: too high and a caller can claim any address by writing the header
+  # themselves; zero ignores the header entirely, which is the safe default.
+  # Behind a single Istio gateway the value is 1.
+  trustedProxies: 0
+  # Extra free-form REGISTRY_* variables. Storage is NOT configured here: blob
+  # stores are database rows managed from the UI, and their credentials live in
+  # the vault. Nothing load-bearing belongs in this file.
+  extraEnv: {}
+
+# Bootstrap admin account (created on first start if missing).
+admin:
+  user: admin
+  password: changeme
+
+# Master key for the credential vault (hex, 32 bytes). Stored credentials —
+# object-store keys, LDAP bind passwords, proxy tokens — are encrypted with a
+# per-secret data key which is itself wrapped with this one. Required as soon as
+# any store needs a credential; without it those stores fail to build rather
+# than falling back to cleartext.
+#   openssl rand -hex 32
+vaultKey: ""
+
+# Stable HMAC secret for session tokens. Empty => auto-generated (rotates tokens
+# on every restart). Set to keep tokens valid across restarts.
+authSecret: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ---------------------------------------------------------------------------
+# Cache registry helpers (optional).
+#
+# A `cache` repository is a transparent, multi-upstream pull-through mirror. To
+# make it useful you normally deploy BOTH helpers below:
+#   - cacheMirror : rewires containerd on every node to use the cache for ALL
+#                   registries ("*" endpoint), so pulls are served/cached by it.
+#   - warmer      : proactively pulls referenced images into the cache before
+#                   nodes request them (air-gap readiness / outage absorption).
+# ---------------------------------------------------------------------------
+
+# Node-side containerd mirror (DaemonSet). Best-effort for systemd-managed
+# containerd; adapt containerdConfDir / restartCommand to your distribution.
+cacheMirror:
+  enabled: false
+  image: busybox:1.36
+  containerdConfDir: /etc/containerd/conf.d
+  restartCommand:
+    - systemctl
+    - restart
+    - containerd
+  resources: {}
+
+# Pre-warm controller (Deployment). Requires an admin token for the cache
+# registry — set warmer.token (or manage the <release>-warmer secret out of band).
+warmer:
+  enabled: false
+  token: ""
+  # Defaults to http://<release>-registry:<service.port> when empty.
+  cacheUrl: ""
+  registry: cache
+  interval: 10m
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi

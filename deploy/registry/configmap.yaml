@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-config
+  namespace: registry
+data:
+  # Bind inside the container.
+  REGISTRY_LISTEN_ADDR: ":8080"
+
+  # Authentication: enabled, but anonymous pull is allowed. This is what makes
+  # cluster-wide image pulls work WITHOUT an imagePullSecret: any pod can pull
+  # anonymously, while pushing always requires a token.
+  REGISTRY_AUTH: "true"
+  REGISTRY_AUTH_ANON: "true"
+  REGISTRY_AUTH_TTL: "24h"
+
+  # Blob store. Use "s3", "gcs" or "azure" to back blobs with an object store
+  # instead of the in-cluster PVC below.
+  REGISTRY_BLOB_TYPE: "file"
+  REGISTRY_BLOB_ROOT: "/data/blobs"
+
+  # In-progress uploads.
+  REGISTRY_UPLOADS: "/data/uploads"
+
+  # Read-only registry (reject all pushes). Keep "false" for a writeable mirror.
+  REGISTRY_READONLY: "false"
+
+  # Where the SPA build is mounted inside the image.
+  REGISTRY_WEB_DIR: "/app/web/dist"

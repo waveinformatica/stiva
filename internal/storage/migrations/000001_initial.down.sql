@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS objects;
+DROP TABLE IF EXISTS auth_user_roles;
+DROP TABLE IF EXISTS auth_roles;
+DROP TABLE IF EXISTS auth_api_keys;
+DROP TABLE IF EXISTS auth_users;
+DROP TABLE IF EXISTS manifest_blobs;
+DROP TABLE IF EXISTS tags;
+DROP TABLE IF EXISTS manifests;
+DROP TABLE IF EXISTS blobs;
+DROP TABLE IF EXISTS repositories;
+DROP TABLE IF EXISTS registries_meta;

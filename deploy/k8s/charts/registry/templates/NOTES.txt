@@ -1,0 +1,33 @@
+1. The registry is deployed in namespace {{ .Release.Namespace }}.
+
+2. Ingress (mode={{ .Values.ingress.mode }}):
+{{- range .Values.ingress.hosts }}
+   - http{{ if $.Values.ingress.tls.enabled }}s{{ end }}://{{ . }}
+{{- end }}
+
+3. Configure registry definitions with matching `hosts`. The registry resolves
+   the incoming Host header to a definition, so every host listed above must be
+   assigned to a registry (via the UI/API). Example — a hosted Helm repo:
+     curl -u {{ .Values.admin.user }}:{{ .Values.admin.password }} \
+       -X POST https://{{ index .Values.ingress.hosts 0 }}/api/v1/admin/registries \
+       -H 'Content-Type: application/json' \
+       -d '{"name":"charts","type":"hosted","format":"helm","online":true,
+            "hosts":{{ toJson .Values.ingress.hosts }},
+            "blob":{"type":"file","root":"/data/charts"}}'
+
+4. Push/pull (OCI), e.g. with the first host above:
+     docker login {{ index .Values.ingress.hosts 0 }} -u {{ .Values.admin.user }}
+     docker tag myapp:1.0 {{ index .Values.ingress.hosts 0 }}/myapp:1.0
+     docker push {{ index .Values.ingress.hosts 0 }}/myapp:1.0
+
+5. PostgreSQL: {{ if .Values.postgresql.enabled }}bundled bitnami/postgresql subchart{{ else }}external ({{ .Values.postgresql.external.host }}){{ end }}.
+{{- if .Values.cacheMirror.enabled }}
+
+6. cache-mirror DaemonSet is active: every node now uses this registry as a
+   pull-through mirror for ALL registries ("*").{{- end }}
+{{- if .Values.warmer.enabled }}
+
+7. warmer Deployment is active: it pre-pulls referenced images into the `cache`
+   registry. Ensure `warmer.token` holds a valid admin token
+   (set --set warmer.token=... or manage the {{ .Release.Name }}-registry-warmer
+   secret).{{- end }}

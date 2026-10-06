@@ -1,0 +1,18 @@
+# Binaries & build output
+/registry
+/cmd/registry/registry
+*.exe
+
+# Storage & runtime data
+/data/
+*.db
+*.db-*
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Misc
+*.log
+*.tar
+.DS_Store
