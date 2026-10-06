@@ -1,0 +1,64 @@
+# Example values for the Stiva Helm chart. Copy to your own values file and
+# adapt hosts, storage and secrets. Secrets are NOT stored here: admin.password,
+# authSecret and vaultKey (and postgresql.external.password below) are passed
+# with --set-string at install time, e.g.:
+#
+#   helm install registry deploy/k8s/charts/registry -f my-values.yaml \
+#     --set-string admin.password="$(openssl rand -base64 24)" \
+#     --set-string authSecret="$(openssl rand -hex 32)" \
+#     --set-string vaultKey="$(openssl rand -hex 32)" \
+#     --set-string postgresql.external.password="..."
+
+createNamespace: true
+
+image:
+  # Public image built by the repo workflow on every v* tag.
+  registry: ghcr.io/your-org
+  repository: stiva
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5000
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  mode: ingress
+  className: nginx
+  hosts:
+    - registry.example.com
+  tls:
+    enabled: false
+
+# Metadata store: bundled PostgreSQL by default. For an existing instance set
+# enabled: false and fill in postgresql.external (password via --set-string).
+postgresql:
+  enabled: true
+
+# Blobs live wherever the named blob stores point (configured from the UI, not
+# here), so object storage needs no values. Local persistence only matters for
+# upload staging.
+persistence:
+  enabled: true
+
+extraEnvFrom: []
+
+config:
+  webDir: "/app/web/dist"
+  authTtl: "24h"
+  uploadsDir: "/data/uploads"
+  trustedProxies: 1
+  extraEnv: {}
+
+admin:
+  user: admin
+
+# Node-side containerd rewiring for the pull-through cache. Leave disabled
+# until the cache registry itself is populated and serving.
+cacheMirror:
+  enabled: false
+
+warmer:
+  enabled: false
