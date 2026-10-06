@@ -575,7 +575,7 @@ export default function Registries() {
                   </Button>
                 </Group>
                 <Text size="xs" c="dimmed">Point apt at the signed metadata:</Text>
-                <Code block>{aptClientSnippet()}</Code>
+                <Code block style={{ overflowWrap: "anywhere" }}>{aptClientSnippet()}</Code>
               </Stack>
             ) : null}
           </div>

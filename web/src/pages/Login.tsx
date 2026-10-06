@@ -101,7 +101,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   if (needChange) {
     return (
       <Stack align="center" justify="center" h="100vh">
-        <Card withBorder w={360} padding="xl" radius="md">
+        <Card withBorder w={{ base: "calc(100vw - 2rem)", xs: 360 }} padding="xl" radius="md">
           <Group justify="center" mb="md">
             <IconCloud size={28} />
             <Title order={3}>Change password</Title>
@@ -146,7 +146,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
 
   return (
     <Stack align="center" justify="center" h="100vh">
-      <Card withBorder w={360} padding="xl" radius="md">
+      <Card withBorder w={{ base: "calc(100vw - 2rem)", xs: 360 }} padding="xl" radius="md">
         <Group justify="center" mb="md">
           <img src="/stiva-logo.png" alt="Stiva" style={{ width: 180, height: "auto" }} />
         </Group>

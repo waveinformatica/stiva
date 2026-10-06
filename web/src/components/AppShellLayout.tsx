@@ -1,4 +1,5 @@
-import { AppShell, Group, Title, Badge, Button, Text, NavLink } from "@mantine/core";
+import { AppShell, Burger, Group, Title, Badge, Button, Text, NavLink } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
   IconSearch,
   IconUsers,
@@ -48,22 +49,27 @@ export default function AppShellLayout({
       label={label}
       leftSection={icon}
       active={view === key}
-      onClick={() => setView(key)}
+      onClick={() => {
+        setView(key);
+        closeNav();
+      }}
     />
   );
+  const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false);
 
   return (
     <AppShell
       header={{ height: 56 }}
-      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: true } }}
+      navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !navOpened } }}
       padding="md"
     >
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          <Group wrap="nowrap">
+            <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label="Navigation" />
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
             <Title order={4}>Stiva</Title>
-            <Badge variant="light" color="blue">
+            <Badge variant="light" color="blue" visibleFrom="sm">
               OCI
             </Badge>
           </Group>

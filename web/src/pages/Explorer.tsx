@@ -193,7 +193,7 @@ function ArtifactBrowser({
       <Group mb="md">
         <Badge color="blue">{format}</Badge>
         {endpoint ? (
-          <Code>
+          <Code style={{ overflowWrap: "anywhere" }}>
             https://{endpoint}
             {basePath ? `/${basePath}` : ""}/
           </Code>
@@ -283,7 +283,7 @@ function GlobalSearch({
     <div>
       <Group mb="md">
         <TextInput
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 200 }}
           placeholder="Search artifacts across all registries…"
           leftSection={<IconSearch size={16} />}
           value={q}
@@ -319,7 +319,7 @@ function GlobalSearch({
                 <Badge variant="light" color="gray">
                   {r.registry}
                 </Badge>
-                <Code>{r.name}</Code>
+                <Code style={{ overflowWrap: "anywhere" }}>{r.name}</Code>
               </Group>
               {r.kind === "artifact" ? (
                 <Button

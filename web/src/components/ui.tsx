@@ -11,7 +11,8 @@ import {
   Center,
   Alert,
   Button,
-  Modal,
+  Modal as MantineModal,
+  type ModalProps,
   TextInput,
   PasswordInput,
   Select,
@@ -28,6 +29,7 @@ import {
   Tree,
   CopyButton,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 
 // Re-export the core Mantine primitives so the whole UI imports from one place.
 export {
@@ -41,7 +43,6 @@ export {
   Loader,
   Alert,
   Button,
-  Modal,
   TextInput,
   PasswordInput,
   Select,
@@ -58,6 +59,13 @@ export {
   Tree,
   CopyButton,
 };
+
+// Modal goes fullscreen on narrow screens so form dialogs stay usable on
+// phones without touching every call site.
+export function Modal(props: ModalProps) {
+  const narrow = useMediaQuery("(max-width: 48em)");
+  return <MantineModal fullScreen={narrow} {...props} />;
+}
 
 export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (

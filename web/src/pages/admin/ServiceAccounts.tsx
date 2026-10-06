@@ -83,7 +83,7 @@ export default function ServiceAccounts() {
       {err && <Alert color="red" mb="md" title="Error">{err}</Alert>}
       {createdKey && (
         <Alert color="teal" mb="md" title="API key created — copy it now">
-          <Code block>{createdKey}</Code>
+          <Code block style={{ overflowWrap: "anywhere" }}>{createdKey}</Code>
         </Alert>
       )}
       <DataTable

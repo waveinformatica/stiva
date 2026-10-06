@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTree, type TreeNodeData } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import {
   Alert,
   Badge,
@@ -158,6 +159,7 @@ export default function RepoBrowser({
   const [loading, setLoading] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const tree = useTree();
+  const narrow = useMediaQuery("(max-width: 48em)");
 
   const host = endpoint || registry;
   const repoRef = repo ? `${host}/${repo}` : host;
@@ -263,8 +265,8 @@ export default function RepoBrowser({
   const config = manifest?.manifest?.config;
 
   return (
-    <Group gap="md" align="flex-start" wrap="nowrap">
-      <Card withBorder padding="sm" w={300} style={{ flexShrink: 0 }}>
+    <Group gap="md" align="flex-start" wrap={narrow ? "wrap" : "nowrap"}>
+      <Card withBorder padding="sm" w={narrow ? "100%" : 300} style={{ flexShrink: 0 }}>
         <TextInput
           size="xs"
           placeholder="Filter repositories…"
@@ -287,7 +289,7 @@ export default function RepoBrowser({
             Refresh
           </Button>
         </Group>
-        <ScrollArea h={480} type="auto" offsetScrollbars>
+        <ScrollArea h={narrow ? 300 : 480} type="auto" offsetScrollbars>
           {loading && repos.length === 0 ? (
             <Loader size="sm" />
           ) : data.length === 0 ? (
@@ -307,13 +309,13 @@ export default function RepoBrowser({
         </ScrollArea>
       </Card>
 
-      <Card withBorder padding="md" style={{ flex: 1, minWidth: 0 }}>
+      <Card withBorder padding="md" style={{ flex: 1, minWidth: narrow ? "100%" : 0 }}>
         {!repo ? (
           <EmptyState message="Select a repository on the left to see its tags." />
         ) : (
           <Stack gap="sm">
-            <Group justify="space-between" wrap="nowrap">
-              <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+            <Group justify="space-between" wrap="wrap">
+              <Group gap="xs" wrap="wrap" style={{ minWidth: 0 }}>
                 <IconBox size={16} />
                 <Text fw={600} truncate>
                   {repo}
@@ -322,7 +324,7 @@ export default function RepoBrowser({
                   {tags.length} tag{tags.length === 1 ? "" : "s"}
                 </Badge>
               </Group>
-              <Group gap={4} wrap="nowrap">
+              <Group gap={4} wrap="wrap">
                 <Code>{repoRef}</Code>
                 <CopyAction value={repoRef} />
               </Group>
@@ -359,7 +361,7 @@ export default function RepoBrowser({
                     header: "Pull",
                     width: "45%",
                     render: (t) => (
-                      <Group gap={4} wrap="nowrap">
+                      <Group gap={4} wrap="wrap">
                         <Code style={{ flex: 1 }}>{`${repoRef}:${t}`}</Code>
                         <CopyAction value={`${repoRef}:${t}`} />
                       </Group>
@@ -371,14 +373,14 @@ export default function RepoBrowser({
 
             {tag && manifest && (
               <Card withBorder padding="sm">
-                <Group justify="space-between" mb="xs" wrap="nowrap">
-                  <Group gap="xs" wrap="nowrap">
+                <Group justify="space-between" mb="xs" wrap="wrap">
+                  <Group gap="xs" wrap="wrap">
                     <Badge color="teal">{tag}</Badge>
                     <Text size="xs" c="dimmed">
                       {manifest.media_type}
                     </Text>
                   </Group>
-                  <Group gap={4} wrap="nowrap">
+                  <Group gap={4} wrap="wrap">
                     <Text size="xs" c="dimmed">
                       {manifest.digest}
                     </Text>
@@ -387,7 +389,7 @@ export default function RepoBrowser({
                 </Group>
 
                 {config && (
-                  <Group gap="xs" mb={4} wrap="nowrap">
+                  <Group gap="xs" mb={4} wrap="wrap">
                     <Text size="xs" c="dimmed" w={70}>
                       config
                     </Text>
@@ -402,7 +404,7 @@ export default function RepoBrowser({
                 {layers.length > 0 && (
                   <Stack gap={2} mt={4}>
                     {layers.map((l, i) => (
-                      <Group key={l.digest || i} gap="xs" wrap="nowrap">
+                      <Group key={l.digest || i} gap="xs" wrap="wrap">
                         <Text size="xs" c="dimmed" w={70}>
                           layer {i}
                         </Text>
@@ -427,7 +429,7 @@ export default function RepoBrowser({
                 {childManifests.length > 0 && (
                   <Stack gap={2} mt={4}>
                     {childManifests.map((m: any) => (
-                      <Group key={m.digest} gap="xs" wrap="nowrap">
+                      <Group key={m.digest} gap="xs" wrap="wrap">
                         <Text size="xs" c="dimmed" w={70}>
                           manifest
                         </Text>
