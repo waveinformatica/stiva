@@ -30,16 +30,25 @@ type MetadataStore interface {
 	OrphanBlobs(registry string, olderThan time.Time) ([]BlobInfo, error)
 
 	// Manifests
-	PutManifest(registry, repo string, d digest.Digest, mediaType string, content []byte) error
+	PutManifest(registry, repo string, d digest.Digest, mediaType, author, imageCreated string, content []byte) error
 	GetManifest(registry, repo string, d digest.Digest) ([]byte, string, error)
 	ManifestExists(registry, repo string, d digest.Digest) (bool, error)
 	DeleteManifest(registry, repo string, d digest.Digest) error
 	ListManifests(registry, repo string) ([]digest.Digest, error)
+	// ManifestProvenance returns the recorded image author and creation time
+	// (from the image config at push time), possibly empty when the config
+	// was never available locally.
+	ManifestProvenance(registry, repo string, d digest.Digest) (author, created string, err error)
+	// SetManifestProvenance records author/created for an already stored
+	// manifest (lazy backfill for images pushed before provenance existed).
+	SetManifestProvenance(registry, repo string, d digest.Digest, author, created string) error
 
 	// Tags
 	ResolveTag(registry, repo, tag string) (digest.Digest, error)
 	SetTag(registry, repo, tag string, d digest.Digest) error
 	ListTags(registry, repo string) ([]string, error)
+	// ListTagInfos lists tags with their last-push time (UnixNano, 0 unknown).
+	ListTagInfos(registry, repo string) ([]TagInfo, error)
 
 	// Manifest -> Blob links
 	LinkBlob(registry, repo string, manifest, blob digest.Digest) error
@@ -95,6 +104,14 @@ type BlobInfo struct {
 	Digest    digest.Digest `json:"digest"`
 	Size      int64         `json:"size"`
 	CreatedAt time.Time     `json:"created_at"`
+}
+
+// TagInfo is one tag with the digest it points at and its last-push time
+// (UnixNano like every created_at in this store, 0 when unknown).
+type TagInfo struct {
+	Tag      string `json:"tag"`
+	Digest   string `json:"digest"`
+	PushedAt int64  `json:"pushed_at"`
 }
 
 // RegistryRecord is a persisted registry definition. Config holds the full

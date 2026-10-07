@@ -1,0 +1,3 @@
+ALTER TABLE tags DROP COLUMN IF EXISTS pushed_at;
+ALTER TABLE manifests DROP COLUMN IF EXISTS image_created;
+ALTER TABLE manifests DROP COLUMN IF EXISTS author;

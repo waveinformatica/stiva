@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -137,7 +138,8 @@ func (s *Store) GetManifest(repo, reference string) ([]byte, string, error) {
 
 func (s *Store) PutManifest(repo, reference, mediaType string, content []byte) (digest.Digest, error) {
 	d := digest.FromBytes(content)
-	if err := s.meta.PutManifest(s.registry, repo, d, mediaType, content); err != nil {
+	author, created := s.provenanceFromConfig(content)
+	if err := s.meta.PutManifest(s.registry, repo, d, mediaType, author, created, content); err != nil {
 		return "", err
 	}
 	// If reference is a tag (not a digest), record the tag.
@@ -147,6 +149,65 @@ func (s *Store) PutManifest(repo, reference, mediaType string, content []byte) (
 		}
 	}
 	return d, nil
+}
+
+// provenanceFromConfig extracts the image author and creation time from the
+// image config referenced by a single manifest. Indexes reference no config,
+// and the config blob may simply not be here (e.g. proxied manifests): both
+// yield empty strings, never an error.
+func (s *Store) provenanceFromConfig(content []byte) (string, string) {
+	var m struct {
+		Config struct {
+			Digest string `json:"digest"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal(content, &m); err != nil || m.Config.Digest == "" {
+		return "", ""
+	}
+	d, err := digest.Parse(m.Config.Digest)
+	if err != nil {
+		return "", ""
+	}
+	rc, _, err := s.blobs.Get(d)
+	if err != nil {
+		return "", ""
+	}
+	defer rc.Close()
+	// Configs are small JSON documents; cap the read defensively.
+	cfg, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+	if err != nil {
+		return "", ""
+	}
+	var c struct {
+		Author  string `json:"author"`
+		Created string `json:"created"`
+	}
+	if err := json.Unmarshal(cfg, &c); err != nil {
+		return "", ""
+	}
+	return c.Author, c.Created
+}
+
+// EnsureProvenance returns the recorded author/creation time for a manifest,
+// filling the row from the config blob when it was pushed before provenance
+// was recorded. Old images heal on first view; new pushes record at PUT.
+func (s *Store) EnsureProvenance(repo, ref string) (string, string) {
+	d, err := s.ResolveReference(repo, ref)
+	if err != nil {
+		return "", ""
+	}
+	if author, created, err := s.meta.ManifestProvenance(s.registry, repo, d); err == nil && (author != "" || created != "") {
+		return author, created
+	}
+	content, _, err := s.meta.GetManifest(s.registry, repo, d)
+	if err != nil {
+		return "", ""
+	}
+	author, created := s.provenanceFromConfig(content)
+	if author != "" || created != "" {
+		_ = s.meta.SetManifestProvenance(s.registry, repo, d, author, created)
+	}
+	return author, created
 }
 
 func (s *Store) DeleteManifest(repo, reference string) error {
@@ -159,6 +220,80 @@ func (s *Store) DeleteManifest(repo, reference string) error {
 
 func (s *Store) ListTags(repo string) ([]string, error) {
 	return s.meta.ListTags(s.registry, repo)
+}
+
+func (s *Store) ListTagInfos(repo string) ([]TagInfo, error) {
+	return s.meta.ListTagInfos(s.registry, repo)
+}
+
+// TagsForBlob lists the tags in repo whose image has the blob as its TOP
+// layer (last entry of the manifest's layer list): the image the layer was
+// built for, not every image inheriting it as a base. Resolution walks one
+// index level (tag -> index -> child manifests).
+func (s *Store) TagsForBlob(repo string, blob digest.Digest) ([]TagInfo, error) {
+	infos, err := s.meta.ListTagInfos(s.registry, repo)
+	if err != nil {
+		return nil, err
+	}
+	var out []TagInfo
+	for _, ti := range infos {
+		d, err := digest.Parse(ti.Digest)
+		if err != nil {
+			continue
+		}
+		content, _, err := s.meta.GetManifest(s.registry, repo, d)
+		if err != nil {
+			continue
+		}
+		if manifestToppedBy(s, repo, content, blob) {
+			out = append(out, ti)
+		}
+	}
+	return out, nil
+}
+
+// manifestToppedBy reports whether blob is the last layer of the manifest,
+// descending one index level into children.
+func manifestToppedBy(s *Store, repo string, content []byte, blob digest.Digest) bool {
+	if isTopLayer(content, blob.String()) {
+		return true
+	}
+	var m struct {
+		Manifests []struct {
+			Digest string `json:"digest"`
+		} `json:"manifests"`
+	}
+	if json.Unmarshal(content, &m) != nil {
+		return false
+	}
+	for _, c := range m.Manifests {
+		cd, err := digest.Parse(c.Digest)
+		if err != nil {
+			continue
+		}
+		cc, _, err := s.meta.GetManifest(s.registry, repo, cd)
+		if err != nil {
+			continue
+		}
+		if isTopLayer(cc, blob.String()) {
+			return true
+		}
+	}
+	return false
+}
+
+// isTopLayer reports whether blobDigest is the last entry of a single
+// manifest's layer list. Pure: unit-tested.
+func isTopLayer(content []byte, blobDigest string) bool {
+	var m struct {
+		Layers []struct {
+			Digest string `json:"digest"`
+		} `json:"layers"`
+	}
+	if json.Unmarshal(content, &m) != nil || len(m.Layers) == 0 {
+		return false
+	}
+	return m.Layers[len(m.Layers)-1].Digest == blobDigest
 }
 
 func (s *Store) ListRepos() ([]string, error) {

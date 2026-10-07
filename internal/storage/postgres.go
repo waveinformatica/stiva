@@ -162,12 +162,15 @@ func (m *PostgresMetadataStore) OrphanBlobs(registry string, olderThan time.Time
 	return out, rows.Err()
 }
 
-func (m *PostgresMetadataStore) PutManifest(registry, repo string, d digest.Digest, mediaType string, content []byte) error {
+func (m *PostgresMetadataStore) PutManifest(registry, repo string, d digest.Digest, mediaType, author, imageCreated string, content []byte) error {
 	if _, err := m.pool.Exec(context.Background(),
-		`INSERT INTO manifests(registry, repo, digest, media_type, content, created_at)
-		 VALUES($1,$2,$3,$4,$5,$6)
-		 ON CONFLICT (registry, repo, digest) DO UPDATE SET media_type = EXCLUDED.media_type, content = EXCLUDED.content`,
-		registry, repo, d.String(), mediaType, content, m.now()); err != nil {
+		`INSERT INTO manifests(registry, repo, digest, media_type, author, image_created, content, created_at)
+		 VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+		 ON CONFLICT (registry, repo, digest) DO UPDATE SET media_type = EXCLUDED.media_type,
+			author = COALESCE(NULLIF(EXCLUDED.author, ''), manifests.author),
+			image_created = COALESCE(NULLIF(EXCLUDED.image_created, ''), manifests.image_created),
+			content = EXCLUDED.content`,
+		registry, repo, d.String(), mediaType, author, imageCreated, content, m.now()); err != nil {
 		return err
 	}
 	return m.CreateRepo(registry, repo)
@@ -194,6 +197,27 @@ func (m *PostgresMetadataStore) ManifestExists(registry, repo string, d digest.D
 		`SELECT count(*) FROM manifests WHERE registry = $1 AND repo = $2 AND digest = $3`,
 		registry, repo, d.String()).Scan(&n)
 	return n > 0, err
+}
+
+func (m *PostgresMetadataStore) ManifestProvenance(registry, repo string, d digest.Digest) (string, string, error) {
+	var author, created string
+	err := m.pool.QueryRow(context.Background(),
+		`SELECT author, image_created FROM manifests WHERE registry = $1 AND repo = $2 AND digest = $3`,
+		registry, repo, d.String()).Scan(&author, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", ErrNotFound
+	}
+	if err != nil {
+		return "", "", err
+	}
+	return author, created, nil
+}
+
+func (m *PostgresMetadataStore) SetManifestProvenance(registry, repo string, d digest.Digest, author, created string) error {
+	_, err := m.pool.Exec(context.Background(),
+		`UPDATE manifests SET author = $1, image_created = $2 WHERE registry = $3 AND repo = $4 AND digest = $5`,
+		author, created, registry, repo, d.String())
+	return err
 }
 
 func (m *PostgresMetadataStore) DeleteManifest(registry, repo string, d digest.Digest) error {
@@ -254,9 +278,9 @@ func (m *PostgresMetadataStore) ResolveTag(registry, repo, tag string) (digest.D
 
 func (m *PostgresMetadataStore) SetTag(registry, repo, tag string, d digest.Digest) error {
 	if _, err := m.pool.Exec(context.Background(),
-		`INSERT INTO tags(registry, repo, tag, digest) VALUES($1,$2,$3,$4)
-		 ON CONFLICT (registry, repo, tag) DO UPDATE SET digest = EXCLUDED.digest`,
-		registry, repo, tag, d.String()); err != nil {
+		`INSERT INTO tags(registry, repo, tag, digest, pushed_at) VALUES($1,$2,$3,$4,$5)
+		 ON CONFLICT (registry, repo, tag) DO UPDATE SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at`,
+		registry, repo, tag, d.String(), m.now()); err != nil {
 		return err
 	}
 	return m.CreateRepo(registry, repo)
@@ -277,6 +301,25 @@ func (m *PostgresMetadataStore) ListTags(registry, repo string) ([]string, error
 			return nil, err
 		}
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (m *PostgresMetadataStore) ListTagInfos(registry, repo string) ([]TagInfo, error) {
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT tag, digest, pushed_at FROM tags WHERE registry = $1 AND repo = $2 ORDER BY tag`,
+		registry, repo)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []TagInfo
+	for rows.Next() {
+		var ti TagInfo
+		if err := rows.Scan(&ti.Tag, &ti.Digest, &ti.PushedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, ti)
 	}
 	return out, rows.Err()
 }

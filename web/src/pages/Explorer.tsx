@@ -75,6 +75,9 @@ export default function Explorer() {
   const [registry, setRegistry] = useState("");
   const [tab, setTab] = useState<string | null>("browse");
   const [focus, setFocus] = useState<FocusRepo | null>(null);
+  // Reachable pull host resolved server-side; null while loading, "" when no
+  // route reaches the registry (then no pull reference is shown at all).
+  const [pullHost, setPullHost] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -85,6 +88,26 @@ export default function Explorer() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!registry) {
+      setPullHost(null);
+      return;
+    }
+    let live = true;
+    setPullHost(null);
+    api
+      .pullRoute(registry)
+      .then((r: any) => {
+        if (live) setPullHost(r.host || "");
+      })
+      .catch(() => {
+        if (live) setPullHost("");
+      });
+    return () => {
+      live = false;
+    };
+  }, [registry]);
 
   const selected = regs.find((r) => r.name === registry);
   const isOci = selected?.format === "oci";
@@ -124,12 +147,17 @@ export default function Explorer() {
         <Tabs.Panel value="browse">
           {selected ? (
             isOci ? (
-              <RepoBrowser registry={registry} endpoint={registryEndpoint(selected)} focusRepo={focus} />
+              <RepoBrowser
+                registry={registry}
+                endpoint={registryEndpoint(selected)}
+                pullHost={pullHost}
+                focusRepo={focus}
+              />
             ) : (
               <ArtifactBrowser
                 registry={registry}
                 format={selected.format}
-                endpoint={registryEndpoint(selected)}
+                endpoint={pullHost ?? registryEndpoint(selected)}
                 basePath={selected.base_path}
               />
             )

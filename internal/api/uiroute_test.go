@@ -16,6 +16,8 @@ func TestParseRepoSub(t *testing.T) {
 		{"/builder/manifests/latest", "manifest", "builder", "latest"},
 		{"/apeiron/iot-hub/manifests/latest", "manifest", "apeiron/iot-hub", "latest"},
 		{"/kosmos/core/manifests/sha256:abc", "manifest", "kosmos/core", "sha256:abc"},
+		{"/builder/blobs/sha256:abc", "blobtags", "builder", "sha256:abc"},
+		{"/apeiron/iot-hub/blobs/sha256:abc", "blobtags", "apeiron/iot-hub", "sha256:abc"},
 		// A repository literally named "…/manifests" must not swallow the ref.
 		{"/a/manifests/manifests/v1", "manifest", "a/manifests", "v1"},
 		{"/tags", "", "", ""},

@@ -29,6 +29,8 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.GET("/stats", h.uiStats)
 	v1.GET("/me", h.uiMe)
 	v1.GET("/registries", h.uiRegistries)
+	v1.GET("/pullroute", h.uiPullRoute)
+	v1.GET("/dockerfile", h.uiDockerfile)
 	v1.GET("/browse", h.uiBrowse)
 	v1.GET("/search", h.uiSearch)
 	v1.GET("/artifact", h.uiArtifact)
@@ -186,6 +188,8 @@ func (h *Handler) uiRepoSub(c *gin.Context) {
 		h.uiTagsFor(c, repo)
 	case "manifest":
 		h.uiManifestFor(c, repo, ref)
+	case "blobtags":
+		h.uiBlobTagsFor(c, repo, ref)
 	default:
 		c.JSON(http.StatusNotFound, gin.H{"error": "unknown endpoint"})
 	}
@@ -206,6 +210,12 @@ func parseRepoSub(rest string) (kind, repo, ref string) {
 		r, f := rest[:i], rest[i+len("/manifests/"):]
 		if r != "" && f != "" {
 			return "manifest", r, f
+		}
+	}
+	if i := strings.LastIndex(rest, "/blobs/"); i > 0 {
+		r, f := rest[:i], rest[i+len("/blobs/"):]
+		if r != "" && f != "" {
+			return "blobtags", r, f
 		}
 	}
 	return "", "", ""
@@ -232,15 +242,164 @@ func (h *Handler) uiTagsFor(c *gin.Context, repo string) {
 }
 
 func (h *Handler) tagsBody(c *gin.Context, st *storage.Store, repo string) {
-	tags, err := st.ListTags(repo)
+	infos, err := st.ListTagInfos(repo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if infos == nil {
+		infos = []storage.TagInfo{}
+	}
+	c.JSON(http.StatusOK, gin.H{"name": repo, "tags": infos})
+}
+
+// uiPullRoute answers which address actually pulls from a registry: its own
+// virtual host when configured, otherwise a group containing it, otherwise
+// the host the caller is browsing on when routing delivers it there. A bare
+// registry name is never a pull address: nothing outside resolves it, and a
+// client silently targets Docker Hub instead. Hosts and ports are already
+// public via /registries, so this needs no read grant.
+func (h *Handler) uiPullRoute(c *gin.Context) {
+	name := h.registryParam(c)
+	reg, ok := h.mgr.Get(name)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
+		return
+	}
+	host, via, viaGroup := h.pullRoute(c.Request.Host, reg)
+	c.JSON(http.StatusOK, gin.H{
+		"registry": name, "host": host, "via": via, "via_group": viaGroup,
+	})
+}
+
+// pullRoute resolves the pull address for reg against the real routing table.
+// reqHost is the Host header the caller arrived on (host or host:port).
+func (h *Handler) pullRoute(reqHost string, reg *registry.Registry) (host, via, viaGroup string) {
+	withPort := func(h string, port int) string {
+		if port > 0 && !strings.Contains(h, ":") {
+			return h + ":" + strconv.Itoa(port)
+		}
+		return h
+	}
+	reqName := reqHost
+	if h, _, ok := splitHostPort(reqHost); ok {
+		reqName = h
+	}
+	// 1. The registry's own virtual host, or its dedicated port on any host:
+	// port routing does not depend on names, so the browsed host will do.
+	if len(reg.Hosts) > 0 {
+		return withPort(reg.Hosts[0], reg.Port), "direct", ""
+	}
+	if reg.Port > 0 {
+		return withPort(reqName, reg.Port), "direct", ""
+	}
+	// 2. A group containing it, preferring one with its own host.
+	var portGroup *registry.Registry
+	for _, g := range h.mgr.List() {
+		if g.Type != "group" || !containsString(g.Members, reg.Name) {
+			continue
+		}
+		if len(g.Hosts) > 0 {
+			return withPort(g.Hosts[0], g.Port), "group", g.Name
+		}
+		if portGroup == nil && g.Port > 0 {
+			portGroup = g
+		}
+	}
+	if portGroup != nil {
+		return withPort(reqName, portGroup.Port), "group", portGroup.Name
+	}
+	// 3. The browsed host itself, but only when routing really delivers the
+	// image there: either this registry answers the host, or a group
+	// containing it does (reads aggregate through the group, so the image
+	// pulls fine through that route).
+	if r, _, err := h.mgr.Resolve(reqHost, "", "/"); err == nil {
+		if r.Name == reg.Name {
+			return reqHost, "current", ""
+		}
+		if r.Type == "group" && containsString(r.Members, reg.Name) {
+			return reqHost, "group", r.Name
+		}
+	}
+	return "", "none", ""
+}
+
+func containsString(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// uiBlobTagsFor lists the tags in repo whose image contains the blob: the
+// reverse lookup behind "which images share this layer". Same read check as
+// every other UI read.
+func (h *Handler) uiBlobTagsFor(c *gin.Context, repo, ref string) {
+	st := h.storeFor(c)
+	if st == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
+		return
+	}
+	d, err := digest.Parse(ref)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid digest"})
+		return
+	}
+	tags, err := st.TagsForBlob(repo, d)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if tags == nil {
-		tags = []string{}
+		tags = []storage.TagInfo{}
 	}
-	c.JSON(http.StatusOK, gin.H{"name": repo, "tags": tags})
+	c.JSON(http.StatusOK, gin.H{"repo": repo, "digest": d.String(), "tags": tags})
+}
+// the build attestation when the push carried it, otherwise a reconstruction
+// from the image config history. Empty content means neither is available.
+// Reads go through the same access check as manifests.
+// uiDockerfile returns the Dockerfile that built an image: the real file from
+// the build attestation when the push carried it, otherwise a reconstruction
+// from the image config history. Empty content means neither is available.
+// Reads go through the same access check as manifests, but resolve against
+// the backend (not the bare store) so proxy and cache registries fall through
+// to the upstream and warm the cache on first view.
+func (h *Handler) uiDockerfile(c *gin.Context) {
+	name := h.registryParam(c)
+	reg, ok := h.mgr.Get(name)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
+		return
+	}
+	if !h.allowAccess(c, reg, false) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
+		return
+	}
+	be, err := h.mgr.BackendFor(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	repo := c.Query("repo")
+	ref := c.Query("ref")
+	if repo == "" || ref == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "repo and ref are required"})
+		return
+	}
+	res := resolveDockerfile(be, repo, ref)
+	c.JSON(http.StatusOK, gin.H{
+		"repo": repo, "reference": ref,
+		"dockerfile": res.Content, "source": res.Source,
+	})
+}
+
+func splitHostPort(hostport string) (host, port string, ok bool) {
+	if i := strings.LastIndex(hostport, ":"); i >= 0 {
+		return hostport[:i], hostport[i+1:], true
+	}
+	return "", "", false
 }
 
 func (h *Handler) uiManifest(c *gin.Context) {
@@ -275,12 +434,15 @@ func (h *Handler) manifestBody(c *gin.Context, st *storage.Store, repo, ref stri
 		return
 	}
 	d := digest.FromBytes(content)
+	author, created := st.EnsureProvenance(repo, ref)
 	c.JSON(http.StatusOK, gin.H{
-		"name":       repo,
-		"reference":  ref,
-		"digest":     d.String(),
-		"media_type": mt,
-		"manifest":   jsonRaw(content),
+		"name":          repo,
+		"reference":     ref,
+		"digest":        d.String(),
+		"media_type":    mt,
+		"author":        author,
+		"image_created": created,
+		"manifest":      jsonRaw(content),
 	})
 }
 

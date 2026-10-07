@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader } from "@mantine/core";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Explorer from "./pages/Explorer";
 import ApiKeys from "./pages/ApiKeys";
@@ -15,12 +16,26 @@ import Registries from "./pages/admin/Registries";
 import SSO from "./pages/admin/SSO";
 import Settings from "./pages/admin/Settings";
 import AppShellLayout, { View, ShellUser } from "./components/AppShellLayout";
+import { pathForView, viewForPath } from "./lib/routes";
 import { api, clearToken, getToken, MeResponse } from "./lib/api";
+
+const ADMIN_VIEWS: View[] = [
+  "users",
+  "serviceAccounts",
+  "registries",
+  "stores",
+  "credentials",
+  "roles",
+  "groups",
+  "grants",
+  "anonymous",
+  "sso",
+  "settings",
+];
 
 export default function App() {
   const [user, setUser] = useState<ShellUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>("explorer");
 
   const refresh = () => {
     const t = getToken();
@@ -41,49 +56,57 @@ export default function App() {
 
   useEffect(refresh, []);
 
-  const logout = () => {
-    clearToken();
-    setUser(null);
-    setView("explorer");
-  };
-
   if (loading) return <Loader />;
   if (!user) return <Login onLogin={refresh} />;
 
-  const renderPage = () => {
-    switch (view) {
-      case "explorer":
-        return <Explorer />;
-      case "apikeys":
-        return <ApiKeys anonymous={user.anonymous} />;
-      case "users":
-        return <Users />;
-      case "serviceAccounts":
-        return <ServiceAccounts />;
-      case "stores":
-        return <Stores />;
-      case "credentials":
-        return <Credentials />;
-      case "roles":
-        return <Roles />;
-      case "groups":
-        return <Groups />;
-      case "grants":
-        return <Grants />;
-      case "anonymous":
-        return <Anonymous />;
-      case "registries":
-        return <Registries />;
-      case "sso":
-        return <SSO />;
-      case "settings":
-        return <Settings />;
-    }
+  return <Shell user={user} onLogout={() => {
+    clearToken();
+    setUser(null);
+  }} />;
+}
+
+function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view = viewForPath(location.pathname) ?? "explorer";
+
+  const setView = (v: View) => navigate(pathForView(v));
+
+  const logout = () => {
+    onLogout();
+    navigate("/");
   };
+
+  // Mirrors the nav visibility rules: anonymous callers have no API keys
+  // page, non-admins no administration pages. The JSON API enforces the
+  // same; this just avoids rendering a page of errors.
+  const allowed =
+    (ADMIN_VIEWS.includes(view) ? user.admin : true) &&
+    (view === "apikeys" ? !user.anonymous : true);
 
   return (
     <AppShellLayout user={user} view={view} setView={setView} onLogout={logout}>
-      {renderPage()}
+      {!allowed ? (
+        <Navigate to="/" replace />
+      ) : (
+        <Routes>
+          <Route path="/" element={<Explorer />} />
+          <Route path="/explorer" element={<Explorer />} />
+          <Route path="/apikeys" element={<ApiKeys anonymous={user.anonymous} />} />
+          <Route path="/admin/users" element={<Users />} />
+          <Route path="/admin/service-accounts" element={<ServiceAccounts />} />
+          <Route path="/admin/stores" element={<Stores />} />
+          <Route path="/admin/credentials" element={<Credentials />} />
+          <Route path="/admin/roles" element={<Roles />} />
+          <Route path="/admin/groups" element={<Groups />} />
+          <Route path="/admin/grants" element={<Grants />} />
+          <Route path="/admin/anonymous" element={<Anonymous />} />
+          <Route path="/admin/registries" element={<Registries />} />
+          <Route path="/admin/sso" element={<SSO />} />
+          <Route path="/admin/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
     </AppShellLayout>
   );
 }

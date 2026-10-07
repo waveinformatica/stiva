@@ -147,13 +147,24 @@ func main() {
 		handler.RegisterUI(protected)
 	}
 
-	// Serve the web UI if a build directory is provided/mounted. The catch-all
-	// first tries the artifact dispatcher (helm/maven/npm), then falls back to
-	// the static SPA for unmatched paths.
+	// Serve the web UI if a build directory is provided/mounted. Known
+	// application paths (every UI page, plus the static assets index.html
+	// refers to) are registered explicitly so the server knows them: each
+	// serves index.html unauthenticated, ahead of the artifact dispatcher
+	// (which would otherwise demand authentication on artifact hosts and
+	// make the login page unreachable there) and ahead of the generic
+	// fallback below, which keeps serving unknown paths as the SPA.
 	webDir := os.Getenv("REGISTRY_WEB_DIR")
 	if webDir == "" {
 		webDir = "web/dist"
 	}
+	for _, p := range uiPagePaths {
+		r.GET(p, func(c *gin.Context) { serveWebUIFile(c, webDir) })
+	}
+	for _, p := range uiStaticPaths {
+		r.GET(p, func(c *gin.Context) { serveWebUIFile(c, webDir) })
+	}
+	r.GET("/assets/*filepath", func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	r.NoRoute(func(c *gin.Context) {
 		// Artifact registries (helm/maven/npm/…) are resolved by Host and stay
 		// behind authentication. Everything else falls through to the static
@@ -242,6 +253,31 @@ func lastColon(s string) int {
 	}
 	return -1
 }
+
+// uiPagePaths are the frontend routes every UI page lives at (see
+// VIEW_PATHS in web/src/lib/routes.ts — keep the two lists in sync).
+var uiPagePaths = []string{
+	"/",
+	"/explorer",
+	"/apikeys",
+	"/admin/users",
+	"/admin/service-accounts",
+	"/admin/registries",
+	"/admin/stores",
+	"/admin/credentials",
+	"/admin/roles",
+	"/admin/groups",
+	"/admin/grants",
+	"/admin/anonymous",
+	"/admin/sso",
+	"/admin/settings",
+};
+
+// uiStaticPaths are the root-level build assets index.html refers to.
+var uiStaticPaths = []string{
+	"/stiva-mark.png",
+	"/stiva-logo.png",
+};
 
 // serveWebUIFile serves a static SPA build from dir (if it exists) under /.
 func serveWebUIFile(c *gin.Context, dir string) {

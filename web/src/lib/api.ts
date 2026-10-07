@@ -113,6 +113,17 @@ export const api = {
     req("GET", `/api/v1/repositories/${enc(repo)}/tags?registry=${enc(registry)}`),
   manifest: (registry: string, repo: string, ref: string) =>
     req("GET", `/api/v1/repositories/${enc(repo)}/manifests/${enc(ref)}?registry=${enc(registry)}`),
+  // Pull route: the address that actually reaches the registry (own host,
+  // containing group, or browsed host when routing delivers it there).
+  pullRoute: (registry: string) =>
+    req("GET", `/api/v1/pullroute?registry=${enc(registry)}`),
+  // Tags whose image contains the blob: which images share this layer.
+  blobTags: (registry: string, repo: string, digest: string) =>
+    req("GET", `/api/v1/repositories/${enc(repo)}/blobs/${enc(digest)}?registry=${enc(registry)}`),
+  // Dockerfile that built the image: real file from the build attestation,
+  // else reconstructed from the image config history.
+  dockerfile: (registry: string, repo: string, ref: string) =>
+    req("GET", `/api/v1/dockerfile?registry=${enc(registry)}&repo=${enc(repo)}&ref=${enc(ref)}`),
   stats: (registry: string) =>
     req("GET", `/api/v1/stats?registry=${enc(registry)}`),
 
