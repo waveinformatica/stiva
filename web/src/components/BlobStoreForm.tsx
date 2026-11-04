@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Stack, Group, Select, TextInput, Switch, Button, Alert, Text } from "./ui";
+import { useEffect } from "react";
+import { Stack, Group, Select, TextInput, Switch, Button, Alert, Text, MultiSelect, NumberInput } from "./ui";
 import { SecretField } from "./SecretField";
 import { api } from "../lib/api";
 
@@ -20,6 +21,8 @@ export type BlobStore = {
   };
   gcs?: { bucket: string; prefix?: string; credentials_file?: string };
   azure?: { container: string; prefix?: string; connection_string?: string };
+  replicated?: { members: string[]; write_quorum: number };
+  sharded?: { members: string[] };
 };
 
 export function emptyStore(kind = "s3"): BlobStore {
@@ -42,6 +45,12 @@ function withKind(s: BlobStore, kind: string): BlobStore {
       break;
     case "azure":
       base.azure = s.azure || { container: "", connection_string: "" };
+      break;
+    case "replicated":
+      base.replicated = s.replicated || { members: s.sharded?.members || [], write_quorum: 0 };
+      break;
+    case "sharded":
+      base.sharded = s.sharded || { members: s.replicated?.members || [] };
       break;
   }
   return base;
@@ -69,6 +78,18 @@ export function BlobStoreForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const s = value;
+  const [plain, setPlain] = useState<string[]>([]);
+  useEffect(() => {
+    api
+      .blobStores()
+      .then((r: any) =>
+        setPlain((r.blob_stores || []).filter((b: any) => b.kind !== "replicated" && b.kind !== "sharded").map((b: any) => b.name)),
+      )
+      .catch(() => {});
+  }, []);
+  const members = (s.kind === "replicated" ? s.replicated?.members : s.sharded?.members) || [];
+  const setMembers = (m: string[]) =>
+    onChange(s.kind === "replicated" ? { ...s, replicated: { write_quorum: 0, ...s.replicated, members: m } } : { ...s, sharded: { members: m } });
 
   const set = (patch: Partial<BlobStore>) => onChange({ ...s, ...patch });
   const setS3 = (patch: Partial<NonNullable<BlobStore["s3"]>>) =>
@@ -78,6 +99,10 @@ export function BlobStoreForm({
     setErr(null);
     if (!s.name.trim()) {
       setErr(t("stores.needName"));
+      return;
+    }
+    if ((s.kind === "replicated" || s.kind === "sharded") && members.length < 2) {
+      setErr(t("stores.needMembers"));
       return;
     }
     setBusy(true);
@@ -110,11 +135,11 @@ export function BlobStoreForm({
         />
         <Select
           label={t("stores.typeLabel")}
-          data={["file", "s3", "gcs", "azure"]}
+          data={["file", "s3", "gcs", "azure", "replicated", "sharded"]}
           value={s.kind}
           onChange={(v) => onChange(withKind(s, v || "s3"))}
           allowDeselect={false}
-          w={140}
+          w={160}
         />
       </Group>
 
@@ -228,6 +253,35 @@ export function BlobStoreForm({
             }
             suggestedName={s.name ? `${s.name}-connection` : ""}
           />
+        </>
+      )}
+
+      {(s.kind === "replicated" || s.kind === "sharded") && (
+        <>
+          <MultiSelect
+            label={t("stores.membersLabel")}
+            description={t("stores.membersDesc")}
+            data={plain.filter((n) => n !== s.name)}
+            value={members}
+            onChange={setMembers}
+            searchable
+          />
+          {s.kind === "replicated" && (
+            <NumberInput
+              label={t("stores.quorumLabel")}
+              description={t("stores.quorumDesc")}
+              min={0}
+              max={Math.max(members.length, 1)}
+              value={s.replicated?.write_quorum ?? 0}
+              onChange={(v) =>
+                onChange({ ...s, replicated: { members, write_quorum: typeof v === "number" ? Math.max(0, Math.floor(v)) : 0 } })
+              }
+              w={200}
+            />
+          )}
+          <Text size="xs" c="dimmed">
+            {t(s.kind === "replicated" ? "stores.replicatedNote" : "stores.shardedNote")}
+          </Text>
         </>
       )}
 

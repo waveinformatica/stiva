@@ -60,6 +60,8 @@ export default function Stores() {
     if (r.kind === "file") return r.file?.root || "?";
     if (r.kind === "gcs") return r.gcs?.bucket || "?";
     if (r.kind === "azure") return r.azure?.container || "?";
+    if (r.kind === "replicated") return `× ${(r.replicated?.members || []).join(" + ")}`;
+    if (r.kind === "sharded") return `⫶ ${(r.sharded?.members || []).join(" | ")}`;
     return "";
   };
 

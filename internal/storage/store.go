@@ -470,3 +470,28 @@ func (s *Store) ListObjects(prefix string) ([]string, error) {
 func (s *Store) ListObjectInfos(prefix string) ([]ObjectInfo, error) {
 	return s.meta.ListObjectInfos(s.registry, prefix)
 }
+
+// ErrNotComposite is returned by Reconcile on a registry whose blob store is a
+// single backend: there is nothing to repair or rebalance.
+var ErrNotComposite = errors.New("registry/storage: blob store is not replicated or sharded")
+
+// Reconcile brings one blob to where the store layout wants it. It only
+// applies to replicated and sharded blob stores.
+func (s *Store) Reconcile(d digest.Digest, dryRun bool) (bool, error) {
+	rec, ok := s.blobs.(Reconciler)
+	if !ok {
+		return false, ErrNotComposite
+	}
+	return rec.Reconcile(d, dryRun)
+}
+
+// Composite reports whether the registry's blob store is replicated or sharded.
+func (s *Store) Composite() bool {
+	_, ok := s.blobs.(Reconciler)
+	return ok
+}
+
+// ListBlobs pages through the registry's recorded blobs in digest order.
+func (s *Store) ListBlobs(after digest.Digest, limit int) ([]BlobInfo, error) {
+	return s.meta.ListBlobs(s.registry, after, limit)
+}

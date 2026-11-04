@@ -23,7 +23,7 @@ type Job = {
 };
 type Schedule = { registry: string; kind: string; enabled: boolean; interval_secs: number; last_run_at: number };
 
-const KINDS = ["cleanup", "gc"];
+const KINDS = ["cleanup", "gc", "reconcile"];
 const STATUS_COLOR: Record<string, string> = { queued: "gray", running: "blue", succeeded: "green", failed: "red" };
 
 // Timestamps are UnixNano; 0 means "not yet".

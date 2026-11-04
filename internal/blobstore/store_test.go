@@ -136,3 +136,29 @@ func TestResolveIsolatesRegistries(t *testing.T) {
 		t.Fatalf("root = %q", f.Root)
 	}
 }
+
+// TestCompositeValidation: a replicated or sharded store needs two distinct
+// members, none of them itself, and a quorum that can be met.
+func TestCompositeValidation(t *testing.T) {
+	good := &Store{Name: "r", Kind: KindReplicated, Replicated: &ReplicatedConfig{Members: []string{"a", "b"}, WriteQuorum: 2}}
+	if err := good.Validate(); err != nil {
+		t.Fatalf("valid replicated store rejected: %v", err)
+	}
+	if err := (&Store{Name: "s", Kind: KindSharded, Sharded: &ShardedConfig{Members: []string{"a", "b", "c"}}}).Validate(); err != nil {
+		t.Fatalf("valid sharded store rejected: %v", err)
+	}
+	for name, s := range map[string]*Store{
+		"one member":      {Name: "r", Kind: KindReplicated, Replicated: &ReplicatedConfig{Members: []string{"a"}}},
+		"duplicate":       {Name: "r", Kind: KindSharded, Sharded: &ShardedConfig{Members: []string{"a", "a"}}},
+		"self member":     {Name: "r", Kind: KindSharded, Sharded: &ShardedConfig{Members: []string{"r", "a"}}},
+		"quorum too high": {Name: "r", Kind: KindReplicated, Replicated: &ReplicatedConfig{Members: []string{"a", "b"}, WriteQuorum: 3}},
+		"wrong block":     {Name: "r", Kind: KindReplicated, Sharded: &ShardedConfig{Members: []string{"a", "b"}}},
+	} {
+		if err := s.Validate(); err == nil {
+			t.Errorf("%s: expected rejection", name)
+		}
+	}
+	if !KindReplicated.Composite() || !KindSharded.Composite() || KindS3.Composite() {
+		t.Error("Composite() classifies kinds wrongly")
+	}
+}

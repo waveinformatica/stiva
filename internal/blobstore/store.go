@@ -27,10 +27,18 @@ const (
 	KindS3    Kind = "s3"
 	KindGCS   Kind = "gcs"
 	KindAzure Kind = "azure"
+
+	// Composite kinds combine other named stores. Their members must be plain
+	// stores: nesting would make placement and repair ambiguous.
+	KindReplicated Kind = "replicated"
+	KindSharded    Kind = "sharded"
 )
 
 // Kinds lists the supported backends, in the order the UI should offer them.
-var Kinds = []Kind{KindFile, KindS3, KindGCS, KindAzure}
+var Kinds = []Kind{KindFile, KindS3, KindGCS, KindAzure, KindReplicated, KindSharded}
+
+// Composite reports whether the kind is built from other stores.
+func (k Kind) Composite() bool { return k == KindReplicated || k == KindSharded }
 
 var (
 	ErrNotFound = errors.New("blobstore: not found")
@@ -76,6 +84,19 @@ type AzureConfig struct {
 	ConnectionString vault.SecretRef `json:"connection_string"`
 }
 
+// ReplicatedConfig keeps a full copy of every blob on each member store. A
+// write succeeds once WriteQuorum members hold the blob (default: a majority).
+type ReplicatedConfig struct {
+	Members     []string `json:"members"`
+	WriteQuorum int      `json:"write_quorum"`
+}
+
+// ShardedConfig spreads blobs across the member stores: each blob lives on
+// exactly one of them, chosen from its digest.
+type ShardedConfig struct {
+	Members []string `json:"members"`
+}
+
 // Store is a named storage backend. Exactly one of the per-kind configs is set,
 // matching Kind — see Validate.
 type Store struct {
@@ -87,6 +108,20 @@ type Store struct {
 	S3    *S3Config    `json:"s3,omitempty"`
 	GCS   *GCSConfig   `json:"gcs,omitempty"`
 	Azure *AzureConfig `json:"azure,omitempty"`
+
+	Replicated *ReplicatedConfig `json:"replicated,omitempty"`
+	Sharded    *ShardedConfig    `json:"sharded,omitempty"`
+}
+
+// Members lists the stores a composite is built from (nil for plain kinds).
+func (s *Store) Members() []string {
+	switch {
+	case s.Replicated != nil:
+		return s.Replicated.Members
+	case s.Sharded != nil:
+		return s.Sharded.Members
+	}
+	return nil
 }
 
 // Validate checks the discriminated union holds together: the config matching
@@ -100,6 +135,9 @@ func (s *Store) Validate() error {
 		KindS3:    s.S3 != nil,
 		KindGCS:   s.GCS != nil,
 		KindAzure: s.Azure != nil,
+
+		KindReplicated: s.Replicated != nil,
+		KindSharded:    s.Sharded != nil,
 	}
 	if !set[s.Kind] {
 		return fmt.Errorf("blobstore: kind %q requires its own configuration block", s.Kind)
@@ -131,6 +169,27 @@ func (s *Store) Validate() error {
 		}
 		if !s.Azure.ConnectionString.Valid() {
 			return vault.ErrInvalidRef
+		}
+	case KindReplicated, KindSharded:
+		seen := map[string]bool{}
+		for _, m := range s.Members() {
+			switch {
+			case m == "":
+				return errors.New("blobstore: a member name must not be empty")
+			case m == s.Name:
+				return errors.New("blobstore: a store cannot be its own member")
+			case seen[m]:
+				return fmt.Errorf("blobstore: member %q listed twice", m)
+			}
+			seen[m] = true
+		}
+		if len(seen) < 2 {
+			return fmt.Errorf("blobstore: a %s store needs at least two member stores", s.Kind)
+		}
+		if s.Replicated != nil {
+			if q := s.Replicated.WriteQuorum; q < 0 || q > len(seen) {
+				return fmt.Errorf("blobstore: write quorum must be between 1 and %d (0 = majority)", len(seen))
+			}
 		}
 	default:
 		return fmt.Errorf("blobstore: unknown kind %q", s.Kind)
@@ -191,6 +250,8 @@ func joinPath(root, registry string) string {
 func (s *Store) Resolve(ctx context.Context, v *vault.Vault, prefix string) (storage.BlobConfig, error) {
 	cfg := storage.BlobConfig{Type: string(s.Kind)}
 	switch s.Kind {
+	case KindReplicated, KindSharded:
+		return cfg, fmt.Errorf("blobstore %q: composite stores are resolved through the repository, which knows their members", s.Name)
 	case KindFile:
 		cfg.Root = joinPath(s.File.Root, prefix)
 	case KindS3:

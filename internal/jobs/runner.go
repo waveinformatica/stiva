@@ -21,6 +21,8 @@ import (
 const (
 	KindCleanup = "cleanup"
 	KindGC      = "gc"
+	// KindReconcile repairs replicas and rebalances shards of a registry's blob store.
+	KindReconcile = "reconcile"
 )
 
 // Handler runs one job and returns a JSON-serialisable result.

@@ -67,6 +67,9 @@ type MetadataStore interface {
 	GetObjectMeta(registry, path string) (digest.Digest, int64, string, error)
 	DeleteObject(registry, path string) error
 	ListObjects(registry, prefix string) ([]string, error)
+	// ListBlobs pages through the blobs recorded for a registry in digest
+	// order, starting after the given digest ("" for the first page).
+	ListBlobs(registry string, after digest.Digest, limit int) ([]BlobInfo, error)
 	// ListObjectInfos is ListObjects with size and last-write time (UnixNano).
 	ListObjectInfos(registry, prefix string) ([]ObjectInfo, error)
 
@@ -134,10 +137,22 @@ type RegistryRecord struct {
 	Config []byte
 }
 
+// BlobMember is one backend of a composite store. Name identifies it for
+// placement, so it must stay stable.
+type BlobMember struct {
+	Name   string     `json:"name"`
+	Config BlobConfig `json:"config"`
+}
+
 // BlobConfig selects and configures a blob storage backend.
 type BlobConfig struct {
-	// Type: "file" | "s3" | "gcs" | "azure"
+	// Type: "file" | "s3" | "gcs" | "azure" | "replicated" | "sharded"
 	Type string `json:"type"`
+
+	// replicated / sharded: the member backends (each a plain store), and for
+	// replicated the number of members that must accept a write.
+	Members     []BlobMember `json:"members,omitempty"`
+	WriteQuorum int          `json:"write_quorum,omitempty"`
 
 	// file
 	Root string `json:"root"`

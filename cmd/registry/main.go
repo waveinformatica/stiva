@@ -75,7 +75,7 @@ func main() {
 		if err != nil {
 			return storage.BlobConfig{}, false, fmt.Errorf("store %q: %w", storeName, err)
 		}
-		blob, err := st.Resolve(ctx, vlt, prefix)
+		blob, err := stores.Resolve(ctx, st, prefix)
 		if err != nil {
 			return storage.BlobConfig{}, false, err
 		}
@@ -137,6 +137,9 @@ func main() {
 			}
 			return mgr.GC(ctx, j.Registry, older, j.DryRun)
 		}, func(name string) bool { _, ok := mgr.Get(name); return ok })
+		runner.Handle(jobs.KindReconcile, func(ctx context.Context, j storage.Job) (any, error) {
+			return mgr.Reconcile(ctx, j.Registry, j.DryRun)
+		}, func(name string) bool { return mgr.ReconcilableBlobs(name) })
 		runner.Start(jobCtx)
 		handler.SetJobs(runner, js)
 	} else {

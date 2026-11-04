@@ -532,3 +532,26 @@ func (m *PostgresMetadataStore) ListObjectInfos(registry, prefix string) ([]Obje
 	}
 	return out, rows.Err()
 }
+
+func (m *PostgresMetadataStore) ListBlobs(registry string, after digest.Digest, limit int) ([]BlobInfo, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT digest, size, created_at FROM blobs WHERE registry = $1 AND digest > $2 ORDER BY digest LIMIT $3`,
+		registry, string(after), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BlobInfo
+	for rows.Next() {
+		var ds string
+		var size, created int64
+		if err := rows.Scan(&ds, &size, &created); err != nil {
+			return nil, err
+		}
+		out = append(out, BlobInfo{Digest: digest.Digest(ds), Size: size, CreatedAt: time.Unix(0, created)})
+	}
+	return out, rows.Err()
+}

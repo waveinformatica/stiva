@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"registry/internal/storage"
 	"registry/internal/vault"
 )
 
@@ -64,6 +65,9 @@ func (r *Repo) Upsert(ctx context.Context, s *Store) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
+	if err := r.checkMembers(ctx, s); err != nil {
+		return err
+	}
 	// Referenced credentials must exist, or the store is broken the moment it
 	// is used and the failure surfaces far from the mistake.
 	for _, ref := range s.SecretRefs() {
@@ -84,8 +88,73 @@ func (r *Repo) Upsert(ctx context.Context, s *Store) error {
 	return err
 }
 
+// checkMembers makes sure a composite is built from stores that exist and are
+// plain, so the failure surfaces at save time and not at the first push.
+func (r *Repo) checkMembers(ctx context.Context, s *Store) error {
+	for _, m := range s.Members() {
+		ms, err := r.Get(ctx, m)
+		if err != nil {
+			return fmt.Errorf("blobstore %q: member store %q does not exist", s.Name, m)
+		}
+		if ms.Kind.Composite() {
+			return fmt.Errorf("blobstore %q: member %q is itself a %s store; nesting is not supported", s.Name, m, ms.Kind)
+		}
+	}
+	return nil
+}
+
+// CompositesUsing lists the composite stores that have name as a member.
+func (r *Repo) CompositesUsing(ctx context.Context, name string) ([]string, error) {
+	all, err := r.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{}
+	for _, s := range all {
+		for _, m := range s.Members() {
+			if m == name {
+				out = append(out, s.Name)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+// Resolve builds the runtime configuration for one registry on store s,
+// resolving the members of a composite. Plain stores delegate to Store.Resolve.
+func (r *Repo) Resolve(ctx context.Context, s *Store, prefix string) (storage.BlobConfig, error) {
+	if !s.Kind.Composite() {
+		return s.Resolve(ctx, r.vault, prefix)
+	}
+	cfg := storage.BlobConfig{Type: string(s.Kind)}
+	if s.Replicated != nil {
+		cfg.WriteQuorum = s.Replicated.WriteQuorum
+	}
+	for _, name := range s.Members() {
+		ms, err := r.Get(ctx, name)
+		if err != nil {
+			return cfg, fmt.Errorf("blobstore %q: member %q: %w", s.Name, name, err)
+		}
+		if ms.Kind.Composite() {
+			return cfg, fmt.Errorf("blobstore %q: member %q is itself composite", s.Name, name)
+		}
+		mc, err := ms.Resolve(ctx, r.vault, prefix)
+		if err != nil {
+			return cfg, err
+		}
+		cfg.Members = append(cfg.Members, storage.BlobMember{Name: name, Config: mc})
+	}
+	return cfg, nil
+}
+
 // Delete removes a store, refusing while a registry still points at it.
 func (r *Repo) Delete(ctx context.Context, name string) error {
+	if users, err := r.CompositesUsing(ctx, name); err != nil {
+		return err
+	} else if len(users) > 0 {
+		return fmt.Errorf("%w: member of %v", ErrInUse, users)
+	}
 	users, err := r.RegistriesUsing(ctx, name)
 	if err != nil {
 		return err
