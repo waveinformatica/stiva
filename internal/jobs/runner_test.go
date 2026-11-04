@@ -147,3 +147,23 @@ func TestRunnerSchedulesRespectEligibility(t *testing.T) {
 		t.Errorf("ran = %v, want only 'yes'", ran)
 	}
 }
+
+func TestRunnerReportsFinishedJobs(t *testing.T) {
+	st := &memStore{}
+	r := NewRunner(st)
+	r.Handle("ok", func(context.Context, storage.Job) (any, error) { return nil, nil }, nil)
+	r.Handle("bad", func(context.Context, storage.Job) (any, error) { return nil, errors.New("boom") }, nil)
+	got := map[string]string{}
+	r.OnFinish = func(j storage.Job, status string, err error) {
+		got[j.Kind] = status
+		if (status == "failed") != (err != nil) {
+			t.Errorf("%s: status %s with err %v", j.Kind, status, err)
+		}
+	}
+	_, _ = r.Enqueue(storage.Job{Registry: "r", Kind: "ok"})
+	_, _ = r.Enqueue(storage.Job{Registry: "r", Kind: "bad"})
+	r.Tick(context.Background())
+	if got["ok"] != "succeeded" || got["bad"] != "failed" {
+		t.Errorf("OnFinish saw %v", got)
+	}
+}

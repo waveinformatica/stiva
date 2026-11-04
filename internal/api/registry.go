@@ -19,6 +19,7 @@ import (
 	"registry/internal/registry"
 	"registry/internal/storage"
 	"registry/internal/vault"
+	"registry/internal/webhooks"
 )
 
 // repoNameRegex validates OCI repository names (case-insensitive, slash-separated).
@@ -48,6 +49,10 @@ type Handler struct {
 	// Background jobs, wired by SetJobs.
 	jobRunner *jobs.Runner
 	jobStore  storage.JobStore
+
+	// Webhooks, wired by SetWebhooks.
+	events  *webhooks.Dispatcher
+	whStore storage.WebhookStore
 }
 
 // NewHandler builds an API handler.
@@ -203,7 +208,7 @@ func (h *Handler) getManifest(c *gin.Context, be registry.Backend, repo, referen
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
-		if checksumFailed(c, err) {
+		if h.checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -226,7 +231,7 @@ func (h *Handler) headManifest(c *gin.Context, be registry.Backend, repo, refere
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
-		if checksumFailed(c, err) {
+		if h.checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -273,6 +278,9 @@ func (h *Handler) putManifest(c *gin.Context, be registry.Backend, repo, referen
 	c.Header("Docker-Content-Digest", d.String())
 	c.Header("Location", loc)
 	c.Status(http.StatusCreated)
+	h.emit(c, webhooks.EventPushManifest, map[string]any{
+		"repo": repo, "reference": reference, "digest": d.String(), "media_type": mediaType, "size": len(body),
+	})
 }
 
 func (h *Handler) deleteManifest(c *gin.Context, be registry.Backend, repo, reference string) {
@@ -285,6 +293,7 @@ func (h *Handler) deleteManifest(c *gin.Context, be registry.Backend, repo, refe
 		return
 	}
 	c.Status(http.StatusAccepted)
+	h.emit(c, webhooks.EventDeleteManifest, map[string]any{"repo": repo, "reference": reference})
 }
 
 // ---- Blobs ----
@@ -319,7 +328,7 @@ func (h *Handler) getBlob(c *gin.Context, be registry.Backend, repo string, d di
 			c.JSON(http.StatusNotFound, errorBody("BLOB_UNKNOWN", "blob not found"))
 			return
 		}
-		if checksumFailed(c, err) {
+		if h.checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -544,10 +553,11 @@ type errorBodyT struct {
 
 // checksumFailed answers 502 when an upstream served content that does not
 // match its published checksum or digest, and reports whether it did.
-func checksumFailed(c *gin.Context, err error) bool {
+func (h *Handler) checksumFailed(c *gin.Context, err error) bool {
 	if !errors.Is(err, registry.ErrChecksumMismatch) {
 		return false
 	}
+	h.emit(c, webhooks.EventChecksumMismatch, map[string]any{"error": err.Error(), "path": c.Request.URL.Path})
 	c.JSON(http.StatusBadGateway, errorBody("UPSTREAM_CHECKSUM", err.Error()))
 	return true
 }

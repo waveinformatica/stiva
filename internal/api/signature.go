@@ -12,6 +12,7 @@ import (
 	"registry/internal/cosign"
 	"registry/internal/digest"
 	"registry/internal/registry"
+	"registry/internal/webhooks"
 )
 
 // maxIndexScan bounds how many tags are examined when looking for a signed
@@ -102,6 +103,9 @@ func (h *Handler) signatureGate(c *gin.Context, be registry.Backend, repo, refer
 	}
 	c.Header("X-Stiva-Signature", res.Status)
 	if reg.Signing.Mode == registry.SigningEnforce {
+		h.emit(c, webhooks.EventSignatureDenied, map[string]any{
+			"repo": repo, "reference": reference, "digest": digest.FromBytes(content).String(), "signature": res.Status,
+		})
 		c.JSON(http.StatusForbidden, errorBody("DENIED",
 			"image is not signed by a trusted key ("+res.Status+"): pull refused by this registry's signing policy"))
 		return false

@@ -131,6 +131,16 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 		// Garbage collection: reap orphan blobs (dry runs first).
 		admin.POST("/gc", h.adminGC)
 
+		// Webhooks: outgoing event notifications and their delivery log.
+		admin.GET("/webhooks", h.adminListWebhooks)
+		admin.POST("/webhooks", h.adminUpsertWebhook)
+		admin.PUT("/webhooks/:id", h.adminUpsertWebhook)
+		admin.DELETE("/webhooks/:id", h.adminDeleteWebhook)
+		admin.POST("/webhooks/:id/test", h.adminTestWebhook)
+		admin.GET("/webhooks/:id/deliveries", h.adminListDeliveries)
+		admin.GET("/webhook-deliveries/:id", h.adminGetDelivery)
+		admin.POST("/webhook-deliveries/:id/redeliver", h.adminRedeliver)
+
 		// Background jobs (cleanup, gc) and their schedules.
 		admin.GET("/jobs", h.adminListJobs)
 		admin.GET("/jobs/:id", h.adminGetJob)

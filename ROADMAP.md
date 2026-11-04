@@ -17,9 +17,9 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Cosign signature verification with public keys: signed/unsigned badge in the Explorer, warn/enforce on pull
 - [x] Blob store replication (quorum writes, read fallback) and sharding (rendezvous hashing), with a reconcile job to repair and rebalance
 - [x] Hosted Conan 2 REST API (ping, auth, revisions, search, delete) and hosted p2 repositories (generated artifacts.xml / content.xml)
+- [x] Webhooks: push/delete/job/security events, queued delivery with retries, HMAC-SHA256 signing, delivery log and redelivery
 - [x] Background jobs: PostgreSQL-backed queue, run history, schedules for cleanup and garbage collection
 
 ## Planned
 
-- [ ] Webhooks & event notifications
 - [ ] Cosign keyless verification (Fulcio/Rekor) and the new bundle format

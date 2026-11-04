@@ -40,6 +40,9 @@ type Runner struct {
 	StaleAfter  time.Duration // a "running" job older than this on startup is dead
 	KeepHistory time.Duration // finished jobs older than this are pruned
 
+	// OnFinish, when set, is called after a job has been recorded as finished.
+	OnFinish func(j storage.Job, status string, err error)
+
 	wg sync.WaitGroup
 }
 
@@ -170,13 +173,15 @@ func (r *Runner) run(ctx context.Context, j storage.Job) {
 		}()
 		res, err = h(ctx, j)
 	}()
+	status, msg := "succeeded", ""
 	if err != nil {
-		if ferr := r.store.FinishJob(j.ID, "failed", res, err.Error()); ferr != nil {
-			log.Printf("jobs: finish %d: %v", j.ID, ferr)
-		}
+		status, msg = "failed", err.Error()
+	}
+	if ferr := r.store.FinishJob(j.ID, status, res, msg); ferr != nil {
+		log.Printf("jobs: finish %d: %v", j.ID, ferr)
 		return
 	}
-	if ferr := r.store.FinishJob(j.ID, "succeeded", res, ""); ferr != nil {
-		log.Printf("jobs: finish %d: %v", j.ID, ferr)
+	if r.OnFinish != nil {
+		r.OnFinish(j, status, err)
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"registry/internal/auth"
 	"registry/internal/registry"
 	"registry/internal/storage"
+	"registry/internal/webhooks"
 )
 
 // ArtifactDispatch serves non-OCI artifact formats (helm/maven/npm). It is called
@@ -35,6 +36,8 @@ func (h *Handler) ArtifactDispatch(c *gin.Context) bool {
 		c.JSON(http.StatusServiceUnavailable, errorBody("UNAVAILABLE", "registry is offline"))
 		return true
 	}
+
+	c.Set("registry", reg.Name)
 
 	// Writes require authentication and are forbidden for cache registries.
 	if isWriteMethod(c.Request.Method) {
@@ -160,7 +163,7 @@ func (h *Handler) artifactGet(c *gin.Context, be registry.ArtifactBackend, reg *
 			c.JSON(http.StatusNotFound, errorBody("NOT_FOUND", "object not found"))
 			return
 		}
-		if checksumFailed(c, err) {
+		if h.checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -190,6 +193,7 @@ func (h *Handler) artifactPut(c *gin.Context, be registry.ArtifactBackend, reg *
 		return
 	}
 	c.Status(http.StatusCreated)
+	h.emit(c, webhooks.EventPushArtifact, map[string]any{"path": p, "format": reg.Format, "content_type": ct})
 }
 
 func (h *Handler) artifactDelete(c *gin.Context, be registry.ArtifactBackend, p string) {
@@ -206,6 +210,7 @@ func (h *Handler) artifactDelete(c *gin.Context, be registry.ArtifactBackend, p 
 		return
 	}
 	c.Status(http.StatusAccepted)
+	h.emit(c, webhooks.EventDeleteArtifact, map[string]any{"path": p})
 }
 
 // maybeGenerateMetadata handles format-specific metadata documents for hosted

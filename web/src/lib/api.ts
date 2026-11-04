@@ -109,6 +109,14 @@ export const api = {
     req("PUT", `/api/v1/admin/schedules/${enc(registry)}/${enc(kind)}`, b),
   scheduleDelete: (registry: string, kind: string) =>
     req("DELETE", `/api/v1/admin/schedules/${enc(registry)}/${enc(kind)}`),
+  webhooks: () => req("GET", "/api/v1/admin/webhooks"),
+  webhookSave: (b: any, id?: number) =>
+    id ? req("PUT", `/api/v1/admin/webhooks/${id}`, b) : req("POST", "/api/v1/admin/webhooks", b),
+  webhookDelete: (id: number) => req("DELETE", `/api/v1/admin/webhooks/${id}`),
+  webhookTest: (id: number) => req("POST", `/api/v1/admin/webhooks/${id}/test`, {}),
+  webhookDeliveries: (id: number) => req("GET", `/api/v1/admin/webhooks/${id}/deliveries?limit=50`),
+  webhookDelivery: (id: number) => req("GET", `/api/v1/admin/webhook-deliveries/${id}`),
+  webhookRedeliver: (id: number) => req("POST", `/api/v1/admin/webhook-deliveries/${id}/redeliver`, {}),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>

@@ -10,6 +10,7 @@ import {
   IconShield,
   IconSettings,
   IconClock,
+  IconBell,
 } from "./icons";
 
 export type View =
@@ -25,6 +26,7 @@ export type View =
   | "anonymous"
   | "registries"
   | "jobs"
+  | "webhooks"
   | "sso"
   | "settings";
 
@@ -95,6 +97,7 @@ export default function AppShellLayout({
             {link("registries", t("nav.registries"), <IconCloud size={16} />)}
             {link("stores", t("nav.stores"), <IconCloud size={16} />)}
             {link("jobs", t("nav.jobs"), <IconClock size={16} />)}
+            {link("webhooks", t("nav.webhooks"), <IconBell size={16} />)}
             {link("credentials", t("nav.credentials"), <IconKey size={16} />)}
             {link("roles", t("nav.roles"), <IconShield size={16} />)}
             {link("groups", t("nav.groups"), <IconUsers size={16} />)}

@@ -129,6 +129,13 @@ func (h *Handler) adminDeleteSecret(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if h.whStore != nil {
+		if hooks, err := h.whStore.WebhooksUsingSecret(vault.NewRef(key).String()); err == nil {
+			for _, n := range hooks {
+				users = append(users, "webhook:"+n)
+			}
+		}
+	}
 	if len(users) > 0 {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":     "credential is still in use",

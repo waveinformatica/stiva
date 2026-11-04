@@ -24,6 +24,7 @@ import (
 	"registry/internal/registry"
 	"registry/internal/storage"
 	"registry/internal/vault"
+	"registry/internal/webhooks"
 )
 
 // pinnedKey carries the registry name bound to a dedicated TCP listener.
@@ -110,10 +111,24 @@ func main() {
 
 	handler := api.NewHandler(mgr, authMgr)
 
-	// Background jobs: retention cleanup and garbage collection, on demand or
-	// on a schedule, from a PostgreSQL-backed queue.
+	// One context for the background workers (jobs, webhook delivery).
 	jobCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
+
+	// Webhooks: event notifications delivered from a PostgreSQL-backed queue.
+	var dispatcher *webhooks.Dispatcher
+	if ws, ok := meta.(storage.WebhookStore); ok {
+		dispatcher = webhooks.NewDispatcher(ws, func(ctx context.Context, ref string) (string, error) {
+			return vlt.Resolve(ctx, vault.ScopeCredentials, vault.SecretRef(ref))
+		})
+		dispatcher.Start(jobCtx)
+		handler.SetWebhooks(dispatcher, ws)
+	} else {
+		log.Printf("WARNING: metadata store has no webhook support; webhooks are disabled")
+	}
+
+	// Background jobs: retention cleanup and garbage collection, on demand or
+	// on a schedule, from a PostgreSQL-backed queue.
 	if js, ok := meta.(storage.JobStore); ok {
 		runner := jobs.NewRunner(js)
 		runner.Handle(jobs.KindCleanup, func(ctx context.Context, j storage.Job) (any, error) {
@@ -140,6 +155,16 @@ func main() {
 		runner.Handle(jobs.KindReconcile, func(ctx context.Context, j storage.Job) (any, error) {
 			return mgr.Reconcile(ctx, j.Registry, j.DryRun)
 		}, func(name string) bool { return mgr.ReconcilableBlobs(name) })
+		runner.OnFinish = func(j storage.Job, status string, err error) {
+			if dispatcher == nil {
+				return
+			}
+			data := map[string]any{"id": j.ID, "kind": j.Kind, "status": status, "dry_run": j.DryRun, "trigger": j.Trigger}
+			if err != nil {
+				data["error"] = err.Error()
+			}
+			dispatcher.Emit(webhooks.Event{Name: webhooks.EventJobFinished, Registry: j.Registry, Data: data})
+		}
 		runner.Start(jobCtx)
 		handler.SetJobs(runner, js)
 	} else {
@@ -310,6 +335,7 @@ var uiPagePaths = []string{
 	"/admin/sso",
 	"/admin/settings",
 	"/admin/jobs",
+	"/admin/webhooks",
 };
 
 // uiStaticPaths are the root-level build assets index.html refers to.
