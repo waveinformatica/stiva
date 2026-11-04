@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} compartidas",
     "title": "Acceso anónimo",
     "description": "Identidades para llamadas no autenticadas, con límites de red opcionales."
+  },
+  "cleanup": {
+    "title": "Política de limpieza — {{name}}",
+    "intro": "Una etiqueta se conserva si alguna regla la conserva. Sin reglas no se borra nada. Los blobs liberados los recupera después la GC.",
+    "enabled": "Política activa",
+    "keepLast": "Conservar las N etiquetas más recientes por repositorio",
+    "maxAge": "Conservar etiquetas subidas en los últimos N días",
+    "zeroOff": "0 = regla desactivada",
+    "protect": "Etiquetas protegidas (patrones separados por comas, p. ej. latest, v*)",
+    "protectNote": "Las etiquetas de firma y atestación (sha256-….sig/.att/.sbom) siempre están protegidas.",
+    "save": "Guardar política",
+    "saved": "Política guardada.",
+    "preview": "Vista previa (simulación)",
+    "run": "Eliminar ahora",
+    "wouldDelete": "Se eliminarían {{tags}} etiquetas y {{manifests}} manifiestos",
+    "deleted": "Eliminadas {{tags}} etiquetas y {{manifests}} manifiestos. Ejecuta la GC para recuperar espacio.",
+    "nothing": "No hay nada que eliminar con esta política.",
+    "confirm": "¿Eliminar {{tags}} etiquetas de «{{name}}»? No se puede deshacer.",
+    "repoHeader": "Repositorio",
+    "tagsHeader": "Etiquetas",
+    "keptHeader": "Conservadas",
+    "button": "Limpieza"
   }
 }

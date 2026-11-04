@@ -89,6 +89,11 @@ export const api = {
     req("DELETE", `/api/v1/admin/registries/${enc(name)}`),
   adminWarmRegistry: (name: string, image: string) =>
     req("POST", `/api/v1/admin/registries/${enc(name)}/warm`, { image }),
+  cleanupGet: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/cleanup`),
+  cleanupSet: (name: string, b: any) =>
+    req("PUT", `/api/v1/admin/registries/${enc(name)}/cleanup`, b),
+  cleanupRun: (name: string, dryRun: boolean) =>
+    req("POST", `/api/v1/admin/registries/${enc(name)}/cleanup/run`, { dry_run: dryRun }),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>

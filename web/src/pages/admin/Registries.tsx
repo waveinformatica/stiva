@@ -21,6 +21,7 @@ import {
   ScrollArea,
   Code,
   Text, PageLoader, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
+import CleanupModal from "../../components/CleanupModal";
 import { api } from "../../lib/api";
 import { BlobStoreForm, emptyStore, type BlobStore } from "../../components/BlobStoreForm";
 import { IconPlus } from "../../components/icons";
@@ -114,6 +115,7 @@ export default function Registries() {
   const [gcOlder, setGcOlder] = useState("1h");
   const [gcReport, setGcReport] = useState<any>(null);
   const [gcBusy, setGcBusy] = useState(false);
+  const [cleanupName, setCleanupName] = useState<string | null>(null);
   const [aptKey, setAptKey] = useState<any>(null);
   const [aptBusy, setAptBusy] = useState(false);
 
@@ -294,6 +296,11 @@ export default function Registries() {
                     }}
                   >
                     Warm
+                  </Button>
+                )}
+                {r.format === "oci" && r.type === "hosted" && (
+                  <Button size="compact-xs" variant="light" color="gray" onClick={() => setCleanupName(r.name)}>
+                    {t("cleanup.button")}
                   </Button>
                 )}
                 <Button size="compact-xs" variant="light" color="gray" onClick={() => openGC(r.name)}>
@@ -582,6 +589,8 @@ export default function Registries() {
             {t("common.save")}
           </FormFooter>
       </Modal>
+
+      <CleanupModal name={cleanupName} onClose={() => setCleanupName(null)} />
 
       <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={t("registries.gcTitle", { name: gcName || "" })} size="lg">
         <Stack gap="sm">

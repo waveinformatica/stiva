@@ -46,6 +46,8 @@ type MetadataStore interface {
 	// Tags
 	ResolveTag(registry, repo, tag string) (digest.Digest, error)
 	SetTag(registry, repo, tag string, d digest.Digest) error
+	// DeleteTag removes one tag only; the manifest it pointed at stays.
+	DeleteTag(registry, repo, tag string) error
 	ListTags(registry, repo string) ([]string, error)
 	// ListTagInfos lists tags with their last-push time (UnixNano, 0 unknown).
 	ListTagInfos(registry, repo string) ([]TagInfo, error)

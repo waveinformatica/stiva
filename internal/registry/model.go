@@ -111,6 +111,10 @@ type Registry struct {
 	CacheDefaultUpstream string                 `json:"cache_default_upstream"` // base for host-less repos; empty => Docker Hub
 	CacheUpstreams       map[string]UpstreamDef `json:"cache_upstreams"`        // host -> upstream definition
 
+	// Cleanup is the retention policy for hosted OCI registries; nil means
+	// "keep everything". It only acts when a cleanup run is requested.
+	Cleanup *CleanupPolicy `json:"cleanup,omitempty"`
+
 	// Group-specific.
 	Members     []string `json:"members"`      // ordered member registry names (read aggregation)
 	WriteMember string   `json:"write_member"` // member that receives writes
@@ -129,6 +133,9 @@ func NormalizeFormat(f string) string {
 }
 
 func (r *Registry) Validate() error {
+	if err := r.Cleanup.Validate(); err != nil {
+		return err
+	}
 	if r.Name == "" {
 		return fmt.Errorf("registry name is required")
 	}

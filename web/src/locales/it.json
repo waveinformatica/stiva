@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} condivise",
     "title": "Accesso anonimo",
     "description": "Identità per chiamanti non autenticati, con limiti di rete opzionali."
+  },
+  "cleanup": {
+    "title": "Policy di pulizia — {{name}}",
+    "intro": "Un tag viene mantenuto se almeno una regola lo mantiene. Senza regole non viene cancellato nulla. I blob liberati vengono recuperati poi dalla GC.",
+    "enabled": "Policy attiva",
+    "keepLast": "Mantieni gli ultimi N tag per repository",
+    "maxAge": "Mantieni i tag pushati negli ultimi N giorni",
+    "zeroOff": "0 = regola disattivata",
+    "protect": "Tag protetti (pattern separati da virgola, es. latest, v*)",
+    "protectNote": "I tag di firma e attestazione (sha256-….sig/.att/.sbom) sono sempre protetti.",
+    "save": "Salva policy",
+    "saved": "Policy salvata.",
+    "preview": "Anteprima (dry run)",
+    "run": "Elimina ora",
+    "wouldDelete": "Verrebbero eliminati {{tags}} tag e {{manifests}} manifest",
+    "deleted": "Eliminati {{tags}} tag e {{manifests}} manifest. Esegui la GC per recuperare spazio.",
+    "nothing": "Con questa policy non c’è nulla da eliminare.",
+    "confirm": "Eliminare {{tags}} tag da \"{{name}}\"? L’operazione non è annullabile.",
+    "repoHeader": "Repository",
+    "tagsHeader": "Tag",
+    "keptHeader": "Mantenuti",
+    "button": "Pulizia"
   }
 }

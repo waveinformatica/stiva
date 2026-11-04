@@ -28,6 +28,7 @@ import {
   Divider,
   Tree,
   CopyButton,
+  NumberInput,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconInbox, IconPlus, IconTrash } from "./icons";
@@ -59,6 +60,7 @@ export {
   Divider,
   Tree,
   CopyButton,
+  NumberInput,
 };
 
 // Modal goes fullscreen on narrow screens so form dialogs stay usable on

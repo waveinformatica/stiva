@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} geteilte",
     "title": "Anonymer Zugriff",
     "description": "Identitäten für nicht authentifizierte Aufrufer, optional per Netzwerk begrenzt."
+  },
+  "cleanup": {
+    "title": "Bereinigungsrichtlinie — {{name}}",
+    "intro": "Ein Tag bleibt erhalten, wenn mindestens eine Regel ihn behält. Ohne Regel wird nichts gelöscht. Freigewordene Blobs räumt danach die GC auf.",
+    "enabled": "Richtlinie aktiv",
+    "keepLast": "Neueste N Tags pro Repository behalten",
+    "maxAge": "Tags der letzten N Tage behalten",
+    "zeroOff": "0 = Regel aus",
+    "protect": "Geschützte Tags (Muster, kommagetrennt, z. B. latest, v*)",
+    "protectNote": "Signatur- und Attestierungs-Tags (sha256-….sig/.att/.sbom) sind immer geschützt.",
+    "save": "Richtlinie speichern",
+    "saved": "Richtlinie gespeichert.",
+    "preview": "Vorschau (Testlauf)",
+    "run": "Jetzt löschen",
+    "wouldDelete": "{{tags}} Tags und {{manifests}} Manifeste würden gelöscht",
+    "deleted": "{{tags}} Tags und {{manifests}} Manifeste gelöscht. Starten Sie die GC, um Speicher freizugeben.",
+    "nothing": "Mit dieser Richtlinie gibt es nichts zu löschen.",
+    "confirm": "{{tags}} Tags aus „{{name}}“ löschen? Das kann nicht rückgängig gemacht werden.",
+    "repoHeader": "Repository",
+    "tagsHeader": "Tags",
+    "keptHeader": "Behalten",
+    "button": "Bereinigung"
   }
 }

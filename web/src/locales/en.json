@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} shared",
     "title": "Anonymous access",
     "description": "Identities for unauthenticated callers, optionally limited by network."
+  },
+  "cleanup": {
+    "title": "Cleanup policy — {{name}}",
+    "intro": "Tags are kept if any rule keeps them. With no rule set, nothing is ever deleted. Freed blobs are reclaimed by GC afterwards.",
+    "enabled": "Policy enabled",
+    "keepLast": "Keep the newest N tags per repository",
+    "maxAge": "Keep tags pushed in the last N days",
+    "zeroOff": "0 = rule off",
+    "protect": "Protected tags (comma-separated patterns, e.g. latest, v*)",
+    "protectNote": "Signature and attestation tags (sha256-….sig/.att/.sbom) are always protected.",
+    "save": "Save policy",
+    "saved": "Policy saved.",
+    "preview": "Preview (dry run)",
+    "run": "Delete now",
+    "wouldDelete": "{{tags}} tags and {{manifests}} manifests would be deleted",
+    "deleted": "Deleted {{tags}} tags and {{manifests}} manifests. Run GC to reclaim disk space.",
+    "nothing": "Nothing to delete with this policy.",
+    "confirm": "Delete {{tags}} tags from \"{{name}}\"? This cannot be undone.",
+    "repoHeader": "Repository",
+    "tagsHeader": "Tags",
+    "keptHeader": "Kept",
+    "button": "Cleanup"
   }
 }

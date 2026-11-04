@@ -286,6 +286,12 @@ func (m *PostgresMetadataStore) SetTag(registry, repo, tag string, d digest.Dige
 	return m.CreateRepo(registry, repo)
 }
 
+func (m *PostgresMetadataStore) DeleteTag(registry, repo, tag string) error {
+	_, err := m.pool.Exec(context.Background(),
+		`DELETE FROM tags WHERE registry = $1 AND repo = $2 AND tag = $3`, registry, repo, tag)
+	return err
+}
+
 func (m *PostgresMetadataStore) ListTags(registry, repo string) ([]string, error) {
 	rows, err := m.pool.Query(context.Background(),
 		`SELECT tag FROM tags WHERE registry = $1 AND repo = $2 ORDER BY tag`,

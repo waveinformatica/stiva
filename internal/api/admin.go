@@ -305,6 +305,13 @@ func (h *Handler) adminUpdateRegistry(c *gin.Context) {
 		return
 	}
 	r.Name = c.Param("name")
+	// The edit form does not carry the retention policy; keep what is stored
+	// unless the body sets one explicitly.
+	if r.Cleanup == nil {
+		if cur, ok := h.mgr.Get(r.Name); ok {
+			r.Cleanup = cur.Cleanup
+		}
+	}
 	if err := h.mgr.Update(r, h.linkStore(c, store)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

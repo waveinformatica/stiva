@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} partilhadas",
     "title": "Acesso anónimo",
     "description": "Identidades para chamadas não autenticadas, com limites de rede opcionais."
+  },
+  "cleanup": {
+    "title": "Política de limpeza — {{name}}",
+    "intro": "Uma tag é mantida se alguma regra a mantiver. Sem regras nada é apagado. Os blobs liberados são recuperados depois pela GC.",
+    "enabled": "Política ativa",
+    "keepLast": "Manter as N tags mais recentes por repositório",
+    "maxAge": "Manter tags enviadas nos últimos N dias",
+    "zeroOff": "0 = regra desativada",
+    "protect": "Tags protegidas (padrões separados por vírgula, ex.: latest, v*)",
+    "protectNote": "Tags de assinatura e atestação (sha256-….sig/.att/.sbom) são sempre protegidas.",
+    "save": "Salvar política",
+    "saved": "Política salva.",
+    "preview": "Pré-visualizar (simulação)",
+    "run": "Excluir agora",
+    "wouldDelete": "{{tags}} tags e {{manifests}} manifestos seriam excluídos",
+    "deleted": "{{tags}} tags e {{manifests}} manifestos excluídos. Execute a GC para recuperar espaço.",
+    "nothing": "Nada a excluir com esta política.",
+    "confirm": "Excluir {{tags}} tags de \"{{name}}\"? Não é possível desfazer.",
+    "repoHeader": "Repositório",
+    "tagsHeader": "Tags",
+    "keptHeader": "Mantidas",
+    "button": "Limpeza"
   }
 }

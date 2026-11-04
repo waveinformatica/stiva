@@ -12,10 +12,11 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Explorer: treeview, global search, per-format browsers
 - [x] Signed APT Release (InRelease / Release.gpg + KEY.gpg, per-registry keys in the vault)
 - [x] Garbage collection (orphan blob reaping, dry-run first)
+- [x] Cleanup policies for hosted OCI registries (keep-last-N, max age, protected tags, dry-run first; run on demand)
 
 ## Planned
 
-- [ ] Cleanup policies (retention, keep-last-N)
+- [ ] Cleanup policies: scheduled runs and non-OCI formats (version retention)
 - [ ] Webhooks & event notifications
 - [ ] Checksum verification on download + cosign signature verification
 - [ ] Blob store replication / sharding

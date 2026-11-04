@@ -579,5 +579,27 @@
     "sharedCount": "{{count}} partagés",
     "title": "Accès anonyme",
     "description": "Identités pour les appelants non authentifiés, avec limites réseau optionnelles."
+  },
+  "cleanup": {
+    "title": "Politique de nettoyage — {{name}}",
+    "intro": "Un tag est conservé si au moins une règle le conserve. Sans règle, rien n’est supprimé. Les blobs libérés sont récupérés ensuite par le GC.",
+    "enabled": "Politique activée",
+    "keepLast": "Conserver les N tags les plus récents par dépôt",
+    "maxAge": "Conserver les tags poussés ces N derniers jours",
+    "zeroOff": "0 = règle désactivée",
+    "protect": "Tags protégés (motifs séparés par des virgules, ex. latest, v*)",
+    "protectNote": "Les tags de signature et d’attestation (sha256-….sig/.att/.sbom) sont toujours protégés.",
+    "save": "Enregistrer",
+    "saved": "Politique enregistrée.",
+    "preview": "Aperçu (dry run)",
+    "run": "Supprimer maintenant",
+    "wouldDelete": "{{tags}} tags et {{manifests}} manifests seraient supprimés",
+    "deleted": "{{tags}} tags et {{manifests}} manifests supprimés. Lancez le GC pour récupérer l’espace.",
+    "nothing": "Rien à supprimer avec cette politique.",
+    "confirm": "Supprimer {{tags}} tags de « {{name}} » ? Action irréversible.",
+    "repoHeader": "Dépôt",
+    "tagsHeader": "Tags",
+    "keptHeader": "Conservés",
+    "button": "Nettoyage"
   }
 }

@@ -117,6 +117,11 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 		admin.DELETE("/registries/:name", h.adminDeleteRegistry)
 		admin.POST("/registries/:name/warm", h.adminWarmRegistry)
 
+		// Retention policy for hosted OCI registries (dry run first).
+		admin.GET("/registries/:name/cleanup", h.adminGetCleanup)
+		admin.PUT("/registries/:name/cleanup", h.adminSetCleanup)
+		admin.POST("/registries/:name/cleanup/run", h.adminRunCleanup)
+
 		// APT repository signing keys (hosted APT registries only).
 		admin.GET("/registries/:name/apt-key", h.adminGetAPTKey)
 		admin.POST("/registries/:name/apt-key", h.adminCreateAPTKey)
