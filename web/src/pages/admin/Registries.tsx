@@ -42,6 +42,7 @@ type Reg = {
   remote_token?: string;
   proxy_allow_write?: boolean;
   checksum?: string;
+  signing?: { mode: string; keys: string };
   cache_default_upstream?: string;
   cache_upstreams?: Record<string, { url: string; user?: string; pass?: string; token?: string; insecure?: boolean }>;
   members: string[];
@@ -91,6 +92,7 @@ const emptyForm = (): Reg => ({
   remote_url: "",
   proxy_allow_write: false,
   checksum: "",
+  signing: { mode: "", keys: "" },
   cache_default_upstream: "",
   cache_upstreams: {},
   members: [],
@@ -191,6 +193,9 @@ export default function Registries() {
     }
     if (payload.type !== "proxy" || payload.format === "oci") {
       delete payload.checksum;
+    }
+    if (payload.format !== "oci" || payload.type === "group") {
+      delete payload.signing;
     }
     if (payload.type !== "group") {
       delete payload.members;
@@ -494,6 +499,34 @@ export default function Registries() {
                 allowDeselect={false}
               />
             )}
+          </div>
+        ) : null}
+
+        {form.format === "oci" && form.type !== "group" ? (
+          <div style={{ marginTop: "var(--mantine-spacing-md)" }}>
+            <Select
+              label={t("signing.modeLabel")}
+              description={t("signing.modeDesc")}
+              data={[
+                { value: "", label: t("signing.modeOff") },
+                { value: "warn", label: t("signing.modeWarn") },
+                { value: "enforce", label: t("signing.modeEnforce") },
+              ]}
+              value={form.signing?.mode || ""}
+              onChange={(v) => setForm({ ...form, signing: { mode: v || "", keys: form.signing?.keys || "" } })}
+              allowDeselect={false}
+            />
+            <Textarea
+              mt="sm"
+              minRows={4}
+              autosize
+              label={t("signing.keysLabel")}
+              description={t("signing.keysNote")}
+              placeholder={"-----BEGIN PUBLIC KEY-----\n…\n-----END PUBLIC KEY-----"}
+              value={form.signing?.keys || ""}
+              onChange={(e) => setForm({ ...form, signing: { mode: form.signing?.mode || "", keys: e.currentTarget.value } })}
+              styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 12 } }}
+            />
           </div>
         ) : null}
 

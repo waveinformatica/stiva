@@ -661,5 +661,20 @@
     "allKinds": "Toutes les tâches",
     "refresh": "Actualiser",
     "never": "jamais"
+  },
+  "signing": {
+    "verified": "Signée ✓",
+    "present": "Signée (non vérifiée)",
+    "invalid": "Signature invalide",
+    "unsigned": "Non signée",
+    "viaIndex": "Couverte par la signature d’un index multi-architecture.",
+    "noKeysHint": "Aucune clé de confiance configurée : les signatures ne sont pas vérifiées.",
+    "modeLabel": "Contrôle de signature (cosign)",
+    "modeDesc": "Vérifie les signatures cosign avec les clés publiques ci-dessous lors des pulls.",
+    "modeOff": "Désactivé",
+    "modeWarn": "Avertir (signaler les images non signées)",
+    "modeEnforce": "Imposer (refuser les images non signées)",
+    "keysLabel": "Clés publiques de confiance (PEM, une ou plusieurs)",
+    "keysNote": "Signatures cosign à clé uniquement ; le keyless (Fulcio/Rekor) n’est pas pris en charge."
   }
 }

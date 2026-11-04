@@ -661,5 +661,20 @@
     "allKinds": "All tasks",
     "refresh": "Refresh",
     "never": "never"
+  },
+  "signing": {
+    "verified": "Signed ✓",
+    "present": "Signed (not verified)",
+    "invalid": "Invalid signature",
+    "unsigned": "Unsigned",
+    "viaIndex": "Covered by the signature of a multi-arch index.",
+    "noKeysHint": "No trusted keys are configured, so signatures are not checked.",
+    "modeLabel": "Signature check (cosign)",
+    "modeDesc": "Check cosign signatures with the public keys below when images are pulled.",
+    "modeOff": "Off",
+    "modeWarn": "Warn (flag unsigned images)",
+    "modeEnforce": "Enforce (refuse unsigned images)",
+    "keysLabel": "Trusted public keys (PEM, one or more)",
+    "keysNote": "Key-based cosign signatures only; keyless (Fulcio/Rekor) is not supported."
   }
 }

@@ -31,6 +31,7 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.GET("/registries", h.uiRegistries)
 	v1.GET("/pullroute", h.uiPullRoute)
 	v1.GET("/dockerfile", h.uiDockerfile)
+	v1.GET("/signature", h.uiSignature)
 	v1.GET("/browse", h.uiBrowse)
 	v1.GET("/search", h.uiSearch)
 	v1.GET("/artifact", h.uiArtifact)

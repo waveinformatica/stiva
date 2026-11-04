@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"registry/internal/cosign"
 	"registry/internal/storage"
 )
 
@@ -116,6 +117,9 @@ type Registry struct {
 	// file fetched from the upstream with the checksum published beside it.
 	Checksum string `json:"checksum,omitempty"`
 
+	// Signing configures cosign signature checks on image pulls (OCI only).
+	Signing *SigningPolicy `json:"signing,omitempty"`
+
 	// Cleanup is the retention policy for hosted OCI registries; nil means
 	// "keep everything". It only acts when a cleanup run is requested.
 	Cleanup *CleanupPolicy `json:"cleanup,omitempty"`
@@ -138,6 +142,9 @@ func NormalizeFormat(f string) string {
 }
 
 func (r *Registry) Validate() error {
+	if err := r.Signing.Validate(r.Format); err != nil {
+		return err
+	}
 	if !validChecksumMode(r.Checksum) {
 		return fmt.Errorf("checksum must be empty, \"warn\" or \"enforce\"")
 	}
@@ -410,4 +417,44 @@ func upstreamRepoName(base, repo string) string {
 		return "library/" + repo
 	}
 	return repo
+}
+
+// Signature check modes.
+const (
+	SigningOff     = ""        // do not check
+	SigningWarn    = "warn"    // log and flag unsigned images, serve them anyway
+	SigningEnforce = "enforce" // refuse manifests without a valid trusted signature
+)
+
+// SigningPolicy makes a registry check cosign signatures on pull. Keys holds
+// PEM public keys (several may be concatenated); public keys are not secrets,
+// so they live in the registry definition.
+type SigningPolicy struct {
+	Mode string `json:"mode"`
+	Keys string `json:"keys"`
+}
+
+// Validate rejects a policy that could not work as configured: unknown mode,
+// unreadable keys, or enforcement with nothing to verify against (which would
+// refuse every image).
+func (p *SigningPolicy) Validate(format string) error {
+	if p == nil || (p.Mode == SigningOff && p.Keys == "") {
+		return nil
+	}
+	if format != string(FormatDocker) {
+		return fmt.Errorf("signature checks apply to OCI registries only")
+	}
+	if p.Mode != SigningOff && p.Mode != SigningWarn && p.Mode != SigningEnforce {
+		return fmt.Errorf("signing mode must be empty, \"warn\" or \"enforce\"")
+	}
+	if strings.TrimSpace(p.Keys) == "" {
+		if p.Mode == SigningEnforce {
+			return fmt.Errorf("signing: enforce needs at least one public key")
+		}
+		return nil
+	}
+	if _, err := cosign.ParseKeys(p.Keys); err != nil {
+		return err
+	}
+	return nil
 }

@@ -140,6 +140,8 @@ export const api = {
   // Tags whose image contains the blob: which images share this layer.
   blobTags: (registry: string, repo: string, digest: string) =>
     req("GET", `/api/v1/repositories/${enc(repo)}/blobs/${enc(digest)}?registry=${enc(registry)}`),
+  signature: (registry: string, repo: string, ref: string) =>
+    req("GET", `/api/v1/signature?registry=${enc(registry)}&repo=${enc(repo)}&ref=${enc(ref)}`),
   // Dockerfile that built the image: real file from the build attestation,
   // else reconstructed from the image config history.
   dockerfile: (registry: string, repo: string, ref: string) =>

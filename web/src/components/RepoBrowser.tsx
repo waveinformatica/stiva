@@ -1,3 +1,4 @@
+import SignatureBadge from "./SignatureBadge";
 import { useEffect, useMemo, useState } from "react";
 import { useTree, type TreeNodeData } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
@@ -596,6 +597,7 @@ export default function RepoBrowser({
                 <Group justify="space-between" mb="xs" wrap="wrap">
                   <Group gap="xs" wrap="wrap">
                     <Badge color="teal">{tag}</Badge>
+                    <SignatureBadge registry={registry} repo={repo} refName={currentRef} />
                     <Text size="xs" c="dimmed">
                       {manifest.media_type}
                     </Text>

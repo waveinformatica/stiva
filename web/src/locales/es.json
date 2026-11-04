@@ -661,5 +661,20 @@
     "allKinds": "Todas las tareas",
     "refresh": "Actualizar",
     "never": "nunca"
+  },
+  "signing": {
+    "verified": "Firmada ✓",
+    "present": "Firmada (sin verificar)",
+    "invalid": "Firma no válida",
+    "unsigned": "Sin firmar",
+    "viaIndex": "Cubierta por la firma de un índice multiarquitectura.",
+    "noKeysHint": "No hay claves de confianza configuradas: las firmas no se verifican.",
+    "modeLabel": "Comprobación de firma (cosign)",
+    "modeDesc": "Comprueba las firmas cosign con las claves públicas siguientes al hacer pull.",
+    "modeOff": "Desactivado",
+    "modeWarn": "Avisar (señalar imágenes sin firmar)",
+    "modeEnforce": "Exigir (rechazar imágenes sin firmar)",
+    "keysLabel": "Claves públicas de confianza (PEM, una o varias)",
+    "keysNote": "Solo firmas cosign con clave; keyless (Fulcio/Rekor) no está soportado."
   }
 }

@@ -209,6 +209,9 @@ func (h *Handler) getManifest(c *gin.Context, be registry.Backend, repo, referen
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 		return
 	}
+	if !h.signatureGate(c, be, repo, reference, content) {
+		return
+	}
 	d := digest.FromBytes(content)
 	c.Header("Docker-Content-Digest", d.String())
 	c.Header("Content-Type", mt)
@@ -227,6 +230,9 @@ func (h *Handler) headManifest(c *gin.Context, be registry.Backend, repo, refere
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
+		return
+	}
+	if !h.signatureGate(c, be, repo, reference, content) {
 		return
 	}
 	d := digest.FromBytes(content)

@@ -661,5 +661,20 @@
     "allKinds": "Alle Aufgaben",
     "refresh": "Aktualisieren",
     "never": "nie"
+  },
+  "signing": {
+    "verified": "Signiert ✓",
+    "present": "Signiert (ungeprüft)",
+    "invalid": "Ungültige Signatur",
+    "unsigned": "Nicht signiert",
+    "viaIndex": "Durch die Signatur eines Multi-Arch-Index abgedeckt.",
+    "noKeysHint": "Keine vertrauenswürdigen Schlüssel konfiguriert: Signaturen werden nicht geprüft.",
+    "modeLabel": "Signaturprüfung (cosign)",
+    "modeDesc": "Prüft cosign-Signaturen mit den folgenden öffentlichen Schlüsseln beim Pull.",
+    "modeOff": "Aus",
+    "modeWarn": "Warnen (unsignierte Images kennzeichnen)",
+    "modeEnforce": "Erzwingen (unsignierte Images ablehnen)",
+    "keysLabel": "Vertrauenswürdige öffentliche Schlüssel (PEM, eine oder mehrere)",
+    "keysNote": "Nur schlüsselbasierte cosign-Signaturen; Keyless (Fulcio/Rekor) wird nicht unterstützt."
   }
 }

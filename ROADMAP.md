@@ -13,11 +13,13 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Signed APT Release (InRelease / Release.gpg + KEY.gpg, per-registry keys in the vault)
 - [x] Garbage collection (orphan blob reaping, dry-run first)
 - [x] Cleanup policies: OCI tags and package versions for every other format (keep-last-N, max age, protected patterns, dry-run first)
+- [x] Checksum verification on download (OCI digests always; published checksums for proxied artifacts: warn/enforce)
+- [x] Cosign signature verification with public keys: signed/unsigned badge in the Explorer, warn/enforce on pull
 - [x] Background jobs: PostgreSQL-backed queue, run history, schedules for cleanup and garbage collection
 
 ## Planned
 
 - [ ] Webhooks & event notifications
-- [ ] Checksum verification on download + cosign signature verification
+- [ ] Cosign keyless verification (Fulcio/Rekor) and the new bundle format
 - [ ] Blob store replication / sharding
 - [ ] Full hosted REST APIs for Conan / p2 clients

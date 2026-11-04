@@ -661,5 +661,20 @@
     "allKinds": "Tutte le attività",
     "refresh": "Aggiorna",
     "never": "mai"
+  },
+  "signing": {
+    "verified": "Firmata ✓",
+    "present": "Firmata (non verificata)",
+    "invalid": "Firma non valida",
+    "unsigned": "Non firmata",
+    "viaIndex": "Coperta dalla firma di un indice multi-architettura.",
+    "noKeysHint": "Nessuna chiave attendibile configurata: le firme non vengono verificate.",
+    "modeLabel": "Controllo firma (cosign)",
+    "modeDesc": "Verifica le firme cosign con le chiavi pubbliche indicate quando le immagini vengono scaricate.",
+    "modeOff": "Disattivato",
+    "modeWarn": "Avviso (segnala le immagini non firmate)",
+    "modeEnforce": "Obbligatorio (rifiuta le immagini non firmate)",
+    "keysLabel": "Chiavi pubbliche attendibili (PEM, una o più)",
+    "keysNote": "Solo firme cosign con chiave; il keyless (Fulcio/Rekor) non è supportato."
   }
 }
