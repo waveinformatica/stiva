@@ -9,7 +9,6 @@ import {
   Table,
   Badge,
   Loader,
-  Center,
   Alert,
   Button,
   Modal as MantineModal,
@@ -31,6 +30,7 @@ import {
   CopyButton,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import { IconInbox } from "./icons";
 
 // Re-export the core Mantine primitives so the whole UI imports from one place.
 export {
@@ -68,30 +68,86 @@ export function Modal(props: ModalProps) {
   return <MantineModal fullScreen={narrow} {...props} />;
 }
 
-export function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+}) {
   return (
-    <Group justify="space-between" mb="md">
-      <Title order={3}>{title}</Title>
-      {actions}
+    <Group justify="space-between" align="flex-start" mb="lg" gap="md">
+      <div>
+        <Title order={3}>{title}</Title>
+        {description && (
+          <Text size="sm" c="dimmed" mt={2}>
+            {description}
+          </Text>
+        )}
+      </div>
+      {actions && <Group gap="xs">{actions}</Group>}
     </Group>
+  );
+}
+
+// Titled card used for grouped content (settings blocks, detail panels).
+export function Section({
+  title,
+  description,
+  actions,
+  children,
+}: {
+  title?: string;
+  description?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card padding="lg" mb="md">
+      {(title || actions) && (
+        <Group justify="space-between" align="flex-start" mb="md">
+          <div>
+            {title && (
+              <Text fw={650} fz="md">
+                {title}
+              </Text>
+            )}
+            {description && (
+              <Text size="sm" c="dimmed">
+                {description}
+              </Text>
+            )}
+          </div>
+          {actions}
+        </Group>
+      )}
+      {children}
+    </Card>
   );
 }
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <Center maw={480} mx="auto" my="xl">
-      <Text c="dimmed">{message}</Text>
-    </Center>
+    <Stack align="center" gap="xs" py="xl" mx="auto" maw={480}>
+      <ThemeIcon variant="light" color="gray" size={48} radius="xl">
+        <IconInbox size={24} />
+      </ThemeIcon>
+      <Text c="dimmed" ta="center" size="sm">
+        {message}
+      </Text>
+    </Stack>
   );
 }
 
 export function StatCard({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <Card withBorder padding="md" radius="md">
-      <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+    <Card padding="lg">
+      <Text size="xs" c="dimmed" tt="uppercase" fw={700} lts={0.5}>
         {label}
       </Text>
-      <Text fw={700} fz="xl">
+      <Text fw={700} fz={28} lh={1.2} mt={4}>
         {value}
       </Text>
     </Card>
@@ -117,11 +173,16 @@ export function DataTable<T>({
 }) {
   const { t } = useTranslation();
   if (rows.length === 0) {
-    return <EmptyState message={empty || t("common.noData")} />;
+    return (
+      <Card padding="sm">
+        <EmptyState message={empty || t("common.noData")} />
+      </Card>
+    );
   }
   return (
-    <ScrollArea>
-      <Table striped highlightOnHover withTableBorder verticalSpacing="sm">
+    <Card padding={0} style={{ overflow: "hidden" }}>
+      <ScrollArea>
+        <Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md" className="stiva-table">
         <Table.Thead>
           <Table.Tr>
             {columns.map((c, i) => (
@@ -141,7 +202,8 @@ export function DataTable<T>({
           ))}
         </Table.Tbody>
       </Table>
-    </ScrollArea>
+      </ScrollArea>
+    </Card>
   );
 }
 

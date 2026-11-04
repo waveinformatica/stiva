@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   PageHeader,
-  Card,
+  Section,
   Group,
   Text,
   Badge,
@@ -94,10 +94,7 @@ export default function Settings() {
         <StatCard label={t("settings.repositoriesStat")} value={stats?.repositories ?? 0} />
         <StatCard label={t("settings.tagsStat")} value={stats?.tags ?? 0} />
       </Group>
-      <Card withBorder padding="md" mb="md">
-        <Text fw={700} mb="xs">
-          {t("settings.sessionTitle")}
-        </Text>
+      <Section title={t("settings.sessionTitle")}>
         <Stack gap={4}>
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
@@ -120,12 +117,9 @@ export default function Settings() {
             <Text size="sm">{(me.user.groups || []).join(", ") || "—"}</Text>
           </Group>
         </Stack>
-      </Card>
+      </Section>
 
-      <Card withBorder padding="md" mb="md">
-        <Text fw={700} mb="xs">
-          {t("settings.changePasswordTitle")}
-        </Text>
+      <Section title={t("settings.changePasswordTitle")}>
         {me.user.password_change_required && (
           <Alert color="yellow" mb="sm" title={t("settings.actionRequired")}>
             {t("settings.tempPasswordBody")}
@@ -168,22 +162,23 @@ export default function Settings() {
             </Group>
           </Stack>
         </form>
-      </Card>
+      </Section>
 
-      <Card withBorder padding="md" mb="md">
-        <Group justify="space-between" mb="xs">
-          <Text fw={700}>{t("settings.anonTitle")}</Text>
+      <Section
+        title={t("settings.anonTitle")}
+        actions={
           <Switch
             checked={allowAnon}
             onChange={(e) => toggleAnon(e.currentTarget.checked)}
             disabled={settingsBusy}
             label={allowAnon ? t("settings.allowed") : t("settings.denied")}
           />
-        </Group>
+        }
+      >
         <Text size="sm" c="dimmed">
           {t("settings.anonBodyPre")} <Code>anonymous</Code> {t("settings.anonBodyPost")}
         </Text>
-      </Card>
+      </Section>
 
       <Text size="xs" c="dimmed" mt="md">
         {t("settings.serverNote")}

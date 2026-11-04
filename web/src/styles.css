@@ -1,0 +1,29 @@
+:root { --stiva-content-width: 1280px; }
+
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+/* Main content: readable max width, centered on wide screens. */
+.stiva-main > .stiva-content { max-width: var(--stiva-content-width); margin: 0 auto; }
+
+/* Tables: quiet header, hairline rows, no zebra noise. */
+.stiva-table thead th {
+  font-size: var(--mantine-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--mantine-color-dimmed);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  white-space: nowrap;
+}
+.stiva-table tbody tr:last-child td { border-bottom: none; }
+
+/* Header and navbar: hairline instead of heavy borders. */
+.stiva-header { backdrop-filter: saturate(1.4) blur(8px); }
+
+/* Login backdrop */
+.stiva-auth-bg {
+  background:
+    radial-gradient(60rem 30rem at 50% -10%, light-dark(var(--mantine-color-indigo-1), rgba(76, 110, 245, 0.18)), transparent),
+    light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+}

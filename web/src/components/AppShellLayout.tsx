@@ -66,12 +66,12 @@ export default function AppShellLayout({
       navbar={{ width: 240, breakpoint: "sm", collapsed: { mobile: !navOpened } }}
       padding="md"
     >
-      <AppShell.Header>
+      <AppShell.Header className="stiva-header">
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group wrap="nowrap">
             <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label={t("nav.navigation")} />
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
-            <Title order={4}>Stiva</Title>
+            <Title order={4} fw={700}>Stiva</Title>
             <Badge variant="light" color="blue" visibleFrom="sm">
               OCI
             </Badge>
@@ -86,7 +86,7 @@ export default function AppShellLayout({
               onChange={(v) => v && i18n.changeLanguage(v)}
               allowDeselect={false}
             />
-            <Badge color={user.admin ? "grape" : "gray"}>
+            <Badge size="lg" variant="light" color={user.admin ? "grape" : "gray"}>
               {user.anonymous ? t("nav.anonymous") : user.name}
             </Badge>
             <Button
@@ -101,8 +101,8 @@ export default function AppShellLayout({
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="xs">
-        <Text size="xs" tt="uppercase" c="dimmed" fw={700} px="sm" pt="xs">
+      <AppShell.Navbar p="sm">
+        <Text size="xs" tt="uppercase" c="dimmed" fw={700} lts={0.5} px="sm" pt="xs" pb={4}>
           {t("nav.browse")}
         </Text>
         {link("explorer", t("nav.explorer"), <IconSearch size={16} />)}
@@ -110,7 +110,7 @@ export default function AppShellLayout({
 
         {user.admin && (
           <>
-            <Text size="xs" tt="uppercase" c="dimmed" fw={700} px="sm" pt="md">
+            <Text size="xs" tt="uppercase" c="dimmed" fw={700} lts={0.5} px="sm" pt="lg" pb={4}>
               {t("nav.administration")}
             </Text>
             {link("users", t("nav.users"), <IconUsers size={16} />)}
@@ -128,7 +128,9 @@ export default function AppShellLayout({
         )}
       </AppShell.Navbar>
 
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main className="stiva-main" bg="var(--mantine-color-body)">
+        <div className="stiva-content">{children}</div>
+      </AppShell.Main>
     </AppShell>
   );
 }
