@@ -17,6 +17,7 @@ type CatalogArtifact struct {
 	Ref      string `json:"ref"` // OCI repository, or artifact path / prefix
 	Tag      string `json:"tag"` // OCI only; empty = recent tags
 	Label    string `json:"label"`
+	Primary  string `json:"primary"` // glob on the file name picking the main download
 	Position int    `json:"position"`
 }
 
@@ -110,7 +111,7 @@ func (m *PostgresMetadataStore) loadArtifacts(ctx context.Context, apps []Catalo
 		return err
 	}
 	rows, err := m.pool.Query(ctx,
-		`SELECT id, app_id, registry, ref, tag, label, position FROM catalog_artifacts
+		`SELECT id, app_id, registry, ref, tag, label, primary_pattern, position FROM catalog_artifacts
 		 WHERE app_id = ANY($1) ORDER BY position, id`, ids)
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (m *PostgresMetadataStore) loadArtifacts(ctx context.Context, apps []Catalo
 	for rows.Next() {
 		var ar CatalogArtifact
 		var appID int64
-		if err := rows.Scan(&ar.ID, &appID, &ar.Registry, &ar.Ref, &ar.Tag, &ar.Label, &ar.Position); err != nil {
+		if err := rows.Scan(&ar.ID, &appID, &ar.Registry, &ar.Ref, &ar.Tag, &ar.Label, &ar.Primary, &ar.Position); err != nil {
 			return err
 		}
 		if a := idx[appID]; a != nil {
@@ -214,8 +215,8 @@ func (m *PostgresMetadataStore) UpsertCatalogApp(a CatalogApp) (int64, error) {
 	}
 	for i, ar := range a.Artifacts {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO catalog_artifacts(app_id, registry, ref, tag, label, position) VALUES($1,$2,$3,$4,$5,$6)`,
-			id, ar.Registry, ar.Ref, ar.Tag, ar.Label, i); err != nil {
+			`INSERT INTO catalog_artifacts(app_id, registry, ref, tag, label, primary_pattern, position) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+			id, ar.Registry, ar.Ref, ar.Tag, ar.Label, ar.Primary, i); err != nil {
 			return 0, err
 		}
 	}

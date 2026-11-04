@@ -775,7 +775,18 @@
     "screenshots": "Captures d’écran",
     "close": "Fermer",
     "previous": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "allFiles": "Tous les fichiers",
+    "filterFiles": "Filtrer les fichiers…",
+    "filesCount": "{{count}} fichiers",
+    "showMore": "Afficher plus",
+    "truncatedFiles": "{{shown}} fichiers sur {{total}} affichés. L’Explorer liste le reste.",
+    "noMatch": "Aucun fichier ne correspond au filtre.",
+    "showAllTags": "Afficher les {{count}} tags",
+    "hideAllTags": "Afficher moins de tags",
+    "fileHeader": "Fichier",
+    "sizeHeader": "Taille",
+    "dateHeader": "Envoyé"
   },
   "catalogAdmin": {
     "title": "Gestion du catalogue",
@@ -818,6 +829,8 @@
     "captionLabel": "Légende",
     "moveUp": "Déplacer avant",
     "moveDown": "Déplacer après",
-    "shotNote": "Redimensionnées à 1600 px de large maximum avant l’envoi."
+    "shotNote": "Redimensionnées à 1600 px de large maximum avant l’envoi.",
+    "primaryLabel": "Fichier principal (facultatif)",
+    "primaryDesc": "Fichier obtenu par le gros bouton Télécharger dans chaque version, en motif sur le nom, ex. *-linux-amd64.tar.gz. Vide = le plus gros fichier."
   }
 }

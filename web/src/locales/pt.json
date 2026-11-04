@@ -775,7 +775,18 @@
     "screenshots": "Capturas de tela",
     "close": "Fechar",
     "previous": "Anterior",
-    "next": "Próxima"
+    "next": "Próxima",
+    "allFiles": "Todos os arquivos",
+    "filterFiles": "Filtrar arquivos…",
+    "filesCount": "{{count}} arquivos",
+    "showMore": "Mostrar mais",
+    "truncatedFiles": "Mostrando {{shown}} de {{total}} arquivos. O Explorer lista o restante.",
+    "noMatch": "Nenhum arquivo corresponde ao filtro.",
+    "showAllTags": "Mostrar as {{count}} tags",
+    "hideAllTags": "Mostrar menos tags",
+    "fileHeader": "Arquivo",
+    "sizeHeader": "Tamanho",
+    "dateHeader": "Enviado"
   },
   "catalogAdmin": {
     "title": "Gestão do catálogo",
@@ -818,6 +829,8 @@
     "captionLabel": "Legenda",
     "moveUp": "Mover para antes",
     "moveDown": "Mover para depois",
-    "shotNote": "Redimensionadas para no máximo 1600 px de largura antes do envio."
+    "shotNote": "Redimensionadas para no máximo 1600 px de largura antes do envio.",
+    "primaryLabel": "Arquivo principal (opcional)",
+    "primaryDesc": "Qual arquivo o botão Baixar recebe em cada versão, como padrão no nome, ex.: *-linux-amd64.tar.gz. Vazio = o maior arquivo."
   }
 }

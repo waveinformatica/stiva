@@ -99,7 +99,7 @@ func TestBuildPackagesPicksTheHighestStableVersion(t *testing.T) {
 		// Newer by version, but a pre-release: stable 1.10.0 still wins.
 		{Path: "dl/acme-2.0.0-rc1.tar.gz", Size: 1100, CreatedAt: 8 * day},
 	}
-	pk := buildPackages(registry.FormatRaw, infos)
+	pk := buildPackages(registry.FormatRaw, infos, "")
 	if len(pk) != 1 {
 		t.Fatalf("packages = %d, want 1", len(pk))
 	}
@@ -128,7 +128,7 @@ func TestBuildPackagesPlainFilesFallBackToUploadTime(t *testing.T) {
 		{Path: "tools/old.exe", Size: 10, CreatedAt: 1},
 		{Path: "tools/new.exe", Size: 10, CreatedAt: 5},
 	}
-	pk := buildPackages(registry.FormatRaw, infos)
+	pk := buildPackages(registry.FormatRaw, infos, "")
 	if len(pk) != 1 || pk[0].Latest.Primary != "tools/new.exe" {
 		t.Errorf("latest = %+v, want the most recent upload when names carry no version", pk)
 	}
@@ -183,5 +183,34 @@ func TestScreenshotValidationAndOrder(t *testing.T) {
 		if sameIDs([]int64{1, 2, 3}, bad) {
 			t.Errorf("%v accepted as an order of 1,2,3", bad)
 		}
+	}
+}
+
+func TestPrimaryFilePatternPicksTheMainDownload(t *testing.T) {
+	paths := []string{
+		"dl/acme-1.0-linux-amd64.tar.gz", "dl/acme-1.0-windows-amd64.zip", "dl/acme-1.0-src.tar.gz",
+		"dl/acme-1.0-linux-amd64.tar.gz.sha256",
+	}
+	sizes := map[string]int64{paths[0]: 50, paths[1]: 60, paths[2]: 900, paths[3]: 1}
+	// No pattern: the largest real file, here the source archive.
+	if got := primaryFile(paths, sizes, ""); got != "dl/acme-1.0-src.tar.gz" {
+		t.Errorf("default = %s", got)
+	}
+	// The pattern overrides size, and ignores case and directory.
+	if got := primaryFile(paths, sizes, "*-LINUX-amd64.tar.gz"); got != "dl/acme-1.0-linux-amd64.tar.gz" {
+		t.Errorf("linux pattern = %s", got)
+	}
+	// A pattern that matches nothing falls back instead of leaving no download.
+	if got := primaryFile(paths, sizes, "*.dmg"); got != "dl/acme-1.0-src.tar.gz" {
+		t.Errorf("unmatched pattern = %s, want the default pick", got)
+	}
+	// The checksum is never the answer, even if it is all that matches.
+	if got := primaryFile(paths, sizes, "*.sha256"); got == paths[3] {
+		t.Error("a checksum was chosen as the main file")
+	}
+	a := goodApp()
+	a.Artifacts[0].Primary = "["
+	if err := validateCatalogApp(&a, knownRegistries("docker")); err == nil {
+		t.Error("an invalid glob was accepted")
 	}
 }

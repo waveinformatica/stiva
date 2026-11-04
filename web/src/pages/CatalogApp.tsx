@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ActionIcon, Anchor, Badge, Button, Card, Code, Collapse, CopyButton, Group, Image, Modal, ScrollArea, Stack, Text,
-  Title, Tooltip,
+  Table, TextInput, Title, Tooltip,
 } from "@mantine/core";
 import { api, downloadArtifact, fetchImageUrl } from "../lib/api";
 import { EmptyState, ErrorAlert, PageLoader } from "../components/ui";
@@ -11,7 +11,7 @@ import { IconCopy } from "../components/icons";
 import AppIcon from "../components/AppIcon";
 import Markdown from "../components/Markdown";
 
-type FileV = { path: string; size: number };
+type FileV = { path: string; size: number; created_at?: number };
 type VersionV = { version: string; created_at: number; primary: string; files: FileV[] };
 type PackageV = { name: string; latest: VersionV; others?: VersionV[] };
 type Artifact = {
@@ -26,8 +26,8 @@ type Artifact = {
   latest_tag?: string;
   tags?: { tag: string; digest: string; pushed_at: number }[];
   packages?: PackageV[];
-  files?: FileV[];
-  more_files?: number;
+  all_files?: FileV[];
+  total_files?: number;
 };
 type Shot = { id: number; caption: string };
 type AppDetail = {
@@ -158,6 +158,31 @@ function PackageBlock({ registry, p, showName, onError }: { registry: string; p:
   );
 }
 
+function TagList({ tags }: { tags: NonNullable<Artifact["tags"]> }) {
+  const { t } = useTranslation();
+  const [all, setAll] = useState(false);
+  const shown = all ? tags : tags.slice(0, 6);
+  return (
+    <>
+      <Text size="xs" c="dimmed">
+        {t("catalog.recentTags")}
+      </Text>
+      <Group gap={6}>
+        {shown.map((x) => (
+          <Badge key={x.tag} variant="light" color="teal">
+            {x.tag}
+          </Badge>
+        ))}
+      </Group>
+      {tags.length > 6 && (
+        <Anchor component="button" type="button" size="xs" onClick={() => setAll(!all)} style={{ alignSelf: "flex-start" }}>
+          {all ? t("catalog.hideAllTags") : t("catalog.showAllTags", { count: tags.length })}
+        </Anchor>
+      )}
+    </>
+  );
+}
+
 function ArtifactCard({ a }: { a: Artifact }) {
   const { t } = useTranslation();
   const [err, setErr] = useState<string | null>(null);
@@ -203,20 +228,7 @@ function ArtifactCard({ a }: { a: Artifact }) {
               </Badge>
             </Group>
           )}
-          {(a.tags?.length ?? 0) > 0 && (
-            <>
-              <Text size="xs" c="dimmed">
-                {t("catalog.recentTags")}
-              </Text>
-              <Group gap={6}>
-                {a.tags!.map((x) => (
-                  <Badge key={x.tag} variant="light" color="teal">
-                    {x.tag}
-                  </Badge>
-                ))}
-              </Group>
-            </>
-          )}
+          {(a.tags?.length ?? 0) > 0 && <TagList tags={a.tags!} />}
         </Stack>
       ) : a.packages && a.packages.length > 0 ? (
         <Stack gap="md">
@@ -224,26 +236,104 @@ function ArtifactCard({ a }: { a: Artifact }) {
             <PackageBlock key={p.name} registry={a.registry} p={p} showName={a.packages!.length > 1} onError={setErr} />
           ))}
         </Stack>
-      ) : (
-        <Stack gap={4}>
-          {(a.files || []).map((f) => (
-            <Group key={f.path} justify="space-between" wrap="nowrap" gap="xs">
-              <Text size="sm" truncate>
-                {base(f.path)}
-              </Text>
-              <Button size="compact-xs" variant="light" onClick={() => downloadArtifact(a.registry, f.path).catch((e) => setErr(e.message))}>
-                {t("catalog.download")}
-              </Button>
-            </Group>
-          ))}
-          {!!a.more_files && (
-            <Text size="xs" c="dimmed">
-              {t("catalog.moreFiles", { count: a.more_files })}
-            </Text>
-          )}
-        </Stack>
-      )}
+      ) : null}
     </Card>
+  );
+}
+
+// Every file the caller can read in the linked artifacts, with a filter. The
+// server only returns what this caller may read, so nothing hidden is listed.
+function AllFiles({ artifacts, onError }: { artifacts: Artifact[]; onError: (m: string) => void }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState("");
+  const [limit, setLimit] = useState(50);
+  const withFiles = artifacts.filter((a) => a.kind === "files" && (a.all_files?.length ?? 0) > 0);
+  if (withFiles.length === 0) return null;
+  const needle = q.trim().toLowerCase();
+  return (
+    <section>
+      <Group justify="space-between" mb="sm" align="flex-end">
+        <Title order={4}>{t("catalog.allFiles")}</Title>
+        <TextInput
+          size="xs"
+          w={260}
+          placeholder={t("catalog.filterFiles")}
+          value={q}
+          onChange={(e) => {
+            setQ(e.currentTarget.value);
+            setLimit(50);
+          }}
+        />
+      </Group>
+      <Stack gap="md">
+        {withFiles.map((a, i) => {
+          const rows = a.all_files!.filter((f) => !needle || f.path.toLowerCase().includes(needle));
+          return (
+            <Card key={i} padding={0} style={{ overflow: "hidden" }}>
+              <Group justify="space-between" px="md" py="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+                <Text fw={600} size="sm">
+                  {a.label || a.ref}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {t("catalog.filesCount", { count: a.total_files ?? a.all_files!.length })} · {a.registry}
+                </Text>
+              </Group>
+              {rows.length === 0 ? (
+                <Text size="sm" c="dimmed" p="md">
+                  {t("catalog.noMatch")}
+                </Text>
+              ) : (
+                <ScrollArea>
+                  <Table verticalSpacing={6} horizontalSpacing="md" highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>{t("catalog.fileHeader")}</Table.Th>
+                        <Table.Th>{t("catalog.sizeHeader")}</Table.Th>
+                        <Table.Th>{t("catalog.dateHeader")}</Table.Th>
+                        <Table.Th />
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {rows.slice(0, limit).map((f) => (
+                        <Table.Tr key={f.path}>
+                          <Table.Td>
+                            <Text size="sm" style={{ wordBreak: "break-all" }}>
+                              {f.path}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ whiteSpace: "nowrap" }}>{size(f.size) || "—"}</Table.Td>
+                          <Table.Td style={{ whiteSpace: "nowrap" }}>{f.created_at ? new Date(f.created_at).toLocaleDateString() : "—"}</Table.Td>
+                          <Table.Td style={{ textAlign: "right" }}>
+                            <Button size="compact-xs" variant="light" onClick={() => downloadArtifact(a.registry, f.path).catch((e) => onError(e.message))}>
+                              {t("catalog.download")}
+                            </Button>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              )}
+              {rows.length > limit && (
+                <Group justify="center" p="xs">
+                  <Button size="xs" variant="subtle" onClick={() => setLimit(limit + 100)}>
+                    {t("catalog.showMore")} ({rows.length - limit})
+                  </Button>
+                </Group>
+              )}
+              {(a.total_files ?? 0) > a.all_files!.length && (
+                <Text size="xs" c="dimmed" p="xs" ta="center">
+                  {t("catalog.truncatedFiles", { shown: a.all_files!.length, total: a.total_files })}{" "}
+                  <Anchor component={Link} to="/explorer" size="xs">
+                    {t("catalog.openInExplorer")}
+                  </Anchor>
+                </Text>
+              )}
+            </Card>
+          );
+        })}
+      </Stack>
+    </section>
   );
 }
 
@@ -438,6 +528,8 @@ export default function CatalogApp() {
               ))}
             </Stack>
           </div>
+
+          <AllFiles artifacts={app.artifacts} onError={setErr} />
         </Stack>
       )}
     </div>

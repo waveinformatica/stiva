@@ -775,7 +775,18 @@
     "screenshots": "Capturas de pantalla",
     "close": "Cerrar",
     "previous": "Anterior",
-    "next": "Siguiente"
+    "next": "Siguiente",
+    "allFiles": "Todos los archivos",
+    "filterFiles": "Filtrar archivos…",
+    "filesCount": "{{count}} archivos",
+    "showMore": "Mostrar más",
+    "truncatedFiles": "Mostrando {{shown}} de {{total}} archivos. El Explorador lista el resto.",
+    "noMatch": "Ningún archivo coincide con el filtro.",
+    "showAllTags": "Mostrar las {{count}} etiquetas",
+    "hideAllTags": "Mostrar menos etiquetas",
+    "fileHeader": "Archivo",
+    "sizeHeader": "Tamaño",
+    "dateHeader": "Subido"
   },
   "catalogAdmin": {
     "title": "Gestión del catálogo",
@@ -818,6 +829,8 @@
     "captionLabel": "Pie de foto",
     "moveUp": "Mover antes",
     "moveDown": "Mover después",
-    "shotNote": "Se redimensionan a 1600 px de ancho como máximo antes de subirlas."
+    "shotNote": "Se redimensionan a 1600 px de ancho como máximo antes de subirlas.",
+    "primaryLabel": "Archivo principal (opcional)",
+    "primaryDesc": "Qué archivo obtiene el botón Descargar en cada versión, como patrón sobre el nombre, p. ej. *-linux-amd64.tar.gz. Vacío = el archivo más grande."
   }
 }

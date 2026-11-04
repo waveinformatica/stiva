@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,12 +38,12 @@ const (
 	maxIconBytes     = 96 << 10
 	maxDescription   = 20000
 	maxCatalogArtefs = 50
-	maxCatalogFiles  = 100
-	recentTags       = 6
 	maxShotBytes     = 512 << 10
 	maxShots         = 8
 	maxPackages      = 20
-	otherVersions    = 10
+	otherVersions    = 50
+	maxAllFiles      = 2000
+	maxTags          = 200
 )
 
 var (
@@ -104,6 +105,13 @@ func validateCatalogApp(a *storage.CatalogApp, exists func(registry string) bool
 		}
 		if len(ar.Tag) > 128 || len(ar.Label) > 100 {
 			return errors.New("artifact tag or label is too long")
+		}
+		ar.Primary = strings.TrimSpace(ar.Primary)
+		if len(ar.Primary) > 200 {
+			return errors.New("main file pattern is too long")
+		}
+		if _, err := path.Match(ar.Primary, ""); err != nil {
+			return errors.New("main file pattern is not a valid glob (use * and ?, e.g. *-linux-amd64.tar.gz)")
 		}
 	}
 	return nil
@@ -226,28 +234,31 @@ type tagView struct {
 }
 
 type fileView struct {
-	Path string `json:"path"`
-	Size int64  `json:"size"`
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	Created int64  `json:"created_at,omitempty"` // ms since epoch
 }
 
 type artifactView struct {
-	Registry  string     `json:"registry"`
-	Format    string     `json:"format"`
-	Type      string     `json:"type"`
-	Ref       string     `json:"ref"`
-	Tag       string     `json:"tag"`
-	Label     string     `json:"label"`
-	Kind      string     `json:"kind"` // "image" | "files"
-	PullHost  string     `json:"pull_host,omitempty"`
-	Tags      []tagView  `json:"tags,omitempty"`
-	Files     []fileView `json:"files,omitempty"`
-	MoreFiles int        `json:"more_files,omitempty"`
+	Registry string    `json:"registry"`
+	Format   string    `json:"format"`
+	Type     string    `json:"type"`
+	Ref      string    `json:"ref"`
+	Tag      string    `json:"tag"`
+	Label    string    `json:"label"`
+	Kind     string    `json:"kind"` // "image" | "files"
+	PullHost string    `json:"pull_host,omitempty"`
+	Tags     []tagView `json:"tags,omitempty"`
 
 	// LatestTag is the tag to pull for an image: the pinned one, else the
 	// highest stable version, else "latest", else the most recent.
 	LatestTag string `json:"latest_tag,omitempty"`
 	// Packages groups a file artifact's content by package, newest version first.
 	Packages []packageView `json:"packages,omitempty"`
+	// AllFiles is every file the caller can read under the artifact, so the
+	// page can list them all; TotalFiles says how many exist beyond the cap.
+	AllFiles   []fileView `json:"all_files,omitempty"`
+	TotalFiles int        `json:"total_files,omitempty"`
 }
 
 type versionView struct {
@@ -303,8 +314,8 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 			}
 			return all[i].Tag < all[j].Tag
 		})
-		if len(all) > recentTags {
-			all = all[:recentTags]
+		if len(all) > maxTags {
+			all = all[:maxTags]
 		}
 		v.Tags = all
 		return v
@@ -316,24 +327,26 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 		return v
 	}
 	defer be.Close()
+	var infos []storage.ObjectInfo
 	if l, ok := be.(objectLister); ok {
-		if infos, err := l.ListObjectInfos(ar.Ref); err == nil && len(infos) > 0 {
-			v.Packages = buildPackages(registry.Format(reg.Format), infos)
-			if len(v.Packages) > 0 {
-				return v
-			}
+		infos, _ = l.ListObjectInfos(ar.Ref)
+	}
+	if len(infos) == 0 {
+		// No sizes or times to group by: plain paths.
+		paths, _ := be.List(ar.Ref)
+		for _, p := range paths {
+			infos = append(infos, storage.ObjectInfo{Path: p})
 		}
 	}
-	// No sizes or times to group by: a plain list of the files.
-	paths, _ := be.List(ar.Ref)
-	sort.Strings(paths)
-	for i, p := range paths {
-		if i >= maxCatalogFiles {
-			v.MoreFiles = len(paths) - maxCatalogFiles
+	sort.Slice(infos, func(i, j int) bool { return infos[i].Path < infos[j].Path })
+	v.TotalFiles = len(infos)
+	for i, o := range infos {
+		if i >= maxAllFiles {
 			break
 		}
-		v.Files = append(v.Files, fileView{Path: p})
+		v.AllFiles = append(v.AllFiles, fileView{Path: o.Path, Size: o.Size, Created: o.CreatedAt / 1e6})
 	}
+	v.Packages = buildPackages(registry.Format(reg.Format), infos, ar.Primary)
 	return v
 }
 
@@ -440,27 +453,49 @@ func (h *Handler) adminDeleteCatalogApp(c *gin.Context) {
 
 var companionSuffix = []string{".sha1", ".sha256", ".sha512", ".md5", ".asc", ".sig", ".sbom"}
 
-// primaryFile picks the file a user wants from one version: the largest file
-// that is not a checksum or signature. sizes may be empty, then the first
-// (sorted) file wins.
-func primaryFile(paths []string, sizes map[string]int64) string {
-	best := ""
+// primaryFile picks the file a user wants from one version. With a pattern (a
+// glob on the file name, case-insensitive) it is the largest match; with none,
+// or when nothing matches, the largest file that is not a checksum or
+// signature. sizes may be empty, then the first (sorted) file wins.
+func primaryFile(paths []string, sizes map[string]int64, pattern string) string {
+	var cands []string
 	for _, p := range paths {
 		skip := false
 		for _, suf := range companionSuffix {
 			skip = skip || strings.HasSuffix(p, suf)
 		}
-		if skip {
-			continue
-		}
-		if best == "" || sizes[p] > sizes[best] || (sizes[p] == sizes[best] && p < best) {
-			best = p
+		if !skip {
+			cands = append(cands, p)
 		}
 	}
-	if best == "" && len(paths) > 0 {
+	largest := func(list []string) string {
+		best := ""
+		for _, p := range list {
+			if best == "" || sizes[p] > sizes[best] || (sizes[p] == sizes[best] && p < best) {
+				best = p
+			}
+		}
+		return best
+	}
+	if pattern != "" {
+		var matched []string
+		pat := strings.ToLower(pattern)
+		for _, p := range cands {
+			if ok, _ := path.Match(pat, strings.ToLower(path.Base(p))); ok {
+				matched = append(matched, p)
+			}
+		}
+		if len(matched) > 0 {
+			return largest(matched)
+		}
+	}
+	if best := largest(cands); best != "" {
+		return best
+	}
+	if len(paths) > 0 {
 		return paths[0]
 	}
-	return best
+	return ""
 }
 
 // unitTier ranks what kind of version a unit is: stable releases first, then
@@ -495,7 +530,7 @@ func newerUnit(a, b registry.ArtifactUnit) bool {
 // buildPackages folds stored objects into packages with their versions, newest
 // first. The latest version is the highest stable one; upload time breaks ties
 // and orders anything that is not a version (a plain file name).
-func buildPackages(format registry.Format, infos []storage.ObjectInfo) []packageView {
+func buildPackages(format registry.Format, infos []storage.ObjectInfo, primaryPattern string) []packageView {
 	sizes := map[string]int64{}
 	for _, o := range infos {
 		sizes[o.Path] = o.Size
@@ -516,7 +551,7 @@ func buildPackages(format registry.Format, infos []storage.ObjectInfo) []package
 		for i, p := range paths {
 			fv[i] = fileView{Path: p, Size: sizes[p]}
 		}
-		return versionView{Version: u.Version, Created: u.CreatedAt / 1e6, Primary: primaryFile(paths, sizes), Files: fv}
+		return versionView{Version: u.Version, Created: u.CreatedAt / 1e6, Primary: primaryFile(paths, sizes, primaryPattern), Files: fv}
 	}
 	var out []packageView
 	for _, n := range names {

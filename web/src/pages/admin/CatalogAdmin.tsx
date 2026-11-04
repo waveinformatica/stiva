@@ -9,7 +9,7 @@ import { api, fetchImageUrl } from "../../lib/api";
 import AppIcon from "../../components/AppIcon";
 import { IconPlus } from "../../components/icons";
 
-type Artifact = { registry: string; ref: string; tag: string; label: string; position?: number };
+type Artifact = { registry: string; ref: string; tag: string; label: string; primary?: string; position?: number };
 type Shot = { id: number; caption: string; position: number };
 type App = {
   id: number;
@@ -395,7 +395,7 @@ export default function CatalogAdmin() {
             <Group justify="space-between">
               <div>
                 <Text fw={600}>{t("catalogAdmin.artifactsTitle")}</Text>
-                <Text size="xs" c="dimmed">{t("catalogAdmin.artifactsDesc")}</Text>
+                <Text size="xs" c="dimmed">{t("catalogAdmin.artifactsDesc")} {t("catalogAdmin.primaryDesc")}</Text>
               </div>
               <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setForm({ ...form, artifacts: [...form.artifacts, { registry: regs[0]?.name || "", ref: "", tag: "", label: "" }] })}>
                 {t("catalogAdmin.addArtifact")}
@@ -433,6 +433,16 @@ export default function CatalogAdmin() {
                   value={a.label}
                   onChange={(e) => setArt(i, { label: e.currentTarget.value })}
                 />
+                {fmt(a.registry) !== "oci" && (
+                  <TextInput
+                    style={{ flex: 1 }}
+                    label={i === 0 ? t("catalogAdmin.primaryLabel") : undefined}
+                    placeholder="*-linux-amd64.tar.gz"
+                    title={t("catalogAdmin.primaryDesc")}
+                    value={a.primary || ""}
+                    onChange={(e) => setArt(i, { primary: e.currentTarget.value })}
+                  />
+                )}
                 <ActionIcon color="red" variant="subtle" aria-label={t("common.delete")} onClick={() => setForm({ ...form, artifacts: form.artifacts.filter((_, j) => j !== i) })}>
                   ×
                 </ActionIcon>

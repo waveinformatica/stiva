@@ -775,7 +775,18 @@
     "screenshots": "Screenshots",
     "close": "Close",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "allFiles": "All files",
+    "filterFiles": "Filter files…",
+    "filesCount": "{{count}} files",
+    "showMore": "Show more",
+    "truncatedFiles": "Showing {{shown}} of {{total}} files. The Explorer lists the rest.",
+    "noMatch": "No file matches the filter.",
+    "showAllTags": "Show all {{count}} tags",
+    "hideAllTags": "Show fewer tags",
+    "fileHeader": "File",
+    "sizeHeader": "Size",
+    "dateHeader": "Uploaded"
   },
   "catalogAdmin": {
     "title": "Catalog editor",
@@ -818,6 +829,8 @@
     "captionLabel": "Caption",
     "moveUp": "Move earlier",
     "moveDown": "Move later",
-    "shotNote": "Resized to at most 1600 px wide before upload."
+    "shotNote": "Resized to at most 1600 px wide before upload.",
+    "primaryLabel": "Main file (optional)",
+    "primaryDesc": "Which file the big Download button gets in each version, as a pattern on the file name, e.g. *-linux-amd64.tar.gz. Empty = the largest file."
   }
 }
