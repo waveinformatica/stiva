@@ -513,3 +513,22 @@ func (m *PostgresMetadataStore) ListObjects(registry, prefix string) ([]string, 
 	}
 	return out, rows.Err()
 }
+
+func (m *PostgresMetadataStore) ListObjectInfos(registry, prefix string) ([]ObjectInfo, error) {
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT path, size, created_at FROM objects WHERE registry = $1 AND path LIKE $2 ORDER BY path`,
+		registry, prefix+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ObjectInfo
+	for rows.Next() {
+		var o ObjectInfo
+		if err := rows.Scan(&o.Path, &o.Size, &o.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}

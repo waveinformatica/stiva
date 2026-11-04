@@ -67,6 +67,8 @@ type MetadataStore interface {
 	GetObjectMeta(registry, path string) (digest.Digest, int64, string, error)
 	DeleteObject(registry, path string) error
 	ListObjects(registry, prefix string) ([]string, error)
+	// ListObjectInfos is ListObjects with size and last-write time (UnixNano).
+	ListObjectInfos(registry, prefix string) ([]ObjectInfo, error)
 
 	// SSO providers for browser login, managed from the admin UI. Only the
 	// non-secret half is stored here; client secrets live in the vault under
@@ -106,6 +108,13 @@ type BlobInfo struct {
 	Digest    digest.Digest `json:"digest"`
 	Size      int64         `json:"size"`
 	CreatedAt time.Time     `json:"created_at"`
+}
+
+// ObjectInfo is one stored artifact path with its size and last-write time.
+type ObjectInfo struct {
+	Path      string `json:"path"`
+	Size      int64  `json:"size"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 // TagInfo is one tag with the digest it points at and its last-push time

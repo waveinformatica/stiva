@@ -9,6 +9,7 @@ import {
   IconCloud,
   IconShield,
   IconSettings,
+  IconClock,
 } from "./icons";
 
 export type View =
@@ -23,6 +24,7 @@ export type View =
   | "grants"
   | "anonymous"
   | "registries"
+  | "jobs"
   | "sso"
   | "settings";
 
@@ -92,6 +94,7 @@ export default function AppShellLayout({
             {link("serviceAccounts", t("nav.serviceAccounts"), <IconKey size={16} />)}
             {link("registries", t("nav.registries"), <IconCloud size={16} />)}
             {link("stores", t("nav.stores"), <IconCloud size={16} />)}
+            {link("jobs", t("nav.jobs"), <IconClock size={16} />)}
             {link("credentials", t("nav.credentials"), <IconKey size={16} />)}
             {link("roles", t("nav.roles"), <IconShield size={16} />)}
             {link("groups", t("nav.groups"), <IconUsers size={16} />)}

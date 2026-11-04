@@ -465,3 +465,8 @@ func (s *Store) DeleteObject(p string) error {
 func (s *Store) ListObjects(prefix string) ([]string, error) {
 	return s.meta.ListObjects(s.registry, prefix)
 }
+
+// ListObjectInfos returns stored paths under a prefix with size and write time.
+func (s *Store) ListObjectInfos(prefix string) ([]ObjectInfo, error) {
+	return s.meta.ListObjectInfos(s.registry, prefix)
+}

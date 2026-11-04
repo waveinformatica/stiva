@@ -94,6 +94,21 @@ export const api = {
     req("PUT", `/api/v1/admin/registries/${enc(name)}/cleanup`, b),
   cleanupRun: (name: string, dryRun: boolean) =>
     req("POST", `/api/v1/admin/registries/${enc(name)}/cleanup/run`, { dry_run: dryRun }),
+  jobs: (q: { registry?: string; kind?: string; limit?: number } = {}) => {
+    const p = new URLSearchParams();
+    if (q.registry) p.set("registry", q.registry);
+    if (q.kind) p.set("kind", q.kind);
+    if (q.limit) p.set("limit", String(q.limit));
+    return req("GET", `/api/v1/admin/jobs?${p.toString()}`);
+  },
+  job: (id: number) => req("GET", `/api/v1/admin/jobs/${id}`),
+  jobEnqueue: (b: { registry: string; kind: string; dry_run?: boolean; params?: any }) =>
+    req("POST", "/api/v1/admin/jobs", b),
+  schedules: () => req("GET", "/api/v1/admin/schedules"),
+  scheduleSet: (registry: string, kind: string, b: { enabled: boolean; interval: string; params?: any }) =>
+    req("PUT", `/api/v1/admin/schedules/${enc(registry)}/${enc(kind)}`, b),
+  scheduleDelete: (registry: string, kind: string) =>
+    req("DELETE", `/api/v1/admin/schedules/${enc(registry)}/${enc(kind)}`),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>

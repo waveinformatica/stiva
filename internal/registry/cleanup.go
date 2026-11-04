@@ -62,6 +62,17 @@ func attachmentTag(tag string) bool {
 	return false
 }
 
+func (p *CleanupPolicy) protectedAny(names ...string) bool {
+	for _, n := range names {
+		for _, pat := range p.Protect {
+			if ok, _ := path.Match(pat, n); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p *CleanupPolicy) protected(tag string) bool {
 	if attachmentTag(tag) {
 		return true
@@ -74,48 +85,143 @@ func (p *CleanupPolicy) protected(tag string) bool {
 	return false
 }
 
-// PlanCleanup returns the tags of one repository the policy would delete.
-// Pure: no I/O, unit-tested. Tags with an unknown push time (0) count as
-// recent for the age rule so legacy rows are never deleted for lack of data.
-func PlanCleanup(tags []storage.TagInfo, p *CleanupPolicy, now time.Time) []storage.TagInfo {
+// retentionItem is one candidate (a tag, or a package version) for retention.
+type retentionItem struct {
+	pushedAt  int64
+	protected bool
+}
+
+// planRetention applies the policy to the items of ONE group (a repository's
+// tags, one package's versions) and returns the indexes to delete. Pure.
+// Items with an unknown time (0) count as recent for the age rule so legacy
+// rows are never deleted for lack of data, and rank last for keep-last.
+func planRetention(items []retentionItem, p *CleanupPolicy, now time.Time) []int {
 	if !p.Active() {
 		return nil
 	}
-	ordered := append([]storage.TagInfo(nil), tags...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].PushedAt != ordered[j].PushedAt {
-			return ordered[i].PushedAt > ordered[j].PushedAt // newest first
-		}
-		return ordered[i].Tag < ordered[j].Tag
-	})
+	order := make([]int, len(items))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return items[order[a]].pushedAt > items[order[b]].pushedAt })
 	var cutoff int64
 	if p.MaxAgeDays > 0 {
 		cutoff = now.Add(-time.Duration(p.MaxAgeDays) * 24 * time.Hour).UnixNano()
 	}
-	var del []storage.TagInfo
+	var del []int
 	rank := 0
-	for _, t := range ordered {
-		if p.protected(t.Tag) {
+	for _, i := range order {
+		it := items[i]
+		if it.protected {
 			continue
 		}
 		rank++
 		if p.KeepLast > 0 && rank <= p.KeepLast {
 			continue
 		}
-		if p.MaxAgeDays > 0 && (t.PushedAt == 0 || t.PushedAt >= cutoff) {
+		if p.MaxAgeDays > 0 && (it.pushedAt == 0 || it.pushedAt >= cutoff) {
 			continue
 		}
-		del = append(del, t)
+		del = append(del, i)
 	}
 	return del
+}
+
+// PlanCleanup returns the tags of one repository the policy would delete.
+func PlanCleanup(tags []storage.TagInfo, p *CleanupPolicy, now time.Time) []storage.TagInfo {
+	items := make([]retentionItem, len(tags))
+	for i, t := range tags {
+		items[i] = retentionItem{pushedAt: t.PushedAt, protected: p != nil && p.protected(t.Tag)}
+	}
+	var out []storage.TagInfo
+	for _, i := range planRetention(items, p, now) {
+		out = append(out, tags[i])
+	}
+	sort.SliceStable(out, func(a, b int) bool { return out[a].PushedAt > out[b].PushedAt })
+	return out
+}
+
+// ArtifactUnit is one version of one package: every stored file that belongs
+// to it, so a version is kept or removed as a whole.
+type ArtifactUnit struct {
+	Package   string
+	Version   string
+	Paths     []string
+	Size      int64
+	CreatedAt int64 // newest file of the version (UnixNano)
+}
+
+// GroupArtifacts folds stored objects into package versions. Index and
+// metadata files are left out: they are never candidates.
+func GroupArtifacts(format Format, objs []storage.ObjectInfo) []ArtifactUnit {
+	idx := map[string]*ArtifactUnit{}
+	var order []string
+	for _, o := range objs {
+		pkg, ver, ok := ParsePackagePath(format, o.Path)
+		if !ok {
+			continue
+		}
+		k := pkg + "\x00" + ver
+		u := idx[k]
+		if u == nil {
+			u = &ArtifactUnit{Package: pkg, Version: ver}
+			idx[k] = u
+			order = append(order, k)
+		}
+		u.Paths = append(u.Paths, o.Path)
+		u.Size += o.Size
+		if o.CreatedAt > u.CreatedAt {
+			u.CreatedAt = o.CreatedAt
+		}
+	}
+	out := make([]ArtifactUnit, 0, len(order))
+	for _, k := range order {
+		out = append(out, *idx[k])
+	}
+	return out
+}
+
+// PlanArtifactCleanup returns the versions the policy would delete, deciding
+// separately for each package. A Protect pattern matches a version ("1.*") or
+// "package@version".
+func PlanArtifactCleanup(units []ArtifactUnit, p *CleanupPolicy, now time.Time) []ArtifactUnit {
+	if !p.Active() {
+		return nil
+	}
+	byPkg := map[string][]ArtifactUnit{}
+	var pkgs []string
+	for _, u := range units {
+		if _, ok := byPkg[u.Package]; !ok {
+			pkgs = append(pkgs, u.Package)
+		}
+		byPkg[u.Package] = append(byPkg[u.Package], u)
+	}
+	sort.Strings(pkgs)
+	var out []ArtifactUnit
+	for _, pkg := range pkgs {
+		vs := byPkg[pkg]
+		items := make([]retentionItem, len(vs))
+		for i, u := range vs {
+			items[i] = retentionItem{
+				pushedAt:  u.CreatedAt,
+				protected: p.protectedAny(u.Version, u.Package+"@"+u.Version),
+			}
+		}
+		for _, i := range planRetention(items, p, now) {
+			out = append(out, vs[i])
+		}
+	}
+	return out
 }
 
 // CleanupRepoReport is the outcome for one repository.
 type CleanupRepoReport struct {
 	Repo      string   `json:"repo"`
 	Kept      int      `json:"kept"`
-	Tags      []string `json:"tags"`      // tags deleted (or to delete on a dry run)
-	Manifests int      `json:"manifests"` // manifests pruned after losing their last tag
+	Tags      []string `json:"tags"`            // tags deleted (or to delete on a dry run)
+	Manifests int      `json:"manifests"`       // manifests pruned after losing their last tag
+	Files     int      `json:"files,omitempty"` // stored files removed (non-OCI formats)
+	Bytes     int64    `json:"bytes,omitempty"` // their total size
 }
 
 // CleanupReport is the outcome of a cleanup run for one registry.
@@ -123,8 +229,11 @@ type CleanupReport struct {
 	Registry  string              `json:"registry"`
 	DryRun    bool                `json:"dry_run"`
 	Repos     []CleanupRepoReport `json:"repos"`
-	TagCount  int                 `json:"tag_count"`
+	Unit      string              `json:"unit"`      // "tags" (OCI) or "versions" (other formats)
+	TagCount  int                 `json:"tag_count"` // tags or versions deleted
 	Manifests int                 `json:"manifest_count"`
+	Files     int                 `json:"file_count,omitempty"`
+	Bytes     int64               `json:"bytes,omitempty"`
 	Errors    []string            `json:"errors,omitempty"`
 }
 
@@ -138,13 +247,17 @@ func (m *Manager) Cleanup(ctx context.Context, name string, dryRun bool) (*Clean
 	if !ok {
 		return nil, fmt.Errorf("registry %q not found", name)
 	}
-	if reg.Format != string(FormatDocker) || reg.Type != string(TypeHosted) {
-		return nil, fmt.Errorf("cleanup policies apply to hosted OCI registries only")
+	if err := CleanupSupported(reg); err != nil {
+		return nil, err
 	}
 	if !reg.Cleanup.Active() {
 		return nil, fmt.Errorf("no active cleanup policy: enable it and set keep_last or max_age_days")
 	}
-	report := &CleanupReport{Registry: name, DryRun: dryRun, Repos: []CleanupRepoReport{}}
+	if reg.Format != string(FormatDocker) {
+		return m.cleanupArtifacts(ctx, reg, dryRun)
+	}
+	name = reg.Name
+	report := &CleanupReport{Registry: name, DryRun: dryRun, Unit: "tags", Repos: []CleanupRepoReport{}}
 	repos, err := m.meta.ListRepos(name)
 	if err != nil {
 		return nil, err
@@ -280,4 +393,83 @@ func (m *Manager) pruneManifests(name, repo string, candidates []string, deleted
 		pruned++
 	}
 	return pruned
+}
+
+// CleanupSupported reports whether a retention policy can apply to the registry:
+// hosted OCI registries (tags) and hosted or caching registries of every other
+// format (package versions). Groups hold no content of their own.
+func CleanupSupported(reg *Registry) error {
+	switch Type(reg.Type) {
+	case TypeHosted:
+		return nil
+	case TypeProxy, TypeCache:
+		if reg.Format != string(FormatDocker) {
+			return nil
+		}
+	}
+	return fmt.Errorf("cleanup policies apply to hosted registries, and to proxy registries of non-OCI formats")
+}
+
+// cleanupArtifacts applies the policy to a path-addressed registry: package
+// versions, newest first by last write. Files go; the blobs they pointed at
+// are reclaimed by garbage collection, since content may be shared.
+func (m *Manager) cleanupArtifacts(ctx context.Context, reg *Registry, dryRun bool) (*CleanupReport, error) {
+	st := m.StoreFor(reg.Name)
+	if st == nil {
+		return nil, fmt.Errorf("registry %q has no local store", reg.Name)
+	}
+	objs, err := st.ListObjectInfos("")
+	if err != nil {
+		return nil, err
+	}
+	report := &CleanupReport{Registry: reg.Name, DryRun: dryRun, Unit: "versions", Repos: []CleanupRepoReport{}}
+	plan := PlanArtifactCleanup(GroupArtifacts(Format(reg.Format), objs), reg.Cleanup, time.Now())
+	// Report per package, in plan order.
+	byPkg := map[string]*CleanupRepoReport{}
+	var order []string
+	for _, u := range plan {
+		if ctx.Err() != nil {
+			break
+		}
+		removed := 0
+		if !dryRun {
+			for _, p := range u.Paths {
+				if err := st.DeleteObject(p); err != nil {
+					report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", p, err))
+					continue
+				}
+				removed++
+			}
+			if removed == 0 {
+				continue
+			}
+		} else {
+			removed = len(u.Paths)
+		}
+		rr := byPkg[u.Package]
+		if rr == nil {
+			rr = &CleanupRepoReport{Repo: u.Package, Tags: []string{}}
+			byPkg[u.Package] = rr
+			order = append(order, u.Package)
+		}
+		rr.Tags = append(rr.Tags, u.Version)
+		rr.Files += removed
+		rr.Bytes += u.Size
+		report.TagCount++
+		report.Files += removed
+		report.Bytes += u.Size
+	}
+	total := map[string]int{}
+	for _, u := range GroupArtifacts(Format(reg.Format), objs) {
+		total[u.Package]++
+	}
+	for _, pkg := range order {
+		rr := byPkg[pkg]
+		rr.Kept = total[pkg] - len(rr.Tags)
+		report.Repos = append(report.Repos, *rr)
+	}
+	if ctx.Err() != nil {
+		return report, ctx.Err()
+	}
+	return report, nil
 }

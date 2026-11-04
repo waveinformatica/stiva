@@ -129,6 +129,14 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 
 		// Garbage collection: reap orphan blobs (dry runs first).
 		admin.POST("/gc", h.adminGC)
+
+		// Background jobs (cleanup, gc) and their schedules.
+		admin.GET("/jobs", h.adminListJobs)
+		admin.GET("/jobs/:id", h.adminGetJob)
+		admin.POST("/jobs", h.adminEnqueueJob)
+		admin.GET("/schedules", h.adminListSchedules)
+		admin.PUT("/schedules/:registry/:kind", h.adminSetSchedule)
+		admin.DELETE("/schedules/:registry/:kind", h.adminDeleteSchedule)
 	}
 }
 

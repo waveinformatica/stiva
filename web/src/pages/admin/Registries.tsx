@@ -115,7 +115,7 @@ export default function Registries() {
   const [gcOlder, setGcOlder] = useState("1h");
   const [gcReport, setGcReport] = useState<any>(null);
   const [gcBusy, setGcBusy] = useState(false);
-  const [cleanupName, setCleanupName] = useState<string | null>(null);
+  const [cleanupTarget, setCleanupTarget] = useState<{ name: string; format: string } | null>(null);
   const [aptKey, setAptKey] = useState<any>(null);
   const [aptBusy, setAptBusy] = useState(false);
 
@@ -298,8 +298,8 @@ export default function Registries() {
                     Warm
                   </Button>
                 )}
-                {r.format === "oci" && r.type === "hosted" && (
-                  <Button size="compact-xs" variant="light" color="gray" onClick={() => setCleanupName(r.name)}>
+                {(r.type === "hosted" || (r.format !== "oci" && (r.type === "proxy" || r.type === "cache"))) && (
+                  <Button size="compact-xs" variant="light" color="gray" onClick={() => setCleanupTarget({ name: r.name, format: r.format })}>
                     {t("cleanup.button")}
                   </Button>
                 )}
@@ -590,7 +590,7 @@ export default function Registries() {
           </FormFooter>
       </Modal>
 
-      <CleanupModal name={cleanupName} onClose={() => setCleanupName(null)} />
+      <CleanupModal name={cleanupTarget?.name ?? null} format={cleanupTarget?.format ?? "oci"} onClose={() => setCleanupTarget(null)} />
 
       <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={t("registries.gcTitle", { name: gcName || "" })} size="lg">
         <Stack gap="sm">

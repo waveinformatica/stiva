@@ -10,7 +10,16 @@ const EMPTY: Policy = { enabled: false, keep_last: 0, max_age_days: 0, protect: 
 
 // Retention policy editor for one hosted OCI registry: edit, save, preview
 // (dry run), then delete. Deleting always follows a preview the user can see.
-export default function CleanupModal({ name, onClose }: { name: string | null; onClose: () => void }) {
+export default function CleanupModal({
+  name,
+  format,
+  onClose,
+}: {
+  name: string | null;
+  format: string;
+  onClose: () => void;
+}) {
+  const versions = format !== "oci";
   const { t } = useTranslation();
   const [policy, setPolicy] = useState<Policy>(EMPTY);
   const [protect, setProtect] = useState("");
@@ -59,9 +68,15 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
     setNote(null);
     try {
       if (!(await save())) return;
-      const r = await api.cleanupRun(name, dryRun);
-      setReport(r);
-      if (!dryRun) setNote(t("cleanup.deleted", { tags: r.tag_count, manifests: r.manifest_count }));
+      if (dryRun) {
+        setReport(await api.cleanupRun(name, true));
+      } else {
+        // The real deletion runs as a background job: it can take long on a
+        // big registry, and it leaves a record on the Jobs page.
+        const q = await api.jobEnqueue({ registry: name, kind: "cleanup" });
+        setReport(null);
+        setNote(t("cleanup.queuedRun", { id: q.id }));
+      }
     } catch (e: any) {
       setErr(e.message);
       setReport(null);
@@ -75,7 +90,7 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
   return (
     <Modal opened={name !== null} onClose={onClose} title={t("cleanup.title", { name: name || "" })} size="lg">
       <Stack>
-        <Text size="sm" c="dimmed">{t("cleanup.intro")}</Text>
+        <Text size="sm" c="dimmed">{t(versions ? "cleanup.introVersions" : "cleanup.intro")}</Text>
         {err && <ErrorAlert mb="0">{err}</ErrorAlert>}
         <Switch
           label={t("cleanup.enabled")}
@@ -84,14 +99,14 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
         />
         <Group grow align="flex-start">
           <NumberInput
-            label={t("cleanup.keepLast")}
+            label={t(versions ? "cleanup.keepLastVersions" : "cleanup.keepLast")}
             description={t("cleanup.zeroOff")}
             min={0}
             value={policy.keep_last}
             onChange={(v) => setPolicy({ ...policy, keep_last: num(v) })}
           />
           <NumberInput
-            label={t("cleanup.maxAge")}
+            label={t(versions ? "cleanup.maxAgeVersions" : "cleanup.maxAge")}
             description={t("cleanup.zeroOff")}
             min={0}
             value={policy.max_age_days}
@@ -99,9 +114,9 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
           />
         </Group>
         <TextInput
-          label={t("cleanup.protect")}
-          description={t("cleanup.protectNote")}
-          placeholder="latest, v*"
+          label={t(versions ? "cleanup.protectVersions" : "cleanup.protect")}
+          description={versions ? undefined : t("cleanup.protectNote")}
+          placeholder={versions ? "1.*, my-lib@2.0.0" : "latest, v*"}
           value={protect}
           onChange={(e) => setProtect(e.currentTarget.value)}
         />
@@ -117,9 +132,11 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
               style={{ alignSelf: "flex-start" }}
             >
               {report.tag_count > 0
-                ? t(report.dry_run ? "cleanup.wouldDelete" : "cleanup.deleted", {
+                ? t(versions ? "cleanup.wouldDeleteVersions" : "cleanup.wouldDelete", {
                     tags: report.tag_count,
                     manifests: report.manifest_count,
+                    files: report.file_count ?? 0,
+                    size: humanSize(report.bytes ?? 0),
                   })
                 : t("cleanup.nothing")}
             </Badge>
@@ -128,10 +145,10 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
                 rowKey={(r: any) => r.repo}
                 rows={report.repos}
                 columns={[
-                  { header: t("cleanup.repoHeader"), render: (r: any) => <Code>{r.repo}</Code> },
+                  { header: t(versions ? "cleanup.packageHeader" : "cleanup.repoHeader"), render: (r: any) => <Code>{r.repo}</Code> },
                   { header: t("cleanup.keptHeader"), render: (r: any) => r.kept, width: 90 },
                   {
-                    header: t("cleanup.tagsHeader"),
+                    header: t(versions ? "cleanup.versionsHeader" : "cleanup.tagsHeader"),
                     render: (r: any) => (
                       <Text size="xs">{(r.tags || []).slice(0, 12).join(", ")}{(r.tags || []).length > 12 ? ` … +${r.tags.length - 12}` : ""}</Text>
                     ),
@@ -156,7 +173,7 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
               loading={busy}
               disabled={!report || !report.dry_run || report.tag_count === 0}
               onClick={() => {
-                if (name && window.confirm(t("cleanup.confirm", { tags: report.tag_count, name }))) run(false);
+                if (name && window.confirm(t(versions ? "cleanup.confirmVersions" : "cleanup.confirm", { tags: report.tag_count, name }))) run(false);
               }}
             >
               {t("cleanup.run")}
@@ -166,4 +183,17 @@ export default function CleanupModal({ name, onClose }: { name: string | null; o
       </Stack>
     </Modal>
   );
+}
+
+function humanSize(n: number) {
+  if (!n) return "0 B";
+  if (n < 1024) return `${n} B`;
+  const units = ["kB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 }

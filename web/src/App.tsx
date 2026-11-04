@@ -13,6 +13,7 @@ import Groups from "./pages/admin/Groups";
 import Grants from "./pages/admin/Grants";
 import Anonymous from "./pages/admin/Anonymous";
 import Registries from "./pages/admin/Registries";
+import Jobs from "./pages/admin/Jobs";
 import SSO from "./pages/admin/SSO";
 import Settings from "./pages/admin/Settings";
 import AppShellLayout, { View, ShellUser } from "./components/AppShellLayout";
@@ -24,6 +25,7 @@ const ADMIN_VIEWS: View[] = [
   "serviceAccounts",
   "registries",
   "stores",
+  "jobs",
   "credentials",
   "roles",
   "groups",
@@ -96,6 +98,7 @@ function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/service-accounts" element={<ServiceAccounts />} />
           <Route path="/admin/stores" element={<Stores />} />
+          <Route path="/admin/jobs" element={<Jobs />} />
           <Route path="/admin/credentials" element={<Credentials />} />
           <Route path="/admin/roles" element={<Roles />} />
           <Route path="/admin/groups" element={<Groups />} />

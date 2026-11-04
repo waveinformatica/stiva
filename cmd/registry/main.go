@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"registry/internal/authz"
 	"registry/internal/blobstore"
 	"registry/internal/config"
+	"registry/internal/jobs"
 	"registry/internal/registry"
 	"registry/internal/storage"
 	"registry/internal/vault"
@@ -107,6 +109,39 @@ func main() {
 	}
 
 	handler := api.NewHandler(mgr, authMgr)
+
+	// Background jobs: retention cleanup and garbage collection, on demand or
+	// on a schedule, from a PostgreSQL-backed queue.
+	jobCtx, stopJobs := context.WithCancel(context.Background())
+	defer stopJobs()
+	if js, ok := meta.(storage.JobStore); ok {
+		runner := jobs.NewRunner(js)
+		runner.Handle(jobs.KindCleanup, func(ctx context.Context, j storage.Job) (any, error) {
+			return mgr.Cleanup(ctx, j.Registry, j.DryRun)
+		}, func(name string) bool {
+			reg, ok := mgr.Get(name)
+			return ok && registry.CleanupSupported(reg) == nil && reg.Cleanup.Active()
+		})
+		runner.Handle(jobs.KindGC, func(ctx context.Context, j storage.Job) (any, error) {
+			var p struct {
+				OlderThan string `json:"older_than"`
+			}
+			_ = json.Unmarshal(j.Params, &p)
+			older := time.Hour
+			if p.OlderThan != "" {
+				d, err := time.ParseDuration(p.OlderThan)
+				if err != nil || d < 0 {
+					return nil, fmt.Errorf("older_than must be a Go duration like 1h, got %q", p.OlderThan)
+				}
+				older = d
+			}
+			return mgr.GC(ctx, j.Registry, older, j.DryRun)
+		}, func(name string) bool { _, ok := mgr.Get(name); return ok })
+		runner.Start(jobCtx)
+		handler.SetJobs(runner, js)
+	} else {
+		log.Printf("WARNING: metadata store has no job support; background jobs are disabled")
+	}
 	handler.SetStorage(vlt, stores)
 	handler.SetAuthz(az)
 
@@ -271,6 +306,7 @@ var uiPagePaths = []string{
 	"/admin/anonymous",
 	"/admin/sso",
 	"/admin/settings",
+	"/admin/jobs",
 };
 
 // uiStaticPaths are the root-level build assets index.html refers to.

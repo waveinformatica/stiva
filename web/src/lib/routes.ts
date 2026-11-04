@@ -12,6 +12,7 @@ export const VIEW_PATHS: Record<View, string> = {
   serviceAccounts: "/admin/service-accounts",
   registries: "/admin/registries",
   stores: "/admin/stores",
+  jobs: "/admin/jobs",
   credentials: "/admin/credentials",
   roles: "/admin/roles",
   groups: "/admin/groups",

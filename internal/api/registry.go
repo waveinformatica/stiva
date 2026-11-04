@@ -14,6 +14,7 @@ import (
 	"registry/internal/authz"
 	"registry/internal/blobstore"
 	"registry/internal/digest"
+	"registry/internal/jobs"
 	"registry/internal/registry"
 	"registry/internal/storage"
 	"registry/internal/vault"
@@ -42,6 +43,10 @@ type Handler struct {
 	vault  *vault.Vault
 	stores *blobstore.Repo
 	authz  *authz.Engine
+
+	// Background jobs, wired by SetJobs.
+	jobRunner *jobs.Runner
+	jobStore  storage.JobStore
 }
 
 // NewHandler builds an API handler.

@@ -80,3 +80,45 @@ func TestCleanupPolicyValidate(t *testing.T) {
 		t.Errorf("nil policy: %v", err)
 	}
 }
+
+func TestPlanArtifactCleanupKeepsVersionsWhole(t *testing.T) {
+	now := time.Now()
+	at := func(daysAgo int) int64 { return now.Add(-time.Duration(daysAgo) * 24 * time.Hour).UnixNano() }
+	objs := []storage.ObjectInfo{
+		{Path: "org/acme/lib/1.0.0/lib-1.0.0.jar", CreatedAt: at(90)},
+		{Path: "org/acme/lib/1.0.0/lib-1.0.0.jar.sha1", CreatedAt: at(90)},
+		{Path: "org/acme/lib/1.0.0/lib-1.0.0.pom", CreatedAt: at(90)},
+		{Path: "org/acme/lib/1.1.0/lib-1.1.0.jar", CreatedAt: at(40)},
+		{Path: "org/acme/lib/1.2.0/lib-1.2.0.jar", CreatedAt: at(2)},
+		{Path: "org/acme/lib/maven-metadata.xml", CreatedAt: at(500)},
+		{Path: "org/acme/other/0.1.0/other-0.1.0.jar", CreatedAt: at(300)},
+	}
+	units := GroupArtifacts(FormatMaven, objs)
+	if len(units) != 4 {
+		t.Fatalf("units = %d, want 4 (metadata excluded)", len(units))
+	}
+	// keep newest 1 per package: lib keeps 1.2.0; other keeps its only version.
+	del := PlanArtifactCleanup(units, &CleanupPolicy{Enabled: true, KeepLast: 1}, now)
+	var got []string
+	for _, u := range del {
+		got = append(got, u.Package+"@"+u.Version)
+	}
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, []string{"org/acme/lib@1.0.0", "org/acme/lib@1.1.0"}) {
+		t.Errorf("keep-last-1 deletes %v", got)
+	}
+	for _, u := range del {
+		if u.Version == "1.0.0" && len(u.Paths) != 3 {
+			t.Errorf("1.0.0 must go whole with its companions, got %d paths", len(u.Paths))
+		}
+	}
+	// max age 60d + protect 1.0.0: only nothing old unprotected remains except other@0.1.0.
+	del = PlanArtifactCleanup(units, &CleanupPolicy{Enabled: true, MaxAgeDays: 60, Protect: []string{"1.0.0"}}, now)
+	got = nil
+	for _, u := range del {
+		got = append(got, u.Package+"@"+u.Version)
+	}
+	if !reflect.DeepEqual(got, []string{"org/acme/other@0.1.0"}) {
+		t.Errorf("max-age-60 + protect deletes %v", got)
+	}
+}
