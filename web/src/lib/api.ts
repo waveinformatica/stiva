@@ -124,6 +124,14 @@ export const api = {
   adminCatalogSave: (b: any, id?: number) =>
     id ? req("PUT", `/api/v1/admin/catalog/${id}`, b) : req("POST", "/api/v1/admin/catalog", b),
   adminCatalogDelete: (id: number) => req("DELETE", `/api/v1/admin/catalog/${id}`),
+  adminScreenshotAdd: (appId: number, image: string, caption: string) =>
+    req("POST", `/api/v1/admin/catalog/${appId}/screenshots`, { image, caption }),
+  adminScreenshotCaption: (appId: number, id: number, caption: string) =>
+    req("PUT", `/api/v1/admin/catalog/${appId}/screenshots/${id}`, { caption }),
+  adminScreenshotDelete: (appId: number, id: number) =>
+    req("DELETE", `/api/v1/admin/catalog/${appId}/screenshots/${id}`),
+  adminScreenshotOrder: (appId: number, ids: number[]) =>
+    req("PUT", `/api/v1/admin/catalog/${appId}/screenshots-order`, { ids }),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>
@@ -276,4 +284,15 @@ export async function downloadArtifact(registry: string, path: string): Promise<
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Fetch an image with the caller's credentials and return a blob URL. An <img>
+ *  tag cannot send the session token, so it would be served as a guest. */
+export async function fetchImageUrl(slug: string, id: number): Promise<string> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(`/api/v1/catalog/${enc(slug)}/screenshots/${id}`, { headers });
+  if (!res.ok) throw new ApiError(res.statusText || "image unavailable", res.status);
+  return URL.createObjectURL(await res.blob());
 }

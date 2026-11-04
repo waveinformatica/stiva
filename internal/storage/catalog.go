@@ -20,21 +20,29 @@ type CatalogArtifact struct {
 	Position int    `json:"position"`
 }
 
+// CatalogScreenshot describes one screenshot; the image itself is fetched apart.
+type CatalogScreenshot struct {
+	ID       int64  `json:"id"`
+	Caption  string `json:"caption"`
+	Position int    `json:"position"`
+}
+
 // CatalogApp is one entry of the application catalog.
 type CatalogApp struct {
-	ID          int64             `json:"id"`
-	Slug        string            `json:"slug"`
-	Name        string            `json:"name"`
-	Tagline     string            `json:"tagline"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"` // URL or data URI; omitted in listings
-	Category    string            `json:"category"`
-	Homepage    string            `json:"homepage"`
-	Featured    bool              `json:"featured"`
-	Position    int               `json:"position"`
-	CreatedAt   int64             `json:"created_at"`
-	UpdatedAt   int64             `json:"updated_at"`
-	Artifacts   []CatalogArtifact `json:"artifacts"`
+	ID          int64               `json:"id"`
+	Slug        string              `json:"slug"`
+	Name        string              `json:"name"`
+	Tagline     string              `json:"tagline"`
+	Description string              `json:"description"`
+	Icon        string              `json:"icon"` // URL or data URI; omitted in listings
+	Category    string              `json:"category"`
+	Homepage    string              `json:"homepage"`
+	Featured    bool                `json:"featured"`
+	Position    int                 `json:"position"`
+	CreatedAt   int64               `json:"created_at"`
+	UpdatedAt   int64               `json:"updated_at"`
+	Artifacts   []CatalogArtifact   `json:"artifacts"`
+	Screenshots []CatalogScreenshot `json:"screenshots"`
 }
 
 // CatalogStore persists the catalog. PostgresMetadataStore implements it.
@@ -47,6 +55,15 @@ type CatalogStore interface {
 	// UpsertCatalogApp creates (ID 0) or updates an app, replacing its artifacts.
 	UpsertCatalogApp(a CatalogApp) (int64, error)
 	DeleteCatalogApp(id int64) error
+
+	// Screenshots are managed apart from the app so saving an entry does not
+	// resend its images.
+	AddCatalogScreenshot(appID int64, image, caption string) (int64, error)
+	UpdateCatalogScreenshot(appID, id int64, caption string) error
+	DeleteCatalogScreenshot(appID, id int64) error
+	// ReorderCatalogScreenshots sets the order to ids (all of the app's screenshots).
+	ReorderCatalogScreenshots(appID int64, ids []int64) error
+	CatalogScreenshotImage(appID, id int64) (string, error)
 }
 
 const appCols = `id, slug, name, tagline, description, %s, category, homepage, featured, position, created_at, updated_at`
@@ -58,6 +75,7 @@ func scanApp(row pgx.Row) (*CatalogApp, error) {
 		return nil, err
 	}
 	a.Artifacts = []CatalogArtifact{}
+	a.Screenshots = []CatalogScreenshot{}
 	return &a, nil
 }
 
@@ -70,6 +88,26 @@ func (m *PostgresMetadataStore) loadArtifacts(ctx context.Context, apps []Catalo
 	for i := range apps {
 		idx[apps[i].ID] = &apps[i]
 		ids = append(ids, apps[i].ID)
+	}
+	srows, err := m.pool.Query(ctx,
+		`SELECT id, app_id, caption, position FROM catalog_screenshots WHERE app_id = ANY($1) ORDER BY position, id`, ids)
+	if err != nil {
+		return err
+	}
+	for srows.Next() {
+		var sc CatalogScreenshot
+		var appID int64
+		if err := srows.Scan(&sc.ID, &appID, &sc.Caption, &sc.Position); err != nil {
+			srows.Close()
+			return err
+		}
+		if a := idx[appID]; a != nil {
+			a.Screenshots = append(a.Screenshots, sc)
+		}
+	}
+	srows.Close()
+	if err := srows.Err(); err != nil {
+		return err
 	}
 	rows, err := m.pool.Query(ctx,
 		`SELECT id, app_id, registry, ref, tag, label, position FROM catalog_artifacts
@@ -193,4 +231,63 @@ func (m *PostgresMetadataStore) DeleteCatalogApp(id int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (m *PostgresMetadataStore) AddCatalogScreenshot(appID int64, image, caption string) (int64, error) {
+	var id int64
+	err := m.pool.QueryRow(context.Background(),
+		`INSERT INTO catalog_screenshots(app_id, image, caption, position)
+		 VALUES($1,$2,$3,(SELECT COALESCE(MAX(position)+1, 0) FROM catalog_screenshots WHERE app_id=$1)) RETURNING id`,
+		appID, image, caption).Scan(&id)
+	return id, err
+}
+
+func (m *PostgresMetadataStore) UpdateCatalogScreenshot(appID, id int64, caption string) error {
+	tag, err := m.pool.Exec(context.Background(),
+		`UPDATE catalog_screenshots SET caption=$3 WHERE app_id=$1 AND id=$2`, appID, id, caption)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (m *PostgresMetadataStore) DeleteCatalogScreenshot(appID, id int64) error {
+	tag, err := m.pool.Exec(context.Background(),
+		`DELETE FROM catalog_screenshots WHERE app_id=$1 AND id=$2`, appID, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (m *PostgresMetadataStore) ReorderCatalogScreenshots(appID int64, ids []int64) error {
+	ctx := context.Background()
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	for i, id := range ids {
+		if _, err := tx.Exec(ctx,
+			`UPDATE catalog_screenshots SET position=$3 WHERE app_id=$1 AND id=$2`, appID, id, i); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (m *PostgresMetadataStore) CatalogScreenshotImage(appID, id int64) (string, error) {
+	var img string
+	err := m.pool.QueryRow(context.Background(),
+		`SELECT image FROM catalog_screenshots WHERE app_id=$1 AND id=$2`, appID, id).Scan(&img)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return img, err
 }

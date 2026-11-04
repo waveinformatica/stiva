@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"registry/internal/registry"
 	"registry/internal/storage"
 )
 
@@ -84,5 +85,103 @@ func TestValidateCatalogApp(t *testing.T) {
 	_ = validateCatalogApp(&a2, exists)
 	if a2.Artifacts[0].Ref != "acme/app" {
 		t.Errorf("ref = %q, want acme/app", a2.Artifacts[0].Ref)
+	}
+}
+
+func TestBuildPackagesPicksTheHighestStableVersion(t *testing.T) {
+	const day = int64(24 * 3600 * 1e9)
+	infos := []storage.ObjectInfo{
+		{Path: "dl/acme-1.9.0.tar.gz", Size: 900, CreatedAt: 1 * day},
+		{Path: "dl/acme-1.10.0.tar.gz", Size: 1000, CreatedAt: 2 * day},
+		{Path: "dl/acme-1.10.0.tar.gz.sha256", Size: 64, CreatedAt: 2 * day},
+		// Re-uploaded later, but older by version: must not become "latest".
+		{Path: "dl/acme-1.2.0.tar.gz", Size: 800, CreatedAt: 9 * day},
+		// Newer by version, but a pre-release: stable 1.10.0 still wins.
+		{Path: "dl/acme-2.0.0-rc1.tar.gz", Size: 1100, CreatedAt: 8 * day},
+	}
+	pk := buildPackages(registry.FormatRaw, infos)
+	if len(pk) != 1 {
+		t.Fatalf("packages = %d, want 1", len(pk))
+	}
+	p := pk[0]
+	if p.Latest.Version != "1.10.0" {
+		t.Errorf("latest = %s, want 1.10.0 (highest stable, not the newest upload, not the rc)", p.Latest.Version)
+	}
+	if p.Latest.Primary != "dl/acme-1.10.0.tar.gz" {
+		t.Errorf("primary = %s, want the archive, not its checksum", p.Latest.Primary)
+	}
+	if len(p.Latest.Files) != 2 {
+		t.Errorf("latest lists %d files, want the archive and its checksum", len(p.Latest.Files))
+	}
+	var order []string
+	for _, o := range p.Others {
+		order = append(order, o.Version)
+	}
+	// Stable versions descending, then the pre-release.
+	if got := strings.Join(order, ","); got != "1.9.0,1.2.0,2.0.0-rc1" {
+		t.Errorf("others = %s, want 1.9.0,1.2.0,2.0.0-rc1", got)
+	}
+}
+
+func TestBuildPackagesPlainFilesFallBackToUploadTime(t *testing.T) {
+	infos := []storage.ObjectInfo{
+		{Path: "tools/old.exe", Size: 10, CreatedAt: 1},
+		{Path: "tools/new.exe", Size: 10, CreatedAt: 5},
+	}
+	pk := buildPackages(registry.FormatRaw, infos)
+	if len(pk) != 1 || pk[0].Latest.Primary != "tools/new.exe" {
+		t.Errorf("latest = %+v, want the most recent upload when names carry no version", pk)
+	}
+}
+
+func TestPickLatestTag(t *testing.T) {
+	tag := func(names ...string) []tagView {
+		var out []tagView
+		for i, n := range names {
+			out = append(out, tagView{Tag: n, PushedAt: int64(i)})
+		}
+		return out
+	}
+	cases := []struct {
+		name string
+		tags []tagView
+		want string
+	}{
+		{"highest stable semver", tag("1.9.0", "1.10.0", "latest", "2.0.0-rc1"), "1.10.0"},
+		{"only prerelease and latest", tag("2.0.0-rc1", "latest"), "latest"},
+		{"no versions, latest exists", tag("main", "latest"), "latest"},
+		{"nothing version-like", tag("main", "dev"), "dev"}, // dev was pushed last
+		{"empty", nil, ""},
+	}
+	for _, c := range cases {
+		if got := pickLatestTag(c.tags); got != c.want {
+			t.Errorf("%s: pickLatestTag = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestScreenshotValidationAndOrder(t *testing.T) {
+	ok := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString([]byte("jpegbytes"))
+	if err := validateScreenshot(ok, "Dashboard"); err != nil {
+		t.Errorf("valid screenshot rejected: %v", err)
+	}
+	big := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", maxShotBytes+1)))
+	for name, img := range map[string]string{
+		"svg": "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", "oversized": big, "not a data uri": "https://x/y.png", "empty": "",
+	} {
+		if err := validateScreenshot(img, ""); err == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	if err := validateScreenshot(ok, strings.Repeat("c", 201)); err == nil {
+		t.Error("long caption accepted")
+	}
+	if !sameIDs([]int64{1, 2, 3}, []int64{3, 1, 2}) {
+		t.Error("a permutation must be accepted")
+	}
+	for _, bad := range [][]int64{{1, 2}, {1, 2, 2}, {1, 2, 4}, {1, 2, 3, 4}} {
+		if sameIDs([]int64{1, 2, 3}, bad) {
+			t.Errorf("%v accepted as an order of 1,2,3", bad)
+		}
 	}
 }

@@ -761,7 +761,21 @@
     "copy": "Copier",
     "copied": "Copié",
     "kindImage": "Image de conteneur",
-    "kindFiles": "Fichiers du paquet"
+    "kindFiles": "Fichiers du paquet",
+    "downloadVersion": "Télécharger {{version}}",
+    "downloadLatest": "Télécharger la dernière version",
+    "copyPull": "Copier la commande pull",
+    "latestVersion": "Dernière version",
+    "latestTag": "Tag le plus récent",
+    "otherVersions": "Autres versions",
+    "showVersions": "Afficher {{count}} autres versions",
+    "hideVersions": "Masquer les autres versions",
+    "allFilesOfVersion": "Autres fichiers de cette version",
+    "prerelease": "préversion",
+    "screenshots": "Captures d’écran",
+    "close": "Fermer",
+    "previous": "Précédent",
+    "next": "Suivant"
   },
   "catalogAdmin": {
     "title": "Gestion du catalogue",
@@ -796,6 +810,14 @@
     "noArtifacts": "Ajoutez au moins un artefact, sinon personne ne verra cette application.",
     "view": "Voir",
     "deleteTitle": "Supprimer l’application",
-    "deleteBody": "Retirer « {{name}} » du catalogue ? Les artefacts ne sont pas touchés."
+    "deleteBody": "Retirer « {{name}} » du catalogue ? Les artefacts ne sont pas touchés.",
+    "screenshotsTitle": "Captures d’écran",
+    "screenshotsDesc": "Jusqu’à 8 images, affichées dans cet ordre sur la page de l’application.",
+    "addScreenshot": "Ajouter une capture",
+    "saveFirst": "Enregistrez d’abord l’application, puis ajoutez des captures.",
+    "captionLabel": "Légende",
+    "moveUp": "Déplacer avant",
+    "moveDown": "Déplacer après",
+    "shotNote": "Redimensionnées à 1600 px de large maximum avant l’envoi."
   }
 }

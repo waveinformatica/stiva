@@ -43,3 +43,32 @@ func TestParsePackagePath(t *testing.T) {
 		}
 	}
 }
+
+func TestCompareVersions(t *testing.T) {
+	older := [][2]string{
+		{"1.9", "1.10"}, {"1.2.3", "1.2.4"}, {"1.0", "1.0.1"}, {"v1.0.0", "v2.0.0"},
+		{"1.0.0-rc1", "1.0.0"}, {"1.0.0-rc2", "1.0.0-rc10"}, {"1.0.0-alpha", "1.0.0-beta"}, {"0.9.9", "1.0.0"},
+		{"2024.01", "2024.02"},
+	}
+	for _, p := range older {
+		if CompareVersions(p[0], p[1]) != -1 || CompareVersions(p[1], p[0]) != 1 {
+			t.Errorf("%s should be older than %s", p[0], p[1])
+		}
+	}
+	for _, p := range [][2]string{{"1.0", "1.0.0"}, {"v1.2", "1.2"}, {"1.0+build5", "1.0+build9"}} {
+		if CompareVersions(p[0], p[1]) != 0 {
+			t.Errorf("%s and %s should be equal", p[0], p[1])
+		}
+	}
+}
+
+func TestVersionLike(t *testing.T) {
+	for s, want := range map[string]bool{"1.2.3": true, "v2": true, "2.0.1-rc1": true, "latest": false, "main": false, "setup.exe": false} {
+		if got := IsVersionLike(s); got != want {
+			t.Errorf("IsVersionLike(%q) = %v, want %v", s, got, want)
+		}
+	}
+	if !IsPreRelease("1.0-rc1") || IsPreRelease("1.0") {
+		t.Error("IsPreRelease wrong")
+	}
+}

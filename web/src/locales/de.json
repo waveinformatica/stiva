@@ -761,7 +761,21 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "kindImage": "Container-Image",
-    "kindFiles": "Paketdateien"
+    "kindFiles": "Paketdateien",
+    "downloadVersion": "{{version}} herunterladen",
+    "downloadLatest": "Neueste Version herunterladen",
+    "copyPull": "Pull-Befehl kopieren",
+    "latestVersion": "Neueste Version",
+    "latestTag": "Neuester Tag",
+    "otherVersions": "Weitere Versionen",
+    "showVersions": "{{count}} weitere Versionen anzeigen",
+    "hideVersions": "Weitere Versionen ausblenden",
+    "allFilesOfVersion": "Weitere Dateien dieser Version",
+    "prerelease": "Vorabversion",
+    "screenshots": "Screenshots",
+    "close": "Schließen",
+    "previous": "Zurück",
+    "next": "Weiter"
   },
   "catalogAdmin": {
     "title": "Katalogverwaltung",
@@ -796,6 +810,14 @@
     "noArtifacts": "Fügen Sie mindestens ein Artefakt hinzu, sonst sieht niemand diese Anwendung.",
     "view": "Ansehen",
     "deleteTitle": "Anwendung löschen",
-    "deleteBody": "„{{name}}“ aus dem Katalog entfernen? Die Artefakte selbst bleiben unberührt."
+    "deleteBody": "„{{name}}“ aus dem Katalog entfernen? Die Artefakte selbst bleiben unberührt.",
+    "screenshotsTitle": "Screenshots",
+    "screenshotsDesc": "Bis zu 8 Bilder, in dieser Reihenfolge auf der Anwendungsseite.",
+    "addScreenshot": "Screenshot hinzufügen",
+    "saveFirst": "Speichern Sie zuerst die Anwendung, dann fügen Sie Screenshots hinzu.",
+    "captionLabel": "Bildunterschrift",
+    "moveUp": "Nach vorn",
+    "moveDown": "Nach hinten",
+    "shotNote": "Wird vor dem Hochladen auf höchstens 1600 px Breite verkleinert."
   }
 }

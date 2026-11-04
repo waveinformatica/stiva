@@ -5,13 +5,15 @@ import {
   PageHeader, DataTable, Badge, Button, Modal, TextInput, Textarea, Switch, Select, NumberInput, Group, Stack,
   Text, ConfirmModal, ErrorAlert, PageLoader, AddButton, DeleteButton, FormFooter, Alert, ActionIcon,
 } from "../../components/ui";
-import { api } from "../../lib/api";
+import { api, fetchImageUrl } from "../../lib/api";
 import AppIcon from "../../components/AppIcon";
 import { IconPlus } from "../../components/icons";
 
 type Artifact = { registry: string; ref: string; tag: string; label: string; position?: number };
+type Shot = { id: number; caption: string; position: number };
 type App = {
   id: number;
+  screenshots: Shot[];
   slug: string;
   name: string;
   tagline: string;
@@ -27,7 +29,7 @@ type Reg = { name: string; format: string; type: string };
 
 const EMPTY: App = {
   id: 0, slug: "", name: "", tagline: "", description: "", icon: "", category: "", homepage: "",
-  featured: false, position: 0, artifacts: [],
+  featured: false, position: 0, artifacts: [], screenshots: [],
 };
 
 const slugify = (s: string) =>
@@ -54,6 +56,133 @@ function toIcon(file: File): Promise<string> {
     };
     img.src = url;
   });
+}
+
+// Downscale a screenshot to at most 1600 px wide and keep it under the server's
+// 512 KB limit by lowering the JPEG quality until it fits.
+function toShot(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, 1600 / img.width);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const g = c.getContext("2d");
+      if (!g) return reject(new Error("canvas unavailable"));
+      g.fillStyle = "#fff";
+      g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      for (const q of [0.85, 0.72, 0.6, 0.48]) {
+        const data = c.toDataURL("image/jpeg", q);
+        if ((data.length * 3) / 4 < 500 * 1024) return resolve(data);
+      }
+      reject(new Error("too large"));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("not an image"));
+    };
+    img.src = url;
+  });
+}
+
+function Thumb({ slug, id }: { slug: string; id: number }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    let made = "";
+    fetchImageUrl(slug, id)
+      .then((u) => {
+        if (!live) return URL.revokeObjectURL(u);
+        made = u;
+        setSrc(u);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [slug, id]);
+  return (
+    <div style={{ width: 96, height: 60, borderRadius: 6, overflow: "hidden", background: "var(--mantine-color-default-hover)", flex: "0 0 auto" }}>
+      {src && <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+    </div>
+  );
+}
+
+// Screenshots are changed immediately, apart from the rest of the form, so an
+// image upload is never resent when the entry is saved.
+function ShotsManager({ app, onChanged, onError }: { app: App; onChanged: () => Promise<void>; onError: (m: string) => void }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const shots = app.screenshots || [];
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await fn();
+      await onChanged();
+    } catch (e: any) {
+      onError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const add = (files: FileList | null) => {
+    if (!files) return;
+    run(async () => {
+      for (const f of Array.from(files).slice(0, Math.max(0, 8 - shots.length))) {
+        await api.adminScreenshotAdd(app.id, await toShot(f), "");
+      }
+    });
+  };
+  const move = (i: number, d: number) => {
+    const ids = shots.map((s) => s.id);
+    [ids[i], ids[i + d]] = [ids[i + d], ids[i]];
+    run(() => api.adminScreenshotOrder(app.id, ids));
+  };
+
+  return (
+    <Stack gap="xs">
+      <Group justify="space-between">
+        <div>
+          <Text fw={600}>{t("catalogAdmin.screenshotsTitle")}</Text>
+          <Text size="xs" c="dimmed">
+            {t("catalogAdmin.screenshotsDesc")} {t("catalogAdmin.shotNote")}
+          </Text>
+        </div>
+        {app.id > 0 && (
+          <>
+            <input ref={ref} type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+            <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} disabled={busy || shots.length >= 8} onClick={() => ref.current?.click()}>
+              {t("catalogAdmin.addScreenshot")}
+            </Button>
+          </>
+        )}
+      </Group>
+      {app.id === 0 && <Alert color="blue" variant="light">{t("catalogAdmin.saveFirst")}</Alert>}
+      {shots.map((s, i) => (
+        <Group key={s.id} gap="xs" wrap="nowrap" align="center">
+          <Thumb slug={app.slug} id={s.id} />
+          <TextInput
+            style={{ flex: 1 }}
+            size="xs"
+            placeholder={t("catalogAdmin.captionLabel")}
+            defaultValue={s.caption}
+            maxLength={200}
+            onBlur={(e) => e.currentTarget.value !== s.caption && run(() => api.adminScreenshotCaption(app.id, s.id, e.currentTarget.value))}
+          />
+          <ActionIcon variant="subtle" disabled={busy || i === 0} aria-label={t("catalogAdmin.moveUp")} onClick={() => move(i, -1)}>↑</ActionIcon>
+          <ActionIcon variant="subtle" disabled={busy || i === shots.length - 1} aria-label={t("catalogAdmin.moveDown")} onClick={() => move(i, 1)}>↓</ActionIcon>
+          <ActionIcon color="red" variant="subtle" disabled={busy} aria-label={t("common.delete")} onClick={() => run(() => api.adminScreenshotDelete(app.id, s.id))}>×</ActionIcon>
+        </Group>
+      ))}
+    </Stack>
+  );
 }
 
 export default function CatalogAdmin() {
@@ -83,6 +212,14 @@ export default function CatalogAdmin() {
     load();
   }, []);
 
+  // Reload the list, and keep the open form in step with the screenshots that changed.
+  const reloadShots = async () => {
+    const c: any = await api.adminCatalog();
+    setApps(c.apps || []);
+    const fresh = (c.apps || []).find((a: App) => a.id === form.id);
+    if (fresh) setForm((f) => ({ ...f, screenshots: fresh.screenshots || [] }));
+  };
+
   const fmt = (name: string) => regs.find((r) => r.name === name)?.format || "";
   const openNew = () => {
     setForm({ ...EMPTY, artifacts: [{ registry: regs[0]?.name || "", ref: "", tag: "", label: "" }] });
@@ -91,7 +228,7 @@ export default function CatalogAdmin() {
     setOpen(true);
   };
   const openEdit = (a: App) => {
-    setForm({ ...EMPTY, ...a, artifacts: a.artifacts.map((x) => ({ ...x })) });
+    setForm({ ...EMPTY, ...a, artifacts: a.artifacts.map((x) => ({ ...x })), screenshots: a.screenshots || [] });
     setSlugTouched(true);
     setFormErr(null);
     setOpen(true);
@@ -99,17 +236,19 @@ export default function CatalogAdmin() {
   const setArt = (i: number, patch: Partial<Artifact>) =>
     setForm({ ...form, artifacts: form.artifacts.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
 
-  const save = async () => {
+  const save = async (): Promise<void> => {
     setBusy(true);
     setFormErr(null);
     try {
       const { id, ...body } = form;
-      await api.adminCatalogSave(
+      const saved: App = await api.adminCatalogSave(
         { ...body, artifacts: form.artifacts.filter((a) => a.ref.trim()) },
         id || undefined,
       );
-      setOpen(false);
-      load();
+      await load();
+      // A new entry stays open, now with an id, so screenshots can be added to it.
+      if (!id && saved?.id) openEdit(saved);
+      else setOpen(false);
     } catch (e: any) {
       setFormErr(e.message);
     } finally {
@@ -300,6 +439,8 @@ export default function CatalogAdmin() {
               </Group>
             ))}
           </Stack>
+
+          <ShotsManager app={form} onChanged={reloadShots} onError={setFormErr} />
 
           <FormFooter onCancel={() => setOpen(false)} loading={busy} onSubmit={save}>
             {t("common.save")}

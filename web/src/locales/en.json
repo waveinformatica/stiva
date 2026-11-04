@@ -761,7 +761,21 @@
     "copy": "Copy",
     "copied": "Copied",
     "kindImage": "Container image",
-    "kindFiles": "Package files"
+    "kindFiles": "Package files",
+    "downloadVersion": "Download {{version}}",
+    "downloadLatest": "Download latest version",
+    "copyPull": "Copy pull command",
+    "latestVersion": "Latest version",
+    "latestTag": "Latest tag",
+    "otherVersions": "Other versions",
+    "showVersions": "Show {{count}} other versions",
+    "hideVersions": "Hide other versions",
+    "allFilesOfVersion": "Other files in this version",
+    "prerelease": "pre-release",
+    "screenshots": "Screenshots",
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next"
   },
   "catalogAdmin": {
     "title": "Catalog editor",
@@ -796,6 +810,14 @@
     "noArtifacts": "Add at least one artifact, or nobody will see this application.",
     "view": "View",
     "deleteTitle": "Delete application",
-    "deleteBody": "Remove \"{{name}}\" from the catalog? The artifacts themselves are not touched."
+    "deleteBody": "Remove \"{{name}}\" from the catalog? The artifacts themselves are not touched.",
+    "screenshotsTitle": "Screenshots",
+    "screenshotsDesc": "Up to 8 images, shown in this order on the application page.",
+    "addScreenshot": "Add screenshot",
+    "saveFirst": "Save the application first, then add screenshots.",
+    "captionLabel": "Caption",
+    "moveUp": "Move earlier",
+    "moveDown": "Move later",
+    "shotNote": "Resized to at most 1600 px wide before upload."
   }
 }

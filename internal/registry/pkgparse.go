@@ -171,3 +171,105 @@ func parseGeneric(p string) (pkg, version string, ok bool) {
 	}
 	return strings.TrimSuffix(dir, "/"), base, true
 }
+
+// ---- version ordering ----
+
+var leadingNum = regexp.MustCompile(`^\d+`)
+
+// splitVersion separates "1.2.3-rc1+build" into the numeric core and the
+// pre-release part. Build metadata (after "+") does not take part in ordering.
+func splitVersion(v string) (core, pre string) {
+	v = strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(v), "v"), "V")
+	if i := strings.Index(v, "+"); i >= 0 {
+		v = v[:i]
+	}
+	if i := strings.Index(v, "-"); i >= 0 {
+		return v[:i], v[i+1:]
+	}
+	return v, ""
+}
+
+// natCompare orders strings with embedded numbers naturally ("rc2" < "rc10").
+func natCompare(a, b string) int {
+	for a != "" && b != "" {
+		na, nb := leadingNum.FindString(a), leadingNum.FindString(b)
+		if na != "" && nb != "" {
+			x, y := strings.TrimLeft(na, "0"), strings.TrimLeft(nb, "0")
+			if len(x) != len(y) {
+				if len(x) < len(y) {
+					return -1
+				}
+				return 1
+			}
+			if x != y {
+				if x < y {
+					return -1
+				}
+				return 1
+			}
+			a, b = a[len(na):], b[len(nb):]
+			continue
+		}
+		if a[0] != b[0] {
+			if a[0] < b[0] {
+				return -1
+			}
+			return 1
+		}
+		a, b = a[1:], b[1:]
+	}
+	switch {
+	case a == "" && b == "":
+		return 0
+	case a == "":
+		return -1
+	}
+	return 1
+}
+
+// CompareVersions orders two version strings: -1 if a is older than b, 0 if
+// equal, 1 if newer. Dotted numbers compare numerically ("1.10" > "1.9"), a
+// pre-release ("1.0-rc1") is older than its release ("1.0"), and a leading "v"
+// is ignored. Strings that are not versions compare as plain text.
+func CompareVersions(a, b string) int {
+	ca, pa := splitVersion(a)
+	cb, pb := splitVersion(b)
+	sa, sb := strings.Split(ca, "."), strings.Split(cb, ".")
+	for i := 0; i < len(sa) || i < len(sb); i++ {
+		var x, y string
+		if i < len(sa) {
+			x = sa[i]
+		} else {
+			x = "0"
+		}
+		if i < len(sb) {
+			y = sb[i]
+		} else {
+			y = "0"
+		}
+		if c := natCompare(x, y); c != 0 {
+			return c
+		}
+	}
+	switch {
+	case pa == pb:
+		return 0
+	case pa == "":
+		return 1
+	case pb == "":
+		return -1
+	}
+	return natCompare(pa, pb)
+}
+
+// IsVersionLike reports whether s looks like a version ("1.2", "v2.0.1-rc1").
+func IsVersionLike(s string) bool {
+	core, _ := splitVersion(s)
+	return core != "" && leadingNum.MatchString(core) && versionLike.MatchString(strings.TrimPrefix(strings.TrimPrefix(s, "v"), "V"))
+}
+
+// IsPreRelease reports whether a version carries a pre-release part.
+func IsPreRelease(s string) bool {
+	_, pre := splitVersion(s)
+	return pre != ""
+}

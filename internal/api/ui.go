@@ -34,6 +34,7 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.GET("/signature", h.uiSignature)
 	v1.GET("/catalog", h.catalogList)
 	v1.GET("/catalog/:slug", h.catalogGet)
+	v1.GET("/catalog/:slug/screenshots/:id", h.catalogScreenshot)
 	v1.GET("/browse", h.uiBrowse)
 	v1.GET("/search", h.uiSearch)
 	v1.GET("/artifact", h.uiArtifact)
@@ -138,6 +139,10 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 		admin.POST("/catalog", h.adminSaveCatalogApp)
 		admin.PUT("/catalog/:id", h.adminSaveCatalogApp)
 		admin.DELETE("/catalog/:id", h.adminDeleteCatalogApp)
+		admin.POST("/catalog/:id/screenshots", h.adminAddScreenshot)
+		admin.PUT("/catalog/:id/screenshots-order", h.adminReorderScreenshots)
+		admin.PUT("/catalog/:id/screenshots/:sid", h.adminUpdateScreenshot)
+		admin.DELETE("/catalog/:id/screenshots/:sid", h.adminDeleteScreenshot)
 
 		// Webhooks: outgoing event notifications and their delivery log.
 		admin.GET("/webhooks", h.adminListWebhooks)

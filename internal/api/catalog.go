@@ -39,6 +39,10 @@ const (
 	maxCatalogArtefs = 50
 	maxCatalogFiles  = 100
 	recentTags       = 6
+	maxShotBytes     = 512 << 10
+	maxShots         = 8
+	maxPackages      = 20
+	otherVersions    = 10
 )
 
 var (
@@ -238,6 +242,25 @@ type artifactView struct {
 	Tags      []tagView  `json:"tags,omitempty"`
 	Files     []fileView `json:"files,omitempty"`
 	MoreFiles int        `json:"more_files,omitempty"`
+
+	// LatestTag is the tag to pull for an image: the pinned one, else the
+	// highest stable version, else "latest", else the most recent.
+	LatestTag string `json:"latest_tag,omitempty"`
+	// Packages groups a file artifact's content by package, newest version first.
+	Packages []packageView `json:"packages,omitempty"`
+}
+
+type versionView struct {
+	Version string     `json:"version"`
+	Created int64      `json:"created_at"`
+	Primary string     `json:"primary"` // the file to download for this version
+	Files   []fileView `json:"files"`
+}
+
+type packageView struct {
+	Name   string        `json:"name"`
+	Latest versionView   `json:"latest"`
+	Others []versionView `json:"others,omitempty"`
 }
 
 func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar storage.CatalogArtifact) artifactView {
@@ -245,49 +268,63 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 	if registry.Format(reg.Format) == registry.FormatDocker {
 		v.Kind = "image"
 		v.PullHost, _, _ = h.pullRoute(c.Request.Host, reg)
+		var all []tagView
 		if st := h.mgr.StoreFor(reg.Name); st != nil {
 			if infos, err := st.ListTagInfos(ar.Ref); err == nil {
-				sort.Slice(infos, func(i, j int) bool { return infos[i].PushedAt > infos[j].PushedAt })
 				for _, t := range infos {
-					if ar.Tag != "" && t.Tag != ar.Tag {
-						continue
-					}
-					if len(v.Tags) < recentTags {
-						v.Tags = append(v.Tags, tagView{t.Tag, t.Digest, t.PushedAt})
-					}
+					all = append(all, tagView{t.Tag, t.Digest, t.PushedAt})
 				}
-				return v
 			}
 		}
-		if be, err := h.mgr.BackendFor(reg.Name); err == nil {
-			if tags, err := be.ListTags(ar.Ref); err == nil {
-				sort.Strings(tags)
-				for _, t := range tags {
-					if ar.Tag != "" && t != ar.Tag {
-						continue
-					}
-					if len(v.Tags) < recentTags {
-						v.Tags = append(v.Tags, tagView{Tag: t})
+		if all == nil {
+			if be, err := h.mgr.BackendFor(reg.Name); err == nil {
+				if tags, err := be.ListTags(ar.Ref); err == nil {
+					for _, t := range tags {
+						all = append(all, tagView{Tag: t})
 					}
 				}
 			}
 		}
+		if ar.Tag != "" {
+			var pinned []tagView
+			for _, t := range all {
+				if t.Tag == ar.Tag {
+					pinned = append(pinned, t)
+				}
+			}
+			all = pinned
+			v.LatestTag = ar.Tag
+		} else {
+			v.LatestTag = pickLatestTag(all)
+		}
+		sort.SliceStable(all, func(i, j int) bool {
+			if all[i].PushedAt != all[j].PushedAt {
+				return all[i].PushedAt > all[j].PushedAt
+			}
+			return all[i].Tag < all[j].Tag
+		})
+		if len(all) > recentTags {
+			all = all[:recentTags]
+		}
+		v.Tags = all
 		return v
 	}
+
 	v.Kind = "files"
 	be, err := h.mgr.ArtifactBackendFor(reg.Name)
 	if err != nil {
 		return v
 	}
 	defer be.Close()
-	sizes := map[string]int64{}
 	if l, ok := be.(objectLister); ok {
-		if infos, err := l.ListObjectInfos(ar.Ref); err == nil {
-			for _, o := range infos {
-				sizes[o.Path] = o.Size
+		if infos, err := l.ListObjectInfos(ar.Ref); err == nil && len(infos) > 0 {
+			v.Packages = buildPackages(registry.Format(reg.Format), infos)
+			if len(v.Packages) > 0 {
+				return v
 			}
 		}
 	}
+	// No sizes or times to group by: a plain list of the files.
 	paths, _ := be.List(ar.Ref)
 	sort.Strings(paths)
 	for i, p := range paths {
@@ -295,7 +332,7 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 			v.MoreFiles = len(paths) - maxCatalogFiles
 			break
 		}
-		v.Files = append(v.Files, fileView{Path: p, Size: sizes[p]})
+		v.Files = append(v.Files, fileView{Path: p})
 	}
 	return v
 }
@@ -328,7 +365,7 @@ func (h *Handler) catalogGet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"slug": a.Slug, "name": a.Name, "tagline": a.Tagline, "description": a.Description,
 		"icon": a.Icon, "category": a.Category, "homepage": a.Homepage, "featured": a.Featured,
-		"artifacts": views,
+		"artifacts": views, "screenshots": a.Screenshots,
 	})
 }
 
@@ -393,6 +430,357 @@ func (h *Handler) adminDeleteCatalogApp(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "application not found"})
 		return
 	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ---- latest versions ----
+
+var companionSuffix = []string{".sha1", ".sha256", ".sha512", ".md5", ".asc", ".sig", ".sbom"}
+
+// primaryFile picks the file a user wants from one version: the largest file
+// that is not a checksum or signature. sizes may be empty, then the first
+// (sorted) file wins.
+func primaryFile(paths []string, sizes map[string]int64) string {
+	best := ""
+	for _, p := range paths {
+		skip := false
+		for _, suf := range companionSuffix {
+			skip = skip || strings.HasSuffix(p, suf)
+		}
+		if skip {
+			continue
+		}
+		if best == "" || sizes[p] > sizes[best] || (sizes[p] == sizes[best] && p < best) {
+			best = p
+		}
+	}
+	if best == "" && len(paths) > 0 {
+		return paths[0]
+	}
+	return best
+}
+
+// unitTier ranks what kind of version a unit is: stable releases first, then
+// pre-releases, then anything that is not a version at all (plain file names).
+func unitTier(version string) int {
+	switch {
+	case !registry.IsVersionLike(version):
+		return 0
+	case registry.IsPreRelease(version):
+		return 1
+	}
+	return 2
+}
+
+// newerUnit reports whether a should be listed before b.
+func newerUnit(a, b registry.ArtifactUnit) bool {
+	ta, tb := unitTier(a.Version), unitTier(b.Version)
+	if ta != tb {
+		return ta > tb
+	}
+	if ta > 0 {
+		if c := registry.CompareVersions(a.Version, b.Version); c != 0 {
+			return c > 0
+		}
+	}
+	if a.CreatedAt != b.CreatedAt {
+		return a.CreatedAt > b.CreatedAt
+	}
+	return a.Version > b.Version
+}
+
+// buildPackages folds stored objects into packages with their versions, newest
+// first. The latest version is the highest stable one; upload time breaks ties
+// and orders anything that is not a version (a plain file name).
+func buildPackages(format registry.Format, infos []storage.ObjectInfo) []packageView {
+	sizes := map[string]int64{}
+	for _, o := range infos {
+		sizes[o.Path] = o.Size
+	}
+	byPkg := map[string][]registry.ArtifactUnit{}
+	var names []string
+	for _, u := range registry.GroupArtifacts(format, infos) {
+		if _, ok := byPkg[u.Package]; !ok {
+			names = append(names, u.Package)
+		}
+		byPkg[u.Package] = append(byPkg[u.Package], u)
+	}
+	sort.Strings(names)
+	view := func(u registry.ArtifactUnit) versionView {
+		paths := append([]string(nil), u.Paths...)
+		sort.Strings(paths)
+		fv := make([]fileView, len(paths))
+		for i, p := range paths {
+			fv[i] = fileView{Path: p, Size: sizes[p]}
+		}
+		return versionView{Version: u.Version, Created: u.CreatedAt / 1e6, Primary: primaryFile(paths, sizes), Files: fv}
+	}
+	var out []packageView
+	for _, n := range names {
+		if len(out) >= maxPackages {
+			break
+		}
+		us := byPkg[n]
+		sort.SliceStable(us, func(i, j int) bool { return newerUnit(us[i], us[j]) })
+		pv := packageView{Name: n, Latest: view(us[0])}
+		for _, u := range us[1:] {
+			if len(pv.Others) >= otherVersions {
+				break
+			}
+			pv.Others = append(pv.Others, view(u))
+		}
+		out = append(out, pv)
+	}
+	return out
+}
+
+// pickLatestTag chooses the tag to pull for the newest version of an image.
+func pickLatestTag(tags []tagView) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	best, bestStable := "", ""
+	hasLatest := false
+	for _, t := range tags {
+		if t.Tag == "latest" {
+			hasLatest = true
+		}
+		if !registry.IsVersionLike(t.Tag) {
+			continue
+		}
+		if best == "" || registry.CompareVersions(t.Tag, best) > 0 {
+			best = t.Tag
+		}
+		if !registry.IsPreRelease(t.Tag) && (bestStable == "" || registry.CompareVersions(t.Tag, bestStable) > 0) {
+			bestStable = t.Tag
+		}
+	}
+	switch {
+	case bestStable != "":
+		return bestStable
+	case hasLatest:
+		return "latest"
+	case best != "":
+		return best
+	}
+	newest := tags[0]
+	for _, t := range tags[1:] {
+		if t.PushedAt > newest.PushedAt {
+			newest = t
+		}
+	}
+	return newest.Tag
+}
+
+// ---- screenshots ----
+
+// catalogVisible reports whether the caller may see the app: at least one of
+// its artifacts is readable. It is the one rule behind the list, the page and
+// the screenshots.
+func (h *Handler) catalogVisible(c *gin.Context, a *storage.CatalogApp) bool {
+	for _, ar := range a.Artifacts {
+		if _, ok := h.artifactVisible(c, ar); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// catalogScreenshot serves GET /api/v1/catalog/:slug/screenshots/:id. It sits
+// behind the same visibility rule as the page, so a hidden app leaks no image.
+func (h *Handler) catalogScreenshot(c *gin.Context) {
+	if !h.catalogReady(c) {
+		return
+	}
+	sid, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	a, err := h.catalog.GetCatalogApp(c.Param("slug"))
+	if err != nil || !h.catalogVisible(c, a) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	img, err := h.catalog.CatalogScreenshotImage(a.ID, sid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	m := iconDataRe.FindStringSubmatch(img)
+	if m == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	raw, err := base64.StdEncoding.DecodeString(m[2])
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	c.Header("Cache-Control", "private, max-age=300")
+	c.Data(http.StatusOK, "image/"+m[1], raw)
+}
+
+// validateScreenshot checks an uploaded image data URI.
+func validateScreenshot(image, caption string) error {
+	m := iconDataRe.FindStringSubmatch(image)
+	if m == nil {
+		return errors.New("screenshot must be a png, jpeg, webp or gif image")
+	}
+	raw, err := base64.StdEncoding.DecodeString(m[2])
+	if err != nil || len(raw) == 0 {
+		return errors.New("screenshot image is invalid")
+	}
+	if len(raw) > maxShotBytes {
+		return errors.New("screenshot is larger than 512 KB")
+	}
+	if len(caption) > 200 {
+		return errors.New("caption must be at most 200 characters")
+	}
+	return nil
+}
+
+func (h *Handler) adminAddScreenshot(c *gin.Context) {
+	if !h.catalogReady(c) {
+		return
+	}
+	id, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	var b struct {
+		Image   string `json:"image"`
+		Caption string `json:"caption"`
+	}
+	if err := c.ShouldBindJSON(&b); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateScreenshot(b.Image, b.Caption); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	a, err := h.catalog.GetCatalogAppByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "application not found"})
+		return
+	}
+	if len(a.Screenshots) >= maxShots {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at most 8 screenshots per application"})
+		return
+	}
+	sid, err := h.catalog.AddCatalogScreenshot(id, b.Image, b.Caption)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": sid})
+}
+
+func (h *Handler) adminUpdateScreenshot(c *gin.Context) {
+	if !h.catalogReady(c) {
+		return
+	}
+	id, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	sid, ok := pathID(c, "sid")
+	if !ok {
+		return
+	}
+	var b struct {
+		Caption string `json:"caption"`
+	}
+	if err := c.ShouldBindJSON(&b); err != nil || len(b.Caption) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "caption must be at most 200 characters"})
+		return
+	}
+	if err := h.catalog.UpdateCatalogScreenshot(id, sid, b.Caption); errors.Is(err, storage.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "screenshot not found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) adminDeleteScreenshot(c *gin.Context) {
+	if !h.catalogReady(c) {
+		return
+	}
+	id, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	sid, ok := pathID(c, "sid")
+	if !ok {
+		return
+	}
+	if err := h.catalog.DeleteCatalogScreenshot(id, sid); errors.Is(err, storage.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "screenshot not found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// sameIDs reports whether a and b hold the same ids, each once, in any order.
+func sameIDs(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := map[int64]int{}
+	for _, x := range a {
+		seen[x]++
+	}
+	for _, x := range b {
+		seen[x]--
+	}
+	for _, n := range seen {
+		if n != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *Handler) adminReorderScreenshots(c *gin.Context) {
+	if !h.catalogReady(c) {
+		return
+	}
+	id, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	var b struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&b); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	a, err := h.catalog.GetCatalogAppByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "application not found"})
+		return
+	}
+	current := make([]int64, len(a.Screenshots))
+	for i, s := range a.Screenshots {
+		current[i] = s.ID
+	}
+	if !sameIDs(current, b.IDs) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "the order must list every screenshot of the application exactly once"})
+		return
+	}
+	if err := h.catalog.ReorderCatalogScreenshots(id, b.IDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

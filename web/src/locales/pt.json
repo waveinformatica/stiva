@@ -761,7 +761,21 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "kindImage": "Imagem de contêiner",
-    "kindFiles": "Arquivos do pacote"
+    "kindFiles": "Arquivos do pacote",
+    "downloadVersion": "Baixar {{version}}",
+    "downloadLatest": "Baixar a última versão",
+    "copyPull": "Copiar comando pull",
+    "latestVersion": "Última versão",
+    "latestTag": "Tag mais recente",
+    "otherVersions": "Outras versões",
+    "showVersions": "Mostrar mais {{count}} versões",
+    "hideVersions": "Ocultar outras versões",
+    "allFilesOfVersion": "Outros arquivos desta versão",
+    "prerelease": "pré-lançamento",
+    "screenshots": "Capturas de tela",
+    "close": "Fechar",
+    "previous": "Anterior",
+    "next": "Próxima"
   },
   "catalogAdmin": {
     "title": "Gestão do catálogo",
@@ -796,6 +810,14 @@
     "noArtifacts": "Adicione pelo menos um artefato, ou ninguém verá este aplicativo.",
     "view": "Ver",
     "deleteTitle": "Excluir aplicativo",
-    "deleteBody": "Remover \"{{name}}\" do catálogo? Os artefatos não são alterados."
+    "deleteBody": "Remover \"{{name}}\" do catálogo? Os artefatos não são alterados.",
+    "screenshotsTitle": "Capturas de tela",
+    "screenshotsDesc": "Até 8 imagens, mostradas nesta ordem na página do aplicativo.",
+    "addScreenshot": "Adicionar captura",
+    "saveFirst": "Salve primeiro o aplicativo e depois adicione capturas.",
+    "captionLabel": "Legenda",
+    "moveUp": "Mover para antes",
+    "moveDown": "Mover para depois",
+    "shotNote": "Redimensionadas para no máximo 1600 px de largura antes do envio."
   }
 }
