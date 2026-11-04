@@ -361,7 +361,11 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 	for i := range v.Packages {
 		p := &v.Packages[i]
 		p.Usage = useSnippets(registry.Format(reg.Format), v.Endpoint, p.Name, p.Latest.Version, p.Latest.Primary)
-		p.Download = downloadSnippets(v.Endpoint, p.Latest.Primary)
+		// A format with no client syntax of its own already gets curl and wget as
+		// its usage; do not show them twice.
+		if useSnippets(registry.Format(reg.Format), v.Endpoint, "pkg", "1", "") != nil {
+			p.Download = downloadSnippets(v.Endpoint, p.Latest.Primary)
+		}
 	}
 	return v
 }

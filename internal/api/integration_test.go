@@ -118,3 +118,15 @@ func TestServiceDocuments(t *testing.T) {
 		t.Errorf("composer root without base path = %v", root)
 	}
 }
+
+func TestFormatsWithoutOwnSyntaxFallBackToDownloads(t *testing.T) {
+	ep := "https://r.example.com"
+	if useSnippets(registry.FormatRaw, ep, "pkg", "1", "") != nil {
+		t.Error("raw has no client syntax: without a file there is nothing to show")
+	}
+	for _, f := range []registry.Format{registry.FormatMaven, registry.FormatNpm, registry.FormatPyPI, registry.FormatGo, registry.FormatHelm} {
+		if useSnippets(f, ep, "pkg", "1", "") == nil {
+			t.Errorf("%s should have its own usage snippets", f)
+		}
+	}
+}
