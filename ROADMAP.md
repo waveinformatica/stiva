@@ -15,11 +15,11 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Cleanup policies: OCI tags and package versions for every other format (keep-last-N, max age, protected patterns, dry-run first)
 - [x] Checksum verification on download (OCI digests always; published checksums for proxied artifacts: warn/enforce)
 - [x] Cosign signature verification with public keys: signed/unsigned badge in the Explorer, warn/enforce on pull
+- [x] Blob store replication (quorum writes, read fallback) and sharding (rendezvous hashing), with a reconcile job to repair and rebalance
+- [x] Hosted Conan 2 REST API (ping, auth, revisions, search, delete) and hosted p2 repositories (generated artifacts.xml / content.xml)
 - [x] Background jobs: PostgreSQL-backed queue, run history, schedules for cleanup and garbage collection
 
 ## Planned
 
 - [ ] Webhooks & event notifications
 - [ ] Cosign keyless verification (Fulcio/Rekor) and the new bundle format
-- [ ] Blob store replication / sharding
-- [ ] Full hosted REST APIs for Conan / p2 clients

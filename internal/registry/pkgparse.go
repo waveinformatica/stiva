@@ -41,6 +41,11 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 			return ref, m[5], true
 		}
 		return "", "", false
+	case FormatP2:
+		if m := p2Jar.FindStringSubmatch(p); m != nil {
+			return m[1] + "/" + m[2], m[3], true
+		}
+		return "", "", false
 	case FormatGo:
 		if i := strings.Index(p, "/@v/"); i > 0 {
 			f := p[i+4:]
@@ -74,6 +79,7 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 
 var (
 	conanRev    = regexp.MustCompile(`^v2/conans/([^/]+)/([^/]+)/([^/]+)/([^/]+)/revisions/([^/]+)/`)
+	p2Jar       = regexp.MustCompile(`^(plugins|features)/(.+?)_(\d+(?:\.\d+){0,2}(?:\.[A-Za-z0-9_-]+)?)\.jar$`)
 	versionLike = regexp.MustCompile(`^v?\d+(\.\d+)*([-+._~][0-9A-Za-z.+~_-]*)?$`)
 	debLike     = regexp.MustCompile(`^([a-z0-9][a-z0-9+.-]*)_([^_]+)_[^_]+\.(?:deb|udeb|ipk)$`)
 	rpmLike     = regexp.MustCompile(`^(.+)-([^-]+)-([^-]+)\.[^.]+\.rpm$`)

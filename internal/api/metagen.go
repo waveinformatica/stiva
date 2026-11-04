@@ -48,6 +48,8 @@ func generateMetadataFor(be registry.ArtifactBackend, format registry.Format, p 
 		return genCocoaPods(be, p)
 	case registry.FormatOpkg:
 		return genOpkg(be, p)
+	case registry.FormatP2:
+		return genP2(be, p)
 	default:
 		// chef, puppet, vagrant, sbt, ivy, gradle, git-lfs are
 		// store-only formats (no generated metadata); the object is served as-is.
