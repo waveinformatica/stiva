@@ -67,6 +67,14 @@ func (h *Handler) ArtifactDispatch(c *gin.Context) bool {
 		return true
 	}
 
+	// Hosted Conan registries answer the revision/search/auth part of the
+	// Conan 2 API themselves; plain file transfer falls through below.
+	if registry.Format(reg.Format) == registry.FormatConan && registry.Type(reg.Type) == registry.TypeHosted {
+		if h.conanDispatch(c, be, p) {
+			return true
+		}
+	}
+
 	switch c.Request.Method {
 	case http.MethodGet, http.MethodHead:
 		h.artifactGet(c, be, reg, p)

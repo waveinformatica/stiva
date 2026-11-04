@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -497,8 +498,8 @@ func (m *PostgresMetadataStore) DeleteObject(registry, p string) error {
 
 func (m *PostgresMetadataStore) ListObjects(registry, prefix string) ([]string, error) {
 	rows, err := m.pool.Query(context.Background(),
-		`SELECT path FROM objects WHERE registry = $1 AND path LIKE $2 ORDER BY path`,
-		registry, prefix+"%")
+		`SELECT path FROM objects WHERE registry = $1 AND path LIKE $2 ESCAPE '\' ORDER BY path`,
+		registry, likePrefix(prefix))
 	if err != nil {
 		return nil, err
 	}
@@ -516,8 +517,8 @@ func (m *PostgresMetadataStore) ListObjects(registry, prefix string) ([]string, 
 
 func (m *PostgresMetadataStore) ListObjectInfos(registry, prefix string) ([]ObjectInfo, error) {
 	rows, err := m.pool.Query(context.Background(),
-		`SELECT path, size, created_at FROM objects WHERE registry = $1 AND path LIKE $2 ORDER BY path`,
-		registry, prefix+"%")
+		`SELECT path, size, created_at FROM objects WHERE registry = $1 AND path LIKE $2 ESCAPE '\' ORDER BY path`,
+		registry, likePrefix(prefix))
 	if err != nil {
 		return nil, err
 	}
@@ -554,4 +555,12 @@ func (m *PostgresMetadataStore) ListBlobs(registry string, after digest.Digest, 
 		out = append(out, BlobInfo{Digest: digest.Digest(ds), Size: size, CreatedAt: time.Unix(0, created)})
 	}
 	return out, rows.Err()
+}
+
+// likePrefix turns a literal path prefix into a LIKE pattern. "_" and "%" are
+// wildcards in LIKE and both occur in real paths ("_" is Conan's empty user),
+// so they must be escaped or a prefix would also match unrelated paths.
+func likePrefix(prefix string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(prefix) + "%"
 }

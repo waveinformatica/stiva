@@ -31,6 +31,16 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 		if pkg, version, ok := parseNpm(p); ok {
 			return pkg, version, true
 		}
+	case FormatConan:
+		// Retention unit: a recipe revision (with its packages) of a recipe.
+		if m := conanRev.FindStringSubmatch(p); m != nil {
+			ref := m[1] + "/" + m[2]
+			if m[3] != "_" || m[4] != "_" {
+				ref += "@" + m[3] + "/" + m[4]
+			}
+			return ref, m[5], true
+		}
+		return "", "", false
 	case FormatGo:
 		if i := strings.Index(p, "/@v/"); i > 0 {
 			f := p[i+4:]
@@ -63,6 +73,7 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 }
 
 var (
+	conanRev    = regexp.MustCompile(`^v2/conans/([^/]+)/([^/]+)/([^/]+)/([^/]+)/revisions/([^/]+)/`)
 	versionLike = regexp.MustCompile(`^v?\d+(\.\d+)*([-+._~][0-9A-Za-z.+~_-]*)?$`)
 	debLike     = regexp.MustCompile(`^([a-z0-9][a-z0-9+.-]*)_([^_]+)_[^_]+\.(?:deb|udeb|ipk)$`)
 	rpmLike     = regexp.MustCompile(`^(.+)-([^-]+)-([^-]+)\.[^.]+\.rpm$`)

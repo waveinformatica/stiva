@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -301,6 +302,16 @@ func (m *Manager) Middleware() gin.HandlerFunc {
 // UI shows it, because an address filter means nothing when it is zero and the
 // registry sits behind a proxy.
 func (m *Manager) TrustedProxies() int { return m.trustedProxies }
+
+// IssueToken mints a session token for an already authenticated user, for
+// protocols that exchange credentials for a token on their own endpoint
+// (Conan's /v2/users/authenticate). Anonymous callers get none.
+func (m *Manager) IssueToken(u *User) (string, error) {
+	if u == nil || u.IsAnonymous() {
+		return "", errors.New("auth: no token for an anonymous caller")
+	}
+	return issueToken(m.secret, u, m.ttl, "")
+}
 
 // TokenHandler implements the OCI/Docker token endpoint (/auth/token).
 func (m *Manager) TokenHandler(c *gin.Context) {
