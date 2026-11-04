@@ -152,6 +152,9 @@ func (h *Handler) artifactGet(c *gin.Context, be registry.ArtifactBackend, reg *
 			c.JSON(http.StatusNotFound, errorBody("NOT_FOUND", "object not found"))
 			return
 		}
+		if checksumFailed(c, err) {
+			return
+		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 		return
 	}

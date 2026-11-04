@@ -111,6 +111,11 @@ type Registry struct {
 	CacheDefaultUpstream string                 `json:"cache_default_upstream"` // base for host-less repos; empty => Docker Hub
 	CacheUpstreams       map[string]UpstreamDef `json:"cache_upstreams"`        // host -> upstream definition
 
+	// Checksum is the download verification mode of a proxy registry of a
+	// path-addressed format: "" (off), "warn" or "enforce". It compares each
+	// file fetched from the upstream with the checksum published beside it.
+	Checksum string `json:"checksum,omitempty"`
+
 	// Cleanup is the retention policy for hosted OCI registries; nil means
 	// "keep everything". It only acts when a cleanup run is requested.
 	Cleanup *CleanupPolicy `json:"cleanup,omitempty"`
@@ -133,6 +138,9 @@ func NormalizeFormat(f string) string {
 }
 
 func (r *Registry) Validate() error {
+	if !validChecksumMode(r.Checksum) {
+		return fmt.Errorf("checksum must be empty, \"warn\" or \"enforce\"")
+	}
 	if err := r.Cleanup.Validate(); err != nil {
 		return err
 	}

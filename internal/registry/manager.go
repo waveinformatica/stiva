@@ -252,7 +252,7 @@ func (m *Manager) ArtifactBackendFor(name string) (ArtifactBackend, error) {
 		if !ok || !ok2 {
 			return nil, fmt.Errorf("registry %q proxy not ready", name)
 		}
-		return &proxyArtifactBackend{Store: st, up: up, allowWrite: r.ProxyAllowWrite}, nil
+		return &proxyArtifactBackend{Store: st, up: up, allowWrite: r.ProxyAllowWrite, checksum: r.Checksum}, nil
 	case TypeCache:
 		// Cache registries are docker/OCI only and served by the OCI API, not the
 		// path-based artifact surface.
@@ -299,7 +299,7 @@ func (m *Manager) artifactBackendLocked(name string) (ArtifactBackend, error) {
 		if !ok || !ok2 {
 			return nil, fmt.Errorf("registry %q proxy not ready", name)
 		}
-		return &proxyArtifactBackend{Store: st, up: up, allowWrite: r.ProxyAllowWrite}, nil
+		return &proxyArtifactBackend{Store: st, up: up, allowWrite: r.ProxyAllowWrite, checksum: r.Checksum}, nil
 	case TypeCache:
 		// Cache registries are docker/OCI only and served by the OCI API.
 		return nil, fmt.Errorf("cache registries are docker/OCI only")

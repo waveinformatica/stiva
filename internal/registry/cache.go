@@ -58,7 +58,7 @@ func (c *cacheBackend) GetBlob(repo string, d digest.Digest) (io.ReadCloser, int
 		urc.Close()
 		return nil, 0, terr
 	}
-	if _, cerr := io.Copy(tmp, urc); cerr != nil {
+	if cerr := copyVerifyDigest(tmp, urc, d); cerr != nil {
 		urc.Close()
 		tmp.Close()
 		os.Remove(tmp.Name())
@@ -105,6 +105,9 @@ func (c *cacheBackend) GetManifest(repo, reference string) ([]byte, string, erro
 	uc, umt, uerr := up.GetManifest(urepo, reference)
 	if uerr != nil {
 		return nil, "", uerr
+	}
+	if verr := verifyManifestDigest(reference, uc); verr != nil {
+		return nil, "", verr
 	}
 	_, _ = c.Store.PutManifest(repo, reference, umt, uc)
 	return uc, umt, nil

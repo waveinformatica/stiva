@@ -41,6 +41,7 @@ type Reg = {
   remote_pass?: string;
   remote_token?: string;
   proxy_allow_write?: boolean;
+  checksum?: string;
   cache_default_upstream?: string;
   cache_upstreams?: Record<string, { url: string; user?: string; pass?: string; token?: string; insecure?: boolean }>;
   members: string[];
@@ -89,6 +90,7 @@ const emptyForm = (): Reg => ({
   blob: { type: "file", root: "" },
   remote_url: "",
   proxy_allow_write: false,
+  checksum: "",
   cache_default_upstream: "",
   cache_upstreams: {},
   members: [],
@@ -186,6 +188,9 @@ export default function Registries() {
       delete payload.remote_pass;
       delete payload.remote_token;
       delete payload.proxy_allow_write;
+    }
+    if (payload.type !== "proxy" || payload.format === "oci") {
+      delete payload.checksum;
     }
     if (payload.type !== "group") {
       delete payload.members;
@@ -474,6 +479,21 @@ export default function Registries() {
               <TextInput label={t("registries.remoteTokenLabel")} value={form.remote_token || ""} onChange={(e) => setForm({ ...form, remote_token: e.currentTarget.value })} style={{ flex: 1 }} />
               <Switch mt="lg" label={t("registries.allowWritesLabel")} checked={!!form.proxy_allow_write} onChange={(e) => setForm({ ...form, proxy_allow_write: e.currentTarget.checked })} />
             </Group>
+            {form.format !== "oci" && (
+              <Select
+                mt="sm"
+                label={t("registries.checksumLabel")}
+                description={t("registries.checksumDesc")}
+                data={[
+                  { value: "", label: t("registries.checksumOff") },
+                  { value: "warn", label: t("registries.checksumWarn") },
+                  { value: "enforce", label: t("registries.checksumEnforce") },
+                ]}
+                value={form.checksum || ""}
+                onChange={(v) => setForm({ ...form, checksum: v || "" })}
+                allowDeselect={false}
+              />
+            )}
           </div>
         ) : null}
 

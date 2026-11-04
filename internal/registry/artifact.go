@@ -71,6 +71,7 @@ type proxyArtifactBackend struct {
 	*storage.Store
 	up         *Upstream
 	allowWrite bool
+	checksum   string // ChecksumOff | ChecksumWarn | ChecksumEnforce
 }
 
 func (b *proxyArtifactBackend) Name() string { return b.Store.Registry() }
@@ -95,7 +96,14 @@ func (b *proxyArtifactBackend) Get(p string) (io.ReadCloser, int64, string, erro
 	// Report the size actually received, not the one the upstream advertised:
 	// the two differ if the upstream lies or the transfer is truncated, and a
 	// Content-Length that disagrees with the body breaks clients.
-	written, cerr := io.Copy(tmp, urc)
+	var sums *objectSums
+	var dst io.Writer = tmp
+	verify := b.checksum != ChecksumOff && checksumApplies(p)
+	if verify {
+		sums = newObjectSums()
+		dst = io.MultiWriter(tmp, sums.writer())
+	}
+	written, cerr := io.Copy(dst, urc)
 	if cerr != nil {
 		urc.Close()
 		tmp.Close()
@@ -104,6 +112,14 @@ func (b *proxyArtifactBackend) Get(p string) (io.ReadCloser, int64, string, erro
 	}
 	urc.Close()
 	tmp.Close()
+	if verify {
+		algo, verr := verifyObjectSums(p, sums, b.sidecar)
+		logChecksum(b.Store.Registry(), p, algo, verr)
+		if verr != nil && b.checksum == ChecksumEnforce {
+			os.Remove(tmp.Name())
+			return nil, 0, "", verr
+		}
+	}
 	if f, oerr := os.Open(tmp.Name()); oerr == nil {
 		_ = b.Store.PutObject(p, uct, f)
 		f.Close()
@@ -114,6 +130,16 @@ func (b *proxyArtifactBackend) Get(p string) (io.ReadCloser, int64, string, erro
 		return nil, 0, "", rerr
 	}
 	return &tempFileReader{f: rf, path: tmp.Name()}, written, uct, nil
+}
+
+// sidecar fetches a small checksum file from the upstream (at most 1 KiB).
+func (b *proxyArtifactBackend) sidecar(p string) ([]byte, error) {
+	rc, _, _, err := b.up.GetObject(p)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(io.LimitReader(rc, 1024))
 }
 
 func (b *proxyArtifactBackend) Head(p string) (int64, string, error) {

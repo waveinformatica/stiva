@@ -95,7 +95,9 @@ func (p *proxyBackend) GetBlob(repo string, d digest.Digest) (io.ReadCloser, int
 		urc.Close()
 		return nil, 0, terr
 	}
-	if _, cerr := io.Copy(tmp, urc); cerr != nil {
+	// Verify while copying: bytes that do not hash to the requested digest are
+	// neither served nor cached.
+	if cerr := copyVerifyDigest(tmp, urc, d); cerr != nil {
 		urc.Close()
 		tmp.Close()
 		os.Remove(tmp.Name())
@@ -152,6 +154,9 @@ func (p *proxyBackend) GetManifest(repo, reference string) ([]byte, string, erro
 	uc, umt, uerr := p.up.GetManifest(p.urepo(repo), reference)
 	if uerr != nil {
 		return nil, "", uerr
+	}
+	if verr := verifyManifestDigest(reference, uc); verr != nil {
+		return nil, "", verr
 	}
 	// Cache locally for next time.
 	_, _ = p.Store.PutManifest(repo, reference, umt, uc)

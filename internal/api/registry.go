@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"regexp"
@@ -202,6 +203,9 @@ func (h *Handler) getManifest(c *gin.Context, be registry.Backend, repo, referen
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
+		if checksumFailed(c, err) {
+			return
+		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 		return
 	}
@@ -217,6 +221,9 @@ func (h *Handler) headManifest(c *gin.Context, be registry.Backend, repo, refere
 	if err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
+			return
+		}
+		if checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -304,6 +311,9 @@ func (h *Handler) getBlob(c *gin.Context, be registry.Backend, repo string, d di
 	if err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, errorBody("BLOB_UNKNOWN", "blob not found"))
+			return
+		}
+		if checksumFailed(c, err) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
@@ -524,6 +534,16 @@ func validRepo(name string) bool {
 type errorBodyT struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// checksumFailed answers 502 when an upstream served content that does not
+// match its published checksum or digest, and reports whether it did.
+func checksumFailed(c *gin.Context, err error) bool {
+	if !errors.Is(err, registry.ErrChecksumMismatch) {
+		return false
+	}
+	c.JSON(http.StatusBadGateway, errorBody("UPSTREAM_CHECKSUM", err.Error()))
+	return true
 }
 
 func errorBody(code, msg string) errorBodyT {
