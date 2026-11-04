@@ -33,3 +33,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .stiva-table td .mantine-Group-root { flex-wrap: nowrap; }
 .stiva-table .mantine-Badge-root { max-width: none; flex-shrink: 0; }
 .stiva-table .mantine-Badge-label { overflow: visible; text-overflow: clip; }
+
+/* Catalog tiles lift slightly on hover. */
+.stiva-tile:hover { transform: translateY(-2px); box-shadow: var(--mantine-shadow-md); }
+@media (prefers-reduced-motion: reduce) { .stiva-tile { transition: none !important; } .stiva-tile:hover { transform: none; } }

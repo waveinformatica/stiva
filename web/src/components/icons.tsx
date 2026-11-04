@@ -155,3 +155,12 @@ export const IconBell = (p: IconProps) => (
     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
   </svg>
 );
+
+export const IconStore = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m2 7 1.5-4h17L22 7" />
+    <path d="M2 7v1a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 2 0V7" />
+    <path d="M4 11v9h16v-9" />
+    <path d="M10 20v-5h4v5" />
+  </svg>
+);

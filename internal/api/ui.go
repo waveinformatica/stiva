@@ -32,6 +32,8 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.GET("/pullroute", h.uiPullRoute)
 	v1.GET("/dockerfile", h.uiDockerfile)
 	v1.GET("/signature", h.uiSignature)
+	v1.GET("/catalog", h.catalogList)
+	v1.GET("/catalog/:slug", h.catalogGet)
 	v1.GET("/browse", h.uiBrowse)
 	v1.GET("/search", h.uiSearch)
 	v1.GET("/artifact", h.uiArtifact)
@@ -130,6 +132,12 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 
 		// Garbage collection: reap orphan blobs (dry runs first).
 		admin.POST("/gc", h.adminGC)
+
+		// Application catalog management.
+		admin.GET("/catalog", h.adminListCatalog)
+		admin.POST("/catalog", h.adminSaveCatalogApp)
+		admin.PUT("/catalog/:id", h.adminSaveCatalogApp)
+		admin.DELETE("/catalog/:id", h.adminDeleteCatalogApp)
 
 		// Webhooks: outgoing event notifications and their delivery log.
 		admin.GET("/webhooks", h.adminListWebhooks)

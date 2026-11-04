@@ -3,6 +3,9 @@ import { Loader } from "@mantine/core";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Explorer from "./pages/Explorer";
+import Catalog from "./pages/Catalog";
+import CatalogApp from "./pages/CatalogApp";
+import CatalogAdmin from "./pages/admin/CatalogAdmin";
 import ApiKeys from "./pages/ApiKeys";
 import Users from "./pages/admin/Users";
 import ServiceAccounts from "./pages/admin/ServiceAccounts";
@@ -22,6 +25,7 @@ import { pathForView, viewForPath } from "./lib/routes";
 import { api, clearToken, getToken, setToken, MeResponse } from "./lib/api";
 
 const ADMIN_VIEWS: View[] = [
+  "catalogAdmin",
   "users",
   "serviceAccounts",
   "registries",
@@ -120,7 +124,7 @@ export default function App() {
 function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const view = viewForPath(location.pathname) ?? "explorer";
+  const view = viewForPath(location.pathname) ?? "catalog";
 
   const setView = (v: View) => navigate(pathForView(v));
 
@@ -142,7 +146,10 @@ function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
         <Navigate to="/" replace />
       ) : (
         <Routes>
-          <Route path="/" element={<Explorer />} />
+          <Route path="/" element={<Catalog anonymous={user.anonymous} onSignIn={logout} />} />
+          <Route path="/catalog" element={<Catalog anonymous={user.anonymous} onSignIn={logout} />} />
+          <Route path="/catalog/:slug" element={<CatalogApp />} />
+          <Route path="/admin/catalog" element={<CatalogAdmin />} />
           <Route path="/explorer" element={<Explorer />} />
           <Route path="/apikeys" element={<ApiKeys anonymous={user.anonymous} />} />
           <Route path="/admin/users" element={<Users />} />

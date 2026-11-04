@@ -111,6 +111,12 @@ func main() {
 
 	handler := api.NewHandler(mgr, authMgr)
 
+	if cs, ok := meta.(storage.CatalogStore); ok {
+		handler.SetCatalog(cs)
+	} else {
+		log.Printf("WARNING: metadata store has no catalog support; the catalog is disabled")
+	}
+
 	// One context for the background workers (jobs, webhook delivery).
 	jobCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
@@ -224,6 +230,8 @@ func main() {
 	for _, p := range uiPagePaths {
 		r.GET(p, func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	}
+	// An application page: /catalog/<slug>.
+	r.GET("/catalog/:slug", func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	for _, p := range uiStaticPaths {
 		r.GET(p, func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	}
@@ -335,6 +343,8 @@ var uiPagePaths = []string{
 	"/admin/sso",
 	"/admin/settings",
 	"/admin/jobs",
+	"/admin/catalog",
+	"/catalog",
 	"/admin/webhooks",
 };
 

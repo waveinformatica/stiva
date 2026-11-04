@@ -6,6 +6,8 @@ import type { View } from "../components/AppShellLayout";
 // two lists in sync — a page missing here is unreachable by URL, a path
 // missing there 404s (or hits auth) on refresh and deep links.
 export const VIEW_PATHS: Record<View, string> = {
+  catalog: "/catalog",
+  catalogAdmin: "/admin/catalog",
   explorer: "/explorer",
   apikeys: "/apikeys",
   users: "/admin/users",
@@ -33,6 +35,7 @@ export function pathForView(view: View): string {
 
 export function viewForPath(pathname: string): View | null {
   const clean = pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
-  if (clean === "/") return "explorer";
+  // The home page is the catalog, and so is every application page below it.
+  if (clean === "/" || clean.startsWith("/catalog/")) return "catalog";
   return PATH_VIEWS[clean] ?? null;
 }

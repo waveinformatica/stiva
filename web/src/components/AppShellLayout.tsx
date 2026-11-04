@@ -10,10 +10,13 @@ import {
   IconShield,
   IconSettings,
   IconClock,
+  IconStore,
   IconBell,
 } from "./icons";
 
 export type View =
+  | "catalog"
+  | "catalogAdmin"
   | "explorer"
   | "apikeys"
   | "users"
@@ -93,6 +96,7 @@ export default function AppShellLayout({
         <Text size="xs" tt="uppercase" c="dimmed" fw={700} lts={0.5} px="sm" pt="xs" pb={4}>
           {t("nav.browse")}
         </Text>
+        {link("catalog", t("nav.catalog"), <IconStore size={16} />)}
         {link("explorer", t("nav.explorer"), <IconSearch size={16} />)}
         {!user.anonymous && link("apikeys", t("nav.apikeys"), <IconKey size={16} />)}
 
@@ -101,6 +105,7 @@ export default function AppShellLayout({
             <Text size="xs" tt="uppercase" c="dimmed" fw={700} lts={0.5} px="sm" pt="lg" pb={4}>
               {t("nav.administration")}
             </Text>
+            {link("catalogAdmin", t("nav.catalogAdmin"), <IconStore size={16} />)}
             {link("users", t("nav.users"), <IconUsers size={16} />)}
             {link("serviceAccounts", t("nav.serviceAccounts"), <IconKey size={16} />)}
             {link("registries", t("nav.registries"), <IconCloud size={16} />)}

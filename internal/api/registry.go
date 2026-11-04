@@ -53,6 +53,9 @@ type Handler struct {
 	// Webhooks, wired by SetWebhooks.
 	events  *webhooks.Dispatcher
 	whStore storage.WebhookStore
+
+	// Application catalog (home page), wired by SetCatalog.
+	catalog storage.CatalogStore
 }
 
 // NewHandler builds an API handler.

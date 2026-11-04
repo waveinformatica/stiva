@@ -117,6 +117,13 @@ export const api = {
   webhookDeliveries: (id: number) => req("GET", `/api/v1/admin/webhooks/${id}/deliveries?limit=50`),
   webhookDelivery: (id: number) => req("GET", `/api/v1/admin/webhook-deliveries/${id}`),
   webhookRedeliver: (id: number) => req("POST", `/api/v1/admin/webhook-deliveries/${id}/redeliver`, {}),
+  // Application catalog (home page) and its administration.
+  catalog: () => req("GET", "/api/v1/catalog"),
+  catalogApp: (slug: string) => req("GET", `/api/v1/catalog/${enc(slug)}`),
+  adminCatalog: () => req("GET", "/api/v1/admin/catalog"),
+  adminCatalogSave: (b: any, id?: number) =>
+    id ? req("PUT", `/api/v1/admin/catalog/${id}`, b) : req("POST", "/api/v1/admin/catalog", b),
+  adminCatalogDelete: (id: number) => req("DELETE", `/api/v1/admin/catalog/${id}`),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>
@@ -252,3 +259,21 @@ export const api = {
     req(name ? "PUT" : "POST", `/api/v1/admin/anonymous${name ? "/" + enc(name) : ""}`, b),
   deleteAnonymous: (name: string) => req("DELETE", `/api/v1/admin/anonymous/${enc(name)}`),
 };
+
+/** Download a stored file with the caller's credentials. A plain link cannot
+ *  carry the session token, so a signed-in user would be fetched as a guest. */
+export async function downloadArtifact(registry: string, path: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(api.artifactUrl(registry, path), { headers });
+  if (!res.ok) throw new ApiError(res.statusText || "download failed", res.status);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = path.split("/").pop() || "download";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
