@@ -118,18 +118,26 @@
   },
   "explorer": {
     "browseTab": "Browse",
+    "description": "Browse repositories, tags and artifacts in a registry.",
     "fileCount": "{{count}} files",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} files",
     "formatPlaceholder": "Format",
+    "latestVersion": "Latest {{version}}",
+    "moreVersions": "{{shown}} of {{total}} versions shown.",
     "noArtifacts": "No artifacts in this registry yet.",
     "noMatches": "No matches for “{{q}}”.",
+    "noPackages": "No packages in this registry.",
+    "packagesCount": "{{count}} packages",
     "registryPlaceholder": "Registry",
+    "searchPackages": "Search packages…",
     "searchPlaceholder": "Search artifacts across all registries…",
     "searchTab": "Search",
+    "selectPackage": "Select a package on the left to see its versions and how to use it.",
     "selectRegistry": "Select a registry.",
+    "tabVersions": "Versions",
     "title": "Explorer",
-    "description": "Browse repositories, tags and artifacts in a registry."
+    "versionsCount": "{{count}} versions"
   },
   "apikeys": {
     "createdTitle": "API key created — copy it now",
@@ -786,7 +794,17 @@
     "hideAllTags": "Show fewer tags",
     "fileHeader": "File",
     "sizeHeader": "Size",
-    "dateHeader": "Uploaded"
+    "dateHeader": "Uploaded",
+    "tabPull": "Pull",
+    "tabDownload": "Download",
+    "tabFiles": "All files",
+    "tabIntegrate": "Integrate",
+    "setupTitle": "Connect your client",
+    "usageTitle": "Use {{name}} {{version}}",
+    "directDownload": "Direct download",
+    "registryAddress": "Registry address",
+    "runTitle": "Run the image",
+    "noIntegration": "Nothing to configure: download the files directly."
   },
   "catalogAdmin": {
     "title": "Catalog editor",

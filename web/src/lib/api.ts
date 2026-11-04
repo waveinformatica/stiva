@@ -132,6 +132,10 @@ export const api = {
     req("DELETE", `/api/v1/admin/catalog/${appId}/screenshots/${id}`),
   adminScreenshotOrder: (appId: number, ids: number[]) =>
     req("PUT", `/api/v1/admin/catalog/${appId}/screenshots-order`, { ids }),
+  packages: (registry: string, q = "") =>
+    req("GET", `/api/v1/packages?registry=${enc(registry)}&q=${enc(q)}`),
+  package: (registry: string, name: string) =>
+    req("GET", `/api/v1/package?registry=${enc(registry)}&name=${enc(name)}`),
   adminGC: (b: any) => req("POST", "/api/v1/admin/gc", b),
   aptKey: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/apt-key`),
   aptKeyCreate: (name: string) =>

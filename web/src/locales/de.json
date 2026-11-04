@@ -118,18 +118,26 @@
   },
   "explorer": {
     "browseTab": "Durchsuchen",
+    "description": "Repositories, Tags und Artefakte einer Registry durchsuchen.",
     "fileCount": "{{count}} Dateien",
     "fileCount_one": "{{count}} Datei",
     "fileCount_other": "{{count}} Dateien",
     "formatPlaceholder": "Format",
+    "latestVersion": "Neueste {{version}}",
+    "moreVersions": "{{shown}} von {{total}} Versionen angezeigt.",
     "noArtifacts": "Noch keine Artefakte in dieser Registry.",
     "noMatches": "Keine Treffer für „{{q}}“.",
+    "noPackages": "Keine Pakete in dieser Registry.",
+    "packagesCount": "{{count}} Pakete",
     "registryPlaceholder": "Registry",
+    "searchPackages": "Pakete suchen…",
     "searchPlaceholder": "Artefakte in allen Registries suchen…",
     "searchTab": "Suchen",
+    "selectPackage": "Wählen Sie links ein Paket, um Versionen und Verwendung zu sehen.",
     "selectRegistry": "Wählen Sie eine Registry.",
+    "tabVersions": "Versionen",
     "title": "Explorer",
-    "description": "Repositories, Tags und Artefakte einer Registry durchsuchen."
+    "versionsCount": "{{count}} Versionen"
   },
   "apikeys": {
     "createdTitle": "API-Schlüssel erstellt — jetzt kopieren",
@@ -786,7 +794,17 @@
     "hideAllTags": "Weniger Tags anzeigen",
     "fileHeader": "Datei",
     "sizeHeader": "Größe",
-    "dateHeader": "Hochgeladen"
+    "dateHeader": "Hochgeladen",
+    "tabPull": "Pull",
+    "tabDownload": "Download",
+    "tabFiles": "Alle Dateien",
+    "tabIntegrate": "Einbinden",
+    "setupTitle": "Client verbinden",
+    "usageTitle": "{{name}} {{version}} verwenden",
+    "directDownload": "Direkter Download",
+    "registryAddress": "Registry-Adresse",
+    "runTitle": "Image ausführen",
+    "noIntegration": "Nichts zu konfigurieren: Dateien direkt herunterladen."
   },
   "catalogAdmin": {
     "title": "Katalogverwaltung",

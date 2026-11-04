@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  ActionIcon, Anchor, Badge, Button, Card, Code, Collapse, CopyButton, Group, Image, Modal, ScrollArea, Stack, Text,
-  Table, TextInput, Title, Tooltip,
-} from "@mantine/core";
+import { Anchor, Badge, Button, Card, Code, Collapse, CopyButton, Group, Image, Modal, ScrollArea, Stack, Tabs, Text, Title } from "@mantine/core";
 import { api, downloadArtifact, fetchImageUrl } from "../lib/api";
+import { CopyBlock, FilesTable, SnippetTabs, baseName, fmtSize, isPre, type FileV, type Snippet, type VersionV } from "../components/ArtifactParts";
 import { EmptyState, ErrorAlert, PageLoader } from "../components/ui";
-import { IconCopy } from "../components/icons";
 import AppIcon from "../components/AppIcon";
 import Markdown from "../components/Markdown";
 
-type FileV = { path: string; size: number; created_at?: number };
-type VersionV = { version: string; created_at: number; primary: string; files: FileV[] };
-type PackageV = { name: string; latest: VersionV; others?: VersionV[] };
+type PackageV = {
+  name: string;
+  latest: VersionV;
+  others?: VersionV[];
+  usage?: Snippet[];
+  download?: Snippet[];
+};
 type Artifact = {
   registry: string;
   format: string;
@@ -28,6 +29,8 @@ type Artifact = {
   packages?: PackageV[];
   all_files?: FileV[];
   total_files?: number;
+  endpoint?: string;
+  setup?: Snippet[];
 };
 type Shot = { id: number; caption: string };
 type AppDetail = {
@@ -42,42 +45,9 @@ type AppDetail = {
   screenshots: Shot[];
 };
 
-function size(n: number) {
-  if (!n) return "";
-  if (n < 1024) return `${n} B`;
-  const u = ["kB", "MB", "GB", "TB"];
-  let v = n / 1024;
-  let i = 0;
-  while (v >= 1024 && i < u.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(v < 10 ? 1 : 0)} ${u[i]}`;
-}
-
-const base = (p: string) => p.split("/").pop() || p;
-const isPre = (v: string) => /[-][A-Za-z]/.test(v.replace(/^v/i, ""));
+const size = fmtSize;
+const base = baseName;
 const pullCmd = (a: Artifact) => `docker pull ${a.pull_host}/${a.ref}:${a.latest_tag || a.tag || "latest"}`;
-
-function CopyLine({ value }: { value: string }) {
-  const { t } = useTranslation();
-  return (
-    <Group gap={6} wrap="nowrap" align="center">
-      <Code block style={{ flex: 1, overflowX: "auto", whiteSpace: "pre" }}>
-        {value}
-      </Code>
-      <CopyButton value={value} timeout={1500}>
-        {({ copied, copy }) => (
-          <Tooltip label={copied ? t("catalog.copied") : t("catalog.copy")} withArrow>
-            <ActionIcon variant="subtle" color={copied ? "teal" : "gray"} onClick={copy} aria-label={t("catalog.copy")}>
-              <IconCopy size={15} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </CopyButton>
-    </Group>
-  );
-}
 
 function VersionRow({ registry, v, onError }: { registry: string; v: VersionV; onError: (m: string) => void }) {
   const { t } = useTranslation();
@@ -183,18 +153,25 @@ function TagList({ tags }: { tags: NonNullable<Artifact["tags"]> }) {
   );
 }
 
-function ArtifactCard({ a }: { a: Artifact }) {
+// One section per artifact the visitor can see, with what that kind of artifact
+// needs: for an image how to pull and run it, for files the versions to
+// download and how to wire the registry into a build tool.
+function ArtifactSection({ a }: { a: Artifact }) {
   const { t } = useTranslation();
   const [err, setErr] = useState<string | null>(null);
+  const isImage = a.kind === "image";
+  const pkgs = a.packages || [];
+  const setup = a.setup || [];
+  const hasIntegrate = setup.length > 0 || pkgs.some((p) => (p.usage?.length ?? 0) + (p.download?.length ?? 0) > 0);
+
   return (
-    <Card padding="md">
-      <Group justify="space-between" mb="xs" wrap="nowrap">
+    <Card padding="lg">
+      <Group justify="space-between" mb="sm" wrap="nowrap" align="flex-start">
         <Stack gap={0} style={{ minWidth: 0 }}>
-          <Text fw={600} truncate>
-            {a.label || a.ref}
-          </Text>
+          <Title order={5}>{a.label || a.ref}</Title>
           <Text size="xs" c="dimmed">
-            {t(a.kind === "image" ? "catalog.kindImage" : "catalog.kindFiles")} · {a.registry}
+            {t(isImage ? "catalog.kindImage" : "catalog.kindFiles")} · {a.registry}
+            {a.type !== "hosted" ? ` (${a.type})` : ""}
           </Text>
         </Stack>
         <Badge variant="outline" color="gray">
@@ -204,136 +181,121 @@ function ArtifactCard({ a }: { a: Artifact }) {
 
       {err && <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>}
 
-      {a.kind === "image" ? (
-        <Stack gap="xs">
-          {a.pull_host ? (
-            <>
-              <Text size="xs" c="dimmed">
-                {t("catalog.pullCommand")}
-              </Text>
-              <CopyLine value={pullCmd(a)} />
-            </>
+      <Tabs defaultValue={isImage ? "pull" : "download"} keepMounted={false}>
+        <Tabs.List mb="md">
+          {isImage ? (
+            <Tabs.Tab value="pull">{t("catalog.tabPull")}</Tabs.Tab>
           ) : (
-            <Text size="sm" c="dimmed">
-              {t("catalog.noPullAddress")} <Code>{a.ref}</Code>
-            </Text>
+            <>
+              <Tabs.Tab value="download">{t("catalog.tabDownload")}</Tabs.Tab>
+              <Tabs.Tab value="files">
+                {t("catalog.tabFiles")} ({a.total_files ?? a.all_files?.length ?? 0})
+              </Tabs.Tab>
+            </>
           )}
-          {a.latest_tag && (
-            <Group gap={6}>
-              <Text size="xs" c="dimmed">
-                {t("catalog.latestTag")}
-              </Text>
-              <Badge variant="filled" color="teal">
-                {a.latest_tag}
-              </Badge>
-            </Group>
-          )}
-          {(a.tags?.length ?? 0) > 0 && <TagList tags={a.tags!} />}
-        </Stack>
-      ) : a.packages && a.packages.length > 0 ? (
-        <Stack gap="md">
-          {a.packages.map((p) => (
-            <PackageBlock key={p.name} registry={a.registry} p={p} showName={a.packages!.length > 1} onError={setErr} />
-          ))}
-        </Stack>
-      ) : null}
-    </Card>
-  );
-}
+          <Tabs.Tab value="integrate">{t("catalog.tabIntegrate")}</Tabs.Tab>
+        </Tabs.List>
 
-// Every file the caller can read in the linked artifacts, with a filter. The
-// server only returns what this caller may read, so nothing hidden is listed.
-function AllFiles({ artifacts, onError }: { artifacts: Artifact[]; onError: (m: string) => void }) {
-  const { t } = useTranslation();
-  const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(50);
-  const withFiles = artifacts.filter((a) => a.kind === "files" && (a.all_files?.length ?? 0) > 0);
-  if (withFiles.length === 0) return null;
-  const needle = q.trim().toLowerCase();
-  return (
-    <section>
-      <Group justify="space-between" mb="sm" align="flex-end">
-        <Title order={4}>{t("catalog.allFiles")}</Title>
-        <TextInput
-          size="xs"
-          w={260}
-          placeholder={t("catalog.filterFiles")}
-          value={q}
-          onChange={(e) => {
-            setQ(e.currentTarget.value);
-            setLimit(50);
-          }}
-        />
-      </Group>
-      <Stack gap="md">
-        {withFiles.map((a, i) => {
-          const rows = a.all_files!.filter((f) => !needle || f.path.toLowerCase().includes(needle));
-          return (
-            <Card key={i} padding={0} style={{ overflow: "hidden" }}>
-              <Group justify="space-between" px="md" py="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-                <Text fw={600} size="sm">
-                  {a.label || a.ref}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {t("catalog.filesCount", { count: a.total_files ?? a.all_files!.length })} · {a.registry}
-                </Text>
-              </Group>
-              {rows.length === 0 ? (
-                <Text size="sm" c="dimmed" p="md">
-                  {t("catalog.noMatch")}
-                </Text>
+        {isImage ? (
+          <Tabs.Panel value="pull">
+            <Stack gap="xs">
+              {a.pull_host ? (
+                <>
+                  <Text size="xs" c="dimmed">
+                    {t("catalog.pullCommand")}
+                  </Text>
+                  <CopyBlock code={pullCmd(a)} />
+                </>
               ) : (
-                <ScrollArea>
-                  <Table verticalSpacing={6} horizontalSpacing="md" highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>{t("catalog.fileHeader")}</Table.Th>
-                        <Table.Th>{t("catalog.sizeHeader")}</Table.Th>
-                        <Table.Th>{t("catalog.dateHeader")}</Table.Th>
-                        <Table.Th />
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {rows.slice(0, limit).map((f) => (
-                        <Table.Tr key={f.path}>
-                          <Table.Td>
-                            <Text size="sm" style={{ wordBreak: "break-all" }}>
-                              {f.path}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ whiteSpace: "nowrap" }}>{size(f.size) || "—"}</Table.Td>
-                          <Table.Td style={{ whiteSpace: "nowrap" }}>{f.created_at ? new Date(f.created_at).toLocaleDateString() : "—"}</Table.Td>
-                          <Table.Td style={{ textAlign: "right" }}>
-                            <Button size="compact-xs" variant="light" onClick={() => downloadArtifact(a.registry, f.path).catch((e) => onError(e.message))}>
-                              {t("catalog.download")}
-                            </Button>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
+                <Text size="sm" c="dimmed">
+                  {t("catalog.noPullAddress")} <Code>{a.ref}</Code>
+                </Text>
               )}
-              {rows.length > limit && (
-                <Group justify="center" p="xs">
-                  <Button size="xs" variant="subtle" onClick={() => setLimit(limit + 100)}>
-                    {t("catalog.showMore")} ({rows.length - limit})
-                  </Button>
+              {a.latest_tag && (
+                <Group gap={6}>
+                  <Text size="xs" c="dimmed">
+                    {t("catalog.latestTag")}
+                  </Text>
+                  <Badge variant="filled" color="teal">
+                    {a.latest_tag}
+                  </Badge>
                 </Group>
               )}
-              {(a.total_files ?? 0) > a.all_files!.length && (
-                <Text size="xs" c="dimmed" p="xs" ta="center">
+              {(a.tags?.length ?? 0) > 0 && <TagList tags={a.tags!} />}
+            </Stack>
+          </Tabs.Panel>
+        ) : (
+          <>
+            <Tabs.Panel value="download">
+              {pkgs.length > 0 ? (
+                <Stack gap="md">
+                  {pkgs.map((p) => (
+                    <PackageBlock key={p.name} registry={a.registry} p={p} showName={pkgs.length > 1} onError={setErr} />
+                  ))}
+                </Stack>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  {t("catalog.noMatch")}
+                </Text>
+              )}
+            </Tabs.Panel>
+            <Tabs.Panel value="files">
+              <FilesTable registry={a.registry} files={a.all_files || []} onError={setErr} />
+              {(a.total_files ?? 0) > (a.all_files?.length ?? 0) && (
+                <Text size="xs" c="dimmed" mt="xs">
                   {t("catalog.truncatedFiles", { shown: a.all_files!.length, total: a.total_files })}{" "}
                   <Anchor component={Link} to="/explorer" size="xs">
                     {t("catalog.openInExplorer")}
                   </Anchor>
                 </Text>
               )}
-            </Card>
-          );
-        })}
-      </Stack>
-    </section>
+            </Tabs.Panel>
+          </>
+        )}
+
+        <Tabs.Panel value="integrate">
+          {!hasIntegrate ? (
+            <Text size="sm" c="dimmed">
+              {t("catalog.noIntegration")}
+            </Text>
+          ) : (
+            <Stack gap="lg">
+              {setup.length > 0 && (
+                <Stack gap="xs">
+                  <Text fw={600} size="sm">
+                    {isImage ? t("catalog.runTitle") : t("catalog.setupTitle")}
+                  </Text>
+                  {a.endpoint && (
+                    <Text size="xs" c="dimmed">
+                      {t("catalog.registryAddress")}: <Code>{a.endpoint}</Code>
+                    </Text>
+                  )}
+                  <SnippetTabs items={setup} />
+                </Stack>
+              )}
+              {pkgs.slice(0, 3).map((p) => (
+                <Stack key={p.name} gap="xs">
+                  {((p.usage?.length ?? 0) > 0 || (p.download?.length ?? 0) > 0) && (
+                    <Text fw={600} size="sm">
+                      {t("catalog.usageTitle", { name: base(p.name), version: p.latest.version })}
+                    </Text>
+                  )}
+                  {(p.usage?.length ?? 0) > 0 && <SnippetTabs items={p.usage!} />}
+                  {(p.download?.length ?? 0) > 0 && (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        {t("catalog.directDownload")}
+                      </Text>
+                      <SnippetTabs items={p.download!} />
+                    </>
+                  )}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </Tabs.Panel>
+      </Tabs>
+    </Card>
   );
 }
 
@@ -516,20 +478,27 @@ export default function CatalogApp() {
 
           {app.screenshots.length > 0 && <Gallery slug={app.slug} shots={app.screenshots} />}
 
-          <div style={{ display: "grid", gap: "var(--mantine-spacing-xl)", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", alignItems: "start" }}>
-            <Stack gap="sm">
-              <Title order={4}>{t("catalog.about")}</Title>
-              {app.description ? <Markdown source={app.description} /> : <Text c="dimmed">—</Text>}
-            </Stack>
-            <Stack gap="sm">
-              <Title order={4}>{t("catalog.getIt")}</Title>
+          {app.description && (
+            <section>
+              <Title order={4} mb="sm">
+                {t("catalog.about")}
+              </Title>
+              <div style={{ maxWidth: 820 }}>
+                <Markdown source={app.description} />
+              </div>
+            </section>
+          )}
+
+          <section>
+            <Title order={4} mb="sm">
+              {t("catalog.getIt")}
+            </Title>
+            <Stack gap="md">
               {app.artifacts.map((a, i) => (
-                <ArtifactCard key={i} a={a} />
+                <ArtifactSection key={i} a={a} />
               ))}
             </Stack>
-          </div>
-
-          <AllFiles artifacts={app.artifacts} onError={setErr} />
+          </section>
         </Stack>
       )}
     </div>

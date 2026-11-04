@@ -118,18 +118,26 @@
   },
   "explorer": {
     "browseTab": "Sfoglia",
+    "description": "Sfoglia repository, tag e artefatti di un registry.",
     "fileCount": "{{count}} file",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} file",
     "formatPlaceholder": "Formato",
+    "latestVersion": "Ultima {{version}}",
+    "moreVersions": "Mostrate {{shown}} versioni su {{total}}.",
     "noArtifacts": "Ancora nessun artifact in questo registry.",
     "noMatches": "Nessun risultato per “{{q}}”.",
+    "noPackages": "Nessun pacchetto in questo registry.",
+    "packagesCount": "{{count}} pacchetti",
     "registryPlaceholder": "Registry",
+    "searchPackages": "Cerca pacchetti…",
     "searchPlaceholder": "Cerca artifact in tutti i registry…",
     "searchTab": "Cerca",
+    "selectPackage": "Seleziona un pacchetto a sinistra per vedere le versioni e come usarlo.",
     "selectRegistry": "Seleziona un registry.",
+    "tabVersions": "Versioni",
     "title": "Esplora",
-    "description": "Sfoglia repository, tag e artefatti di un registry."
+    "versionsCount": "{{count}} versioni"
   },
   "apikeys": {
     "createdTitle": "Chiave API creata — copiala ora",
@@ -786,7 +794,17 @@
     "hideAllTags": "Mostra meno tag",
     "fileHeader": "File",
     "sizeHeader": "Dimensione",
-    "dateHeader": "Caricato"
+    "dateHeader": "Caricato",
+    "tabPull": "Pull",
+    "tabDownload": "Download",
+    "tabFiles": "Tutti i file",
+    "tabIntegrate": "Integra",
+    "setupTitle": "Collega il tuo client",
+    "usageTitle": "Usa {{name}} {{version}}",
+    "directDownload": "Download diretto",
+    "registryAddress": "Indirizzo del registry",
+    "runTitle": "Esegui l’immagine",
+    "noIntegration": "Niente da configurare: scarica direttamente i file."
   },
   "catalogAdmin": {
     "title": "Gestione catalogo",

@@ -259,6 +259,11 @@ type artifactView struct {
 	// page can list them all; TotalFiles says how many exist beyond the cap.
 	AllFiles   []fileView `json:"all_files,omitempty"`
 	TotalFiles int        `json:"total_files,omitempty"`
+
+	// Endpoint is the registry address clients use; Setup says how to point a
+	// client at it (or, for an image, how to run it).
+	Endpoint string    `json:"endpoint,omitempty"`
+	Setup    []snippet `json:"setup,omitempty"`
 }
 
 type versionView struct {
@@ -272,6 +277,9 @@ type packageView struct {
 	Name   string        `json:"name"`
 	Latest versionView   `json:"latest"`
 	Others []versionView `json:"others,omitempty"`
+	// Usage is how to depend on the latest version; Download fetches its main file.
+	Usage    []snippet `json:"usage,omitempty"`
+	Download []snippet `json:"download,omitempty"`
 }
 
 func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar storage.CatalogArtifact) artifactView {
@@ -308,6 +316,7 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 		} else {
 			v.LatestTag = pickLatestTag(all)
 		}
+		v.Setup = ociSnippets(v.PullHost, ar.Ref, v.LatestTag)
 		sort.SliceStable(all, func(i, j int) bool {
 			if all[i].PushedAt != all[j].PushedAt {
 				return all[i].PushedAt > all[j].PushedAt
@@ -347,6 +356,13 @@ func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar st
 		v.AllFiles = append(v.AllFiles, fileView{Path: o.Path, Size: o.Size, Created: o.CreatedAt / 1e6})
 	}
 	v.Packages = buildPackages(registry.Format(reg.Format), infos, ar.Primary)
+	v.Endpoint = h.endpointURL(c, reg)
+	v.Setup = setupSnippets(registry.Format(reg.Format), v.Endpoint)
+	for i := range v.Packages {
+		p := &v.Packages[i]
+		p.Usage = useSnippets(registry.Format(reg.Format), v.Endpoint, p.Name, p.Latest.Version, p.Latest.Primary)
+		p.Download = downloadSnippets(v.Endpoint, p.Latest.Primary)
+	}
 	return v
 }
 
@@ -535,6 +551,28 @@ func buildPackages(format registry.Format, infos []storage.ObjectInfo, primaryPa
 	for _, o := range infos {
 		sizes[o.Path] = o.Size
 	}
+	names, byPkg := groupPackages(format, infos)
+	var out []packageView
+	for _, n := range names {
+		if len(out) >= maxPackages {
+			break
+		}
+		us := byPkg[n]
+		pv := packageView{Name: n, Latest: versionOf(us[0], sizes, primaryPattern)}
+		for _, u := range us[1:] {
+			if len(pv.Others) >= otherVersions {
+				break
+			}
+			pv.Others = append(pv.Others, versionOf(u, sizes, primaryPattern))
+		}
+		out = append(out, pv)
+	}
+	return out
+}
+
+// groupPackages folds stored objects into packages, each with its versions
+// newest first (see newerUnit). Package names come back sorted.
+func groupPackages(format registry.Format, infos []storage.ObjectInfo) ([]string, map[string][]registry.ArtifactUnit) {
 	byPkg := map[string][]registry.ArtifactUnit{}
 	var names []string
 	for _, u := range registry.GroupArtifacts(format, infos) {
@@ -544,32 +582,21 @@ func buildPackages(format registry.Format, infos []storage.ObjectInfo, primaryPa
 		byPkg[u.Package] = append(byPkg[u.Package], u)
 	}
 	sort.Strings(names)
-	view := func(u registry.ArtifactUnit) versionView {
-		paths := append([]string(nil), u.Paths...)
-		sort.Strings(paths)
-		fv := make([]fileView, len(paths))
-		for i, p := range paths {
-			fv[i] = fileView{Path: p, Size: sizes[p]}
-		}
-		return versionView{Version: u.Version, Created: u.CreatedAt / 1e6, Primary: primaryFile(paths, sizes, primaryPattern), Files: fv}
-	}
-	var out []packageView
 	for _, n := range names {
-		if len(out) >= maxPackages {
-			break
-		}
 		us := byPkg[n]
 		sort.SliceStable(us, func(i, j int) bool { return newerUnit(us[i], us[j]) })
-		pv := packageView{Name: n, Latest: view(us[0])}
-		for _, u := range us[1:] {
-			if len(pv.Others) >= otherVersions {
-				break
-			}
-			pv.Others = append(pv.Others, view(u))
-		}
-		out = append(out, pv)
 	}
-	return out
+	return names, byPkg
+}
+
+func versionOf(u registry.ArtifactUnit, sizes map[string]int64, primaryPattern string) versionView {
+	paths := append([]string(nil), u.Paths...)
+	sort.Strings(paths)
+	fv := make([]fileView, len(paths))
+	for i, p := range paths {
+		fv[i] = fileView{Path: p, Size: sizes[p]}
+	}
+	return versionView{Version: u.Version, Created: u.CreatedAt / 1e6, Primary: primaryFile(paths, sizes, primaryPattern), Files: fv}
 }
 
 // pickLatestTag chooses the tag to pull for the newest version of an image.

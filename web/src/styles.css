@@ -37,3 +37,6 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 /* Catalog tiles lift slightly on hover. */
 .stiva-tile:hover { transform: translateY(-2px); box-shadow: var(--mantine-shadow-md); }
 @media (prefers-reduced-motion: reduce) { .stiva-tile { transition: none !important; } .stiva-tile:hover { transform: none; } }
+
+/* Package browser: stack the two panes on narrow screens. */
+@media (max-width: 48em) { .stiva-pkg-grid { grid-template-columns: minmax(0, 1fr) !important; } }

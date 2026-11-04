@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Tabs, Pill } from "@mantine/core";
+import { Tabs } from "@mantine/core";
 import {
   PageHeader,
   Card,
@@ -15,11 +15,11 @@ import {
   Stack,
   Code, ErrorAlert,
 } from "../components/ui";
-import { api } from "../lib/api";
+import { api, downloadArtifact } from "../lib/api";
+import PackageBrowser from "../components/PackageBrowser";
 import RepoBrowser, { registryEndpoint, type FocusRepo, type Reg } from "../components/RepoBrowser";
-import { IconSearch, IconRefresh, IconFolder } from "../components/icons";
+import { IconSearch, IconFolder } from "../components/icons";
 
-type Entry = { path: string; name: string; dir: boolean };
 type SearchResult = {
   registry: string;
   format: string;
@@ -27,47 +27,6 @@ type SearchResult = {
   name: string;
   kind: string;
 };
-
-// describeArtifact derives a human-friendly package/version/file triple from a
-// stored object path, per format. The goal is a coherent "UI per formato" view
-// rather than a raw flat file list.
-function describeArtifact(format: string, p: string) {
-  const segs = p.split("/").filter(Boolean);
-  const file = segs[segs.length - 1] || p;
-  let pkg = segs.length > 1 ? segs.slice(0, -1).join("/") : p;
-  let version = "";
-  if (format === "maven") {
-    if (segs.length >= 3) {
-      const group = segs.slice(0, segs.length - 3).join(".");
-      const art = segs[segs.length - 3];
-      pkg = group === "" ? art : group + ":" + art;
-      version = segs[segs.length - 2];
-    }
-  } else if (
-    format === "npm" ||
-    format === "pypi" ||
-    format === "nuget" ||
-    format === "composer" ||
-    format === "cran" ||
-    format === "go" ||
-    format === "conda" ||
-    format === "rubygems"
-  ) {
-    if (segs.length >= 2) {
-      pkg = segs.slice(0, -1).join("/");
-      version = segs[segs.length - 2] || "";
-    }
-  } else if (format === "helm") {
-    const m = file.match(/^(.*?)-([\d].*)\.(tgz|tar\.gz)$/);
-    if (m) {
-      pkg = m[1];
-      version = m[2];
-    }
-  } else if (segs.length >= 2) {
-    pkg = segs.slice(0, -1).join("/");
-  }
-  return { pkg, version, file };
-}
 
 export default function Explorer() {
   const { t } = useTranslation();
@@ -155,12 +114,7 @@ export default function Explorer() {
                 focusRepo={focus}
               />
             ) : (
-              <ArtifactBrowser
-                registry={registry}
-                format={selected.format}
-                endpoint={pullHost ?? registryEndpoint(selected)}
-                basePath={selected.base_path}
-              />
+              <PackageBrowser registry={registry} format={selected.format} />
             )
           ) : (
             <Text c="dimmed" size="sm">
@@ -179,101 +133,6 @@ export default function Explorer() {
           />
         </Tabs.Panel>
       </Tabs>
-    </div>
-  );
-}
-
-function ArtifactBrowser({
-  registry,
-  format,
-  endpoint,
-  basePath,
-}: {
-  registry: string;
-  format: string;
-  endpoint?: string;
-  basePath?: string;
-}) {
-  const { t } = useTranslation();
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = () => {
-    setLoading(true);
-    setErr(null);
-    api
-      .browse(registry)
-      .then((r: any) => setEntries(r.entries || []))
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, [registry]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, { version: string; file: string; path: string }[]>();
-    for (const e of entries) {
-      const { pkg, version, file } = describeArtifact(format, e.path);
-      if (!map.has(pkg)) map.set(pkg, []);
-      map.get(pkg)!.push({ version, file, path: e.path });
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [entries, format]);
-
-  return (
-    <div>
-      <Group mb="md">
-        <Badge color="blue">{format}</Badge>
-        {endpoint ? (
-          <Code style={{ overflowWrap: "anywhere" }}>
-            https://{endpoint}
-            {basePath ? `/${basePath}` : ""}/
-          </Code>
-        ) : null}
-        <Button variant="default" size="xs" leftSection={<IconRefresh size={14} />} onClick={load}>
-          {t("common.refresh")}
-        </Button>
-      </Group>
-      {err && <ErrorAlert>{err}</ErrorAlert>}
-      {loading && <Loader />}
-      {!loading && grouped.length === 0 && (
-        <Text c="dimmed" size="sm">
-          {t("explorer.noArtifacts")}
-        </Text>
-      )}
-      <Stack gap="xs">
-        {grouped.map(([pkg, files]) => (
-          <Card key={pkg} padding="sm">
-            <Group justify="space-between" mb={4}>
-              <Text fw={600} size="sm">
-                {pkg}
-              </Text>
-              <Badge variant="light" color="gray">
-                {t("explorer.fileCount", { count: files.length })}
-              </Badge>
-            </Group>
-            <Stack gap={2}>
-              {files.map((f) => (
-                <Group key={f.path} gap="xs" justify="space-between">
-                  <Group gap="xs">
-                    {f.version && <Pill size="sm">{f.version}</Pill>}
-                    <Code>{f.file}</Code>
-                  </Group>
-                  <Button
-                    component="a"
-                    href={api.artifactUrl(registry, f.path)}
-                    size="compact-xs"
-                    variant="subtle"
-                    target="_blank"
-                  >
-                    {t("common.download")}
-                  </Button>
-                </Group>
-              ))}
-            </Stack>
-          </Card>
-        ))}
-      </Stack>
     </div>
   );
 }
@@ -356,11 +215,9 @@ function GlobalSearch({
               </Group>
               {r.kind === "artifact" ? (
                 <Button
-                  component="a"
-                  href={api.artifactUrl(r.registry, r.path)}
                   size="compact-xs"
                   variant="subtle"
-                  target="_blank"
+                  onClick={() => downloadArtifact(r.registry, r.path).catch((e) => setErr(e.message))}
                 >
                   {t("common.download")}
                 </Button>

@@ -118,18 +118,26 @@
   },
   "explorer": {
     "browseTab": "Explorar",
+    "description": "Explora repositorios, etiquetas y artefactos de un registry.",
     "fileCount": "{{count}} archivos",
     "fileCount_one": "{{count}} archivo",
     "fileCount_other": "{{count}} archivos",
     "formatPlaceholder": "Formato",
+    "latestVersion": "Última {{version}}",
+    "moreVersions": "Se muestran {{shown}} de {{total}} versiones.",
     "noArtifacts": "Aún no hay artefactos en este registro.",
     "noMatches": "Sin resultados para “{{q}}”.",
+    "noPackages": "No hay paquetes en este registry.",
+    "packagesCount": "{{count}} paquetes",
     "registryPlaceholder": "Registro",
+    "searchPackages": "Buscar paquetes…",
     "searchPlaceholder": "Buscar artefactos en todos los registros…",
     "searchTab": "Buscar",
+    "selectPackage": "Selecciona un paquete a la izquierda para ver sus versiones y cómo usarlo.",
     "selectRegistry": "Selecciona un registro.",
+    "tabVersions": "Versiones",
     "title": "Explorador",
-    "description": "Explora repositorios, etiquetas y artefactos de un registry."
+    "versionsCount": "{{count}} versiones"
   },
   "apikeys": {
     "createdTitle": "Clave API creada — cópiala ahora",
@@ -786,7 +794,17 @@
     "hideAllTags": "Mostrar menos etiquetas",
     "fileHeader": "Archivo",
     "sizeHeader": "Tamaño",
-    "dateHeader": "Subido"
+    "dateHeader": "Subido",
+    "tabPull": "Pull",
+    "tabDownload": "Descarga",
+    "tabFiles": "Todos los archivos",
+    "tabIntegrate": "Integrar",
+    "setupTitle": "Conecta tu cliente",
+    "usageTitle": "Usar {{name}} {{version}}",
+    "directDownload": "Descarga directa",
+    "registryAddress": "Dirección del registry",
+    "runTitle": "Ejecuta la imagen",
+    "noIntegration": "Nada que configurar: descarga los archivos directamente."
   },
   "catalogAdmin": {
     "title": "Gestión del catálogo",

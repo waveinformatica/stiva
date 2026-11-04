@@ -41,6 +41,20 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 			return ref, m[5], true
 		}
 		return "", "", false
+	case FormatComposer:
+		if m := composerZip.FindStringSubmatch(p); m != nil {
+			return m[1], m[2], true
+		}
+		return "", "", false
+	case FormatCocoaPods:
+		if m := podspec.FindStringSubmatch(p); m != nil {
+			return m[1], m[2], true
+		}
+		return "", "", false
+	case FormatConda:
+		if name, ver, ok := condaParts(base); ok {
+			return name, ver, true
+		}
 	case FormatP2:
 		if m := p2Jar.FindStringSubmatch(p); m != nil {
 			return m[1] + "/" + m[2], m[3], true
@@ -80,6 +94,8 @@ func ParsePackagePath(format Format, p string) (pkg, version string, ok bool) {
 var (
 	conanRev    = regexp.MustCompile(`^v2/conans/([^/]+)/([^/]+)/([^/]+)/([^/]+)/revisions/([^/]+)/`)
 	p2Jar       = regexp.MustCompile(`^(plugins|features)/(.+?)_(\d+(?:\.\d+){0,2}(?:\.[A-Za-z0-9_-]+)?)\.jar$`)
+	composerZip = regexp.MustCompile(`^p/([^/]+/[^/]+)/(.+)\.zip$`)
+	podspec     = regexp.MustCompile(`^([^/]+)/([^/]+)/[^/]+\.podspec\.json$`)
 	versionLike = regexp.MustCompile(`^v?\d+(\.\d+)*([-+._~][0-9A-Za-z.+~_-]*)?$`)
 	debLike     = regexp.MustCompile(`^([a-z0-9][a-z0-9+.-]*)_([^_]+)_[^_]+\.(?:deb|udeb|ipk)$`)
 	rpmLike     = regexp.MustCompile(`^(.+)-([^-]+)-([^-]+)\.[^.]+\.rpm$`)
@@ -272,4 +288,24 @@ func IsVersionLike(s string) bool {
 func IsPreRelease(s string) bool {
 	_, pre := splitVersion(s)
 	return pre != ""
+}
+
+// condaParts splits "name-version-build.tar.bz2" (or .conda) into name and
+// version. The build string and version never contain "-", the name may.
+func condaParts(base string) (name, version string, ok bool) {
+	for _, ext := range []string{".tar.bz2", ".conda"} {
+		if strings.HasSuffix(base, ext) {
+			stem := strings.TrimSuffix(base, ext)
+			i := strings.LastIndex(stem, "-")
+			if i <= 0 {
+				return "", "", false
+			}
+			j := strings.LastIndex(stem[:i], "-")
+			if j <= 0 {
+				return "", "", false
+			}
+			return stem[:j], stem[j+1 : i], true
+		}
+	}
+	return "", "", false
 }
