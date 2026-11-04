@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Title, Text, NavLink } from "@mantine/core";
+import { AppShell, Burger, Button, Group, Title, Text, Tooltip, NavLink } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import UserMenu from "./UserMenu";
@@ -76,7 +76,16 @@ export default function AppShellLayout({
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
             <Title order={4} fw={700}>Stiva</Title>
           </Group>
-          <UserMenu user={user} setView={setView} onLogout={onLogout} />
+          <Group gap="sm" wrap="nowrap">
+            {user.anonymous && (
+              <Tooltip label={t("login.anonymousHint")} multiline w={260}>
+                <Button size="xs" onClick={onLogout}>
+                  {t("nav.signIn")}
+                </Button>
+              </Tooltip>
+            )}
+            <UserMenu user={user} setView={setView} onLogout={onLogout} />
+          </Group>
         </Group>
       </AppShell.Header>
 

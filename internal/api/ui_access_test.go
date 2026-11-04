@@ -91,3 +91,34 @@ func TestNoAuthzEngineDeniesEverything(t *testing.T) {
 		t.Fatal("senza motore di autorizzazione tutto deve essere negato")
 	}
 }
+
+// TestGuestSeesOnlyWhatAnonymousAccessAllows: with anonymous browsing the
+// registry list offered by the UI is limited to what the anonymous identity may
+// read, so a guest is not shown registries it could only bounce off.
+func TestGuestSeesOnlyWhatAnonymousAccessAllows(t *testing.T) {
+	public := &registry.Registry{Name: "public", Format: "docker", Type: "hosted", Online: true}
+	h := handlerWith(
+		[]authz.Binding{
+			{Subject: "anonymous", Role: "reader", Scope: "docker:public"},
+			{Subject: "user:alice", Role: "reader", Scope: "docker:private"},
+		},
+		map[string][]authz.Permission{"reader": {authz.RegistryRead}},
+	)
+	all := []*registry.Registry{public, private}
+	names := func(u *auth.User) []string {
+		var out []string
+		for _, r := range h.readableRegistries(ctxAs(u), all) {
+			out = append(out, r.Name)
+		}
+		return out
+	}
+	if got := names(&auth.User{Name: "anonymous", Anonymous: true}); len(got) != 1 || got[0] != "public" {
+		t.Errorf("guest sees %v, want only [public]", got)
+	}
+	if got := names(&auth.User{Name: "alice"}); len(got) != 1 || got[0] != "private" {
+		t.Errorf("alice sees %v, want only [private] (her own grant; the guest grant is for guests)", got)
+	}
+	if got := names(nil); len(got) != 0 {
+		t.Errorf("no identity sees %v, want none", got)
+	}
+}

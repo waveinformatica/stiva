@@ -19,7 +19,7 @@ import SSO from "./pages/admin/SSO";
 import Settings from "./pages/admin/Settings";
 import AppShellLayout, { View, ShellUser } from "./components/AppShellLayout";
 import { pathForView, viewForPath } from "./lib/routes";
-import { api, clearToken, getToken, MeResponse } from "./lib/api";
+import { api, clearToken, getToken, setToken, MeResponse } from "./lib/api";
 
 const ADMIN_VIEWS: View[] = [
   "users",
@@ -37,23 +37,51 @@ const ADMIN_VIEWS: View[] = [
   "settings",
 ];
 
+// Views a guest cannot use: a deep link to one asks for a sign-in.
+const SIGNIN_VIEWS: View[] = [...ADMIN_VIEWS, "apikeys"];
+
 export default function App() {
   const [user, setUser] = useState<ShellUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // The sign-in page is shown on request when anonymous browsing is available.
+  const [showLogin, setShowLogin] = useState(false);
 
+  // Ask who the server thinks we are. Without a token that is the anonymous
+  // identity, when the registry allows anonymous access; otherwise the call
+  // fails and the sign-in page is all there is.
   const refresh = () => {
-    const t = getToken();
-    if (!t) {
-      setUser(null);
-      setLoading(false);
-      return;
+    // The SSO callback returns the session token in the URL fragment.
+    const hash = window.location.hash;
+    if (hash.includes("sso_token=")) {
+      const token = new URLSearchParams(hash.slice(1)).get("sso_token");
+      window.location.hash = "";
+      if (token) setToken(token);
+    } else if (hash.includes("sso_error=")) {
+      setShowLogin(true); // the login page shows the error
     }
+
+    const resolve = (m: MeResponse) => {
+      setUser(m.user);
+      if (m.user.anonymous) {
+        const v = viewForPath(window.location.pathname);
+        if (v && SIGNIN_VIEWS.includes(v)) setShowLogin(true);
+      }
+    };
     api
       .me()
-      .then((m: MeResponse) => setUser(m.user))
+      .then(resolve)
       .catch(() => {
+        const hadToken = !!getToken();
         clearToken();
-        setUser(null);
+        if (!hadToken) {
+          setUser(null);
+          return;
+        }
+        // An expired or revoked session falls back to guest browsing.
+        return api
+          .me()
+          .then(resolve)
+          .catch(() => setUser(null));
       })
       .finally(() => setLoading(false));
   };
@@ -61,12 +89,32 @@ export default function App() {
   useEffect(refresh, []);
 
   if (loading) return <Loader />;
-  if (!user) return <Login onLogin={refresh} />;
+  if (!user || showLogin) {
+    return (
+      <Login
+        onLogin={() => {
+          setShowLogin(false);
+          refresh();
+        }}
+        onCancel={user ? () => setShowLogin(false) : undefined}
+      />
+    );
+  }
 
-  return <Shell user={user} onLogout={() => {
-    clearToken();
-    setUser(null);
-  }} />;
+  return (
+    <Shell
+      user={user}
+      onLogout={() => {
+        if (user.anonymous) {
+          setShowLogin(true);
+          return;
+        }
+        clearToken();
+        setLoading(true);
+        refresh();
+      }}
+    />
+  );
 }
 
 function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {

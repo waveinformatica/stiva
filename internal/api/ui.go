@@ -489,12 +489,25 @@ func (h *Handler) uiStats(c *gin.Context) {
 	})
 }
 
+// readableRegistries keeps the registries the caller may read. A guest browsing
+// with anonymous access must see only what that access allows, so the list the
+// UI offers is filtered the same way the content behind it is.
+func (h *Handler) readableRegistries(c *gin.Context, all []*registry.Registry) []*registry.Registry {
+	out := make([]*registry.Registry, 0, len(all))
+	for _, r := range all {
+		if h.allowAccess(c, r, false) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // uiRegistries lists registry definitions (name/type/format/online plus the
-// routing coordinates hosts, port and base path) for the UI selector. This is
-// safe to expose: it contains no secrets.
+// routing coordinates hosts, port and base path) for the UI selector, limited
+// to the registries the caller can read. It contains no secrets.
 func (h *Handler) uiRegistries(c *gin.Context) {
 	out := make([]gin.H, 0)
-	for _, r := range h.mgr.List() {
+	for _, r := range h.readableRegistries(c, h.mgr.List()) {
 		hosts := r.Hosts
 		if hosts == nil {
 			hosts = []string{}

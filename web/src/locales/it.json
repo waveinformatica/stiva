@@ -33,6 +33,7 @@
     "navigation": "Navigazione",
     "registries": "Registry",
     "roleAdmin": "Amministratore",
+    "roleGuest": "Ospite",
     "roleUser": "Utente",
     "roles": "Ruoli",
     "serviceAccounts": "Account di servizio",
@@ -49,11 +50,13 @@
     "webhooks": "Webhook"
   },
   "login": {
+    "anonymousHint": "Navigazione come ospite: vedi solo ciò che l’accesso anonimo consente.",
     "changePassword": "Cambia password",
     "changeRequiredBody": "Stai usando una password temporanea. Imposta una password personale per continuare.",
     "changeRequiredTitle": "Cambio password richiesto",
     "chooseNewPassword": "Scegli una nuova password.",
     "confirmNewPassword": "Conferma la nuova password",
+    "continueAnonymous": "Continua senza accedere",
     "currentPassword": "Password attuale",
     "invalidCredentials": "Nome utente o password non validi.",
     "loginFailed": "Accesso non riuscito",

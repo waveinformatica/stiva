@@ -12,12 +12,12 @@ import {
   Stack,
   Divider,
 } from "../components/ui";
-import { api, ApiError, setToken } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { IconCloud } from "../components/icons";
 
 type SSOProvider = { id: string; label: string; kind: string };
 
-export default function Login({ onLogin }: { onLogin: () => void }) {
+export default function Login({ onLogin, onCancel }: { onLogin: () => void; onCancel?: () => void }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,16 +38,9 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       .ssoProviders()
       .then((r) => setProviders(r.providers || []))
       .catch(() => setProviders([]));
+    // An SSO token in the fragment is picked up by App before this page is
+    // shown; only an error is left for this page to display.
     const hash = window.location.hash;
-    if (hash.includes("sso_token=")) {
-      const token = new URLSearchParams(hash.slice(1)).get("sso_token");
-      window.location.hash = "";
-      if (token) {
-        setToken(token);
-        onLogin();
-        return;
-      }
-    }
     if (hash.includes("sso_error=")) {
       const msg = new URLSearchParams(hash.slice(1)).get("sso_error");
       window.location.hash = "";
@@ -196,6 +189,11 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               ))}
             </Stack>
           </>
+        )}
+        {onCancel && (
+          <Button variant="subtle" color="gray" fullWidth mt="md" onClick={onCancel}>
+            {t("login.continueAnonymous")}
+          </Button>
         )}
       </Card>
     </Stack>

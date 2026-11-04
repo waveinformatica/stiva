@@ -33,6 +33,7 @@
     "navigation": "Navigation",
     "registries": "Registries",
     "roleAdmin": "Administrator",
+    "roleGuest": "Guest",
     "roleUser": "User",
     "roles": "Roles",
     "serviceAccounts": "Service Accounts",
@@ -49,11 +50,13 @@
     "webhooks": "Webhooks"
   },
   "login": {
+    "anonymousHint": "Browsing as a guest: you only see what anonymous access allows.",
     "changePassword": "Change password",
     "changeRequiredBody": "You are using a temporary password. Set a personal password to continue.",
     "changeRequiredTitle": "Password change required",
     "chooseNewPassword": "Choose a new password.",
     "confirmNewPassword": "Confirm new password",
+    "continueAnonymous": "Continue without signing in",
     "currentPassword": "Current password",
     "invalidCredentials": "Invalid username or password.",
     "loginFailed": "Login failed",

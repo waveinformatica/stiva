@@ -25,7 +25,7 @@ export default function UserMenu({
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const lang = i18n.language?.split("-")[0] || "en";
   const display = user.anonymous ? t("nav.anonymous") : user.name;
-  const roleLabel = user.admin ? t("nav.roleAdmin") : t("nav.roleUser");
+  const roleLabel = user.anonymous ? t("nav.roleGuest") : user.admin ? t("nav.roleAdmin") : t("nav.roleUser");
 
   return (
     <Menu width={260} position="bottom-end" shadow="md" withinPortal>

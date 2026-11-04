@@ -33,6 +33,7 @@
     "navigation": "Navigation",
     "registries": "Registres",
     "roleAdmin": "Administrateur",
+    "roleGuest": "Invité",
     "roleUser": "Utilisateur",
     "roles": "Rôles",
     "serviceAccounts": "Comptes de service",
@@ -49,11 +50,13 @@
     "webhooks": "Webhooks"
   },
   "login": {
+    "anonymousHint": "Navigation en invité : vous ne voyez que ce que l’accès anonyme autorise.",
     "changePassword": "Changer le mot de passe",
     "changeRequiredBody": "Vous utilisez un mot de passe temporaire. Définissez un mot de passe personnel pour continuer.",
     "changeRequiredTitle": "Changement de mot de passe requis",
     "chooseNewPassword": "Choisissez un nouveau mot de passe.",
     "confirmNewPassword": "Confirmer le nouveau mot de passe",
+    "continueAnonymous": "Continuer sans se connecter",
     "currentPassword": "Mot de passe actuel",
     "invalidCredentials": "Nom d'utilisateur ou mot de passe invalide.",
     "loginFailed": "Connexion échouée",
