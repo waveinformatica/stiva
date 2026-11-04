@@ -130,3 +130,11 @@ func TestFormatsWithoutOwnSyntaxFallBackToDownloads(t *testing.T) {
 		}
 	}
 }
+
+func TestNilSnippetListsReachTheBrowserAsEmptyArrays(t *testing.T) {
+	// raw has no client setup; the JSON must say [] or the page reads null.length.
+	b, _ := json.Marshal(map[string]any{"setup": nonNil(setupSnippets(registry.FormatRaw, "https://r.example.com"))})
+	if string(b) != `{"setup":[]}` {
+		t.Errorf("raw setup serialises as %s, want an empty array", b)
+	}
+}

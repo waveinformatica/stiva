@@ -138,6 +138,16 @@ func (h *Handler) uiPackage(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"name": name, "format": reg.Format, "endpoint": ep,
-		"setup": setupSnippets(format, ep), "versions": versions, "total_versions": len(us),
+		"setup": nonNil(setupSnippets(format, ep)), "versions": versions, "total_versions": len(us),
 	})
+}
+
+// nonNil makes a nil list an empty one, so it reaches the browser as [] and not
+// null: formats with no client setup (raw files) have none, and a page that
+// reads .length on null crashes.
+func nonNil(s []snippet) []snippet {
+	if s == nil {
+		return []snippet{}
+	}
+	return s
 }

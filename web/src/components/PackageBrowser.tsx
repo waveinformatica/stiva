@@ -72,7 +72,8 @@ export default function PackageBrowser({ registry, format }: { registry: string;
     return n ? rows.filter((r) => r.name.toLowerCase().includes(n)) : rows;
   }, [rows, q]);
 
-  const latest = detail?.versions[0];
+  const setup = detail?.setup ?? [];
+  const latest = detail?.versions?.[0];
 
   return (
     <div>
@@ -171,21 +172,21 @@ export default function PackageBrowser({ registry, format }: { registry: string;
                   <Tabs.Tab value="integrate">{t("catalog.tabIntegrate")}</Tabs.Tab>
                 </Tabs.List>
                 <Tabs.Panel value="versions">
-                  <VersionList registry={registry} versions={detail.versions} onError={setErr} />
-                  {detail.total_versions > detail.versions.length && (
+                  <VersionList registry={registry} versions={detail.versions ?? []} onError={setErr} />
+                  {detail.total_versions > (detail.versions?.length ?? 0) && (
                     <Text size="xs" c="dimmed" mt="xs">
-                      {t("explorer.moreVersions", { shown: detail.versions.length, total: detail.total_versions })}
+                      {t("explorer.moreVersions", { shown: detail.versions?.length ?? 0, total: detail.total_versions })}
                     </Text>
                   )}
                 </Tabs.Panel>
                 <Tabs.Panel value="integrate">
                   <Stack gap="lg">
-                    {detail.setup.length > 0 && (
+                    {setup.length > 0 && (
                       <Stack gap="xs">
                         <Text fw={600} size="sm">
                           {t("catalog.setupTitle")}
                         </Text>
-                        <SnippetTabs items={detail.setup} />
+                        <SnippetTabs items={setup} />
                       </Stack>
                     )}
                     {latest && (latest.usage?.length ?? 0) > 0 && (
@@ -196,7 +197,7 @@ export default function PackageBrowser({ registry, format }: { registry: string;
                         <SnippetTabs items={latest.usage!} />
                       </Stack>
                     )}
-                    {detail.setup.length === 0 && (latest?.usage?.length ?? 0) === 0 && (
+                    {setup.length === 0 && (latest?.usage?.length ?? 0) === 0 && (
                       <Text size="sm" c="dimmed">
                         {t("catalog.noIntegration")}
                       </Text>
