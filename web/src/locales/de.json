@@ -849,6 +849,16 @@
     "moveDown": "Nach hinten",
     "shotNote": "Wird vor dem Hochladen auf höchstens 1600 px Breite verkleinert.",
     "primaryLabel": "Hauptdatei (optional)",
-    "primaryDesc": "Welche Datei der große Download-Button in jeder Version erhält, als Muster auf den Dateinamen, z. B. *-linux-amd64.tar.gz. Leer = die größte Datei."
+    "primaryDesc": "Welche Datei der große Download-Button in jeder Version erhält, als Muster auf den Dateinamen, z. B. *-linux-amd64.tar.gz. Leer = die größte Datei.",
+    "pick": "Aus Registries wählen…",
+    "pickTitle": "Artefakte auswählen",
+    "pickHint": "Haken Sie ein Repository (Images) oder einen Ordner bzw. eine Datei (Pakete) an. Ein angehakter Ordner enthält alles darunter.",
+    "pickFilter": "Filtern…",
+    "pickLoading": "Wird geladen…",
+    "pickEmpty": "Hier ist nichts gespeichert.",
+    "pickError": "Nicht durchsuchbar: {{error}}",
+    "pickApply": "Auswahl übernehmen",
+    "pickSelected": "{{count}} ausgewählt",
+    "pickTruncated": "Es werden die ersten {{count}} Einträge gezeigt; Filter nutzen oder Pfad von Hand eingeben."
   }
 }

@@ -849,6 +849,16 @@
     "moveDown": "Mover para depois",
     "shotNote": "Redimensionadas para no máximo 1600 px de largura antes do envio.",
     "primaryLabel": "Arquivo principal (opcional)",
-    "primaryDesc": "Qual arquivo o botão Baixar recebe em cada versão, como padrão no nome, ex.: *-linux-amd64.tar.gz. Vazio = o maior arquivo."
+    "primaryDesc": "Qual arquivo o botão Baixar recebe em cada versão, como padrão no nome, ex.: *-linux-amd64.tar.gz. Vazio = o maior arquivo.",
+    "pick": "Escolher dos registries…",
+    "pickTitle": "Escolher artefatos",
+    "pickHint": "Marque um repositório (imagens) ou uma pasta ou arquivo (pacotes). Uma pasta marcada inclui tudo o que ela contém.",
+    "pickFilter": "Filtrar…",
+    "pickLoading": "Carregando…",
+    "pickEmpty": "Não há nada aqui.",
+    "pickError": "Não pode ser explorado: {{error}}",
+    "pickApply": "Usar a seleção",
+    "pickSelected": "{{count}} selecionados",
+    "pickTruncated": "Mostrando as primeiras {{count}} entradas; use o filtro ou digite o caminho à mão."
   }
 }

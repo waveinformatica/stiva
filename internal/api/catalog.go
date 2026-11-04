@@ -51,9 +51,9 @@ var (
 	iconDataRe = regexp.MustCompile(`^data:image/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$`)
 )
 
-// validateCatalogApp checks an entry before it is saved. exists tells whether a
-// registry name is defined.
-func validateCatalogApp(a *storage.CatalogApp, exists func(registry string) bool) error {
+// validateCatalogApp checks an entry before it is saved. formatOf reports the
+// format of a defined registry.
+func validateCatalogApp(a *storage.CatalogApp, formatOf func(registry string) (format string, ok bool)) error {
 	a.Slug = strings.TrimSpace(a.Slug)
 	a.Name = strings.TrimSpace(a.Name)
 	switch {
@@ -96,12 +96,20 @@ func validateCatalogApp(a *storage.CatalogApp, exists func(registry string) bool
 	}
 	for i := range a.Artifacts {
 		ar := &a.Artifacts[i]
-		ar.Ref = strings.Trim(strings.TrimSpace(ar.Ref), "/")
-		if ar.Ref == "" {
-			return errors.New("every artifact needs a repository or path")
-		}
-		if !exists(ar.Registry) {
+		format, known := formatOf(ar.Registry)
+		if !known {
 			return errors.New("artifact refers to unknown registry " + ar.Registry)
+		}
+		// A trailing slash marks a folder of a path-addressed registry ("builds/"
+		// matches what is inside it, not "builds-old/"); an image repository has none.
+		ar.Ref = strings.TrimLeft(strings.TrimSpace(ar.Ref), "/")
+		if format == string(registry.FormatDocker) || !strings.HasSuffix(ar.Ref, "/") {
+			ar.Ref = strings.TrimRight(ar.Ref, "/")
+		} else {
+			ar.Ref = strings.TrimRight(ar.Ref, "/") + "/"
+		}
+		if strings.Trim(ar.Ref, "/") == "" {
+			return errors.New("every artifact needs a repository or path")
 		}
 		if len(ar.Tag) > 128 || len(ar.Label) > 100 {
 			return errors.New("artifact tag or label is too long")
@@ -433,8 +441,14 @@ func (h *Handler) adminSaveCatalogApp(c *gin.Context) {
 		}
 		a.ID = id
 	}
-	exists := func(name string) bool { _, ok := h.mgr.Get(name); return ok }
-	if err := validateCatalogApp(&a, exists); err != nil {
+	formatOf := func(name string) (string, bool) {
+		r, ok := h.mgr.Get(name)
+		if !ok {
+			return "", false
+		}
+		return r.Format, true
+	}
+	if err := validateCatalogApp(&a, formatOf); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

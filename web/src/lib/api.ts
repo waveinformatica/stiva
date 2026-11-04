@@ -177,6 +177,8 @@ export const api = {
     req("GET", `/api/v1/stats?registry=${enc(registry)}`),
 
   // Global search + per-registry artifact browsing.
+  browseAll: (registry: string) =>
+    req("GET", `/api/v1/browse?registry=${enc(registry)}&limit=2000`),
   browse: (registry: string, prefix?: string) =>
     req(
       "GET",

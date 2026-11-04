@@ -849,6 +849,16 @@
     "moveDown": "Move later",
     "shotNote": "Resized to at most 1600 px wide before upload.",
     "primaryLabel": "Main file (optional)",
-    "primaryDesc": "Which file the big Download button gets in each version, as a pattern on the file name, e.g. *-linux-amd64.tar.gz. Empty = the largest file."
+    "primaryDesc": "Which file the big Download button gets in each version, as a pattern on the file name, e.g. *-linux-amd64.tar.gz. Empty = the largest file.",
+    "pick": "Choose from registries…",
+    "pickTitle": "Choose artifacts",
+    "pickHint": "Check a repository (images) or a folder or file (packages). A checked folder includes everything under it.",
+    "pickFilter": "Filter…",
+    "pickLoading": "Loading…",
+    "pickEmpty": "Nothing stored here.",
+    "pickError": "Cannot be browsed: {{error}}",
+    "pickApply": "Use selection",
+    "pickSelected": "{{count}} selected",
+    "pickTruncated": "Showing the first {{count}} entries; use the filter or type the path by hand."
   }
 }

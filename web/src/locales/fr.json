@@ -849,6 +849,16 @@
     "moveDown": "Déplacer après",
     "shotNote": "Redimensionnées à 1600 px de large maximum avant l’envoi.",
     "primaryLabel": "Fichier principal (facultatif)",
-    "primaryDesc": "Fichier obtenu par le gros bouton Télécharger dans chaque version, en motif sur le nom, ex. *-linux-amd64.tar.gz. Vide = le plus gros fichier."
+    "primaryDesc": "Fichier obtenu par le gros bouton Télécharger dans chaque version, en motif sur le nom, ex. *-linux-amd64.tar.gz. Vide = le plus gros fichier.",
+    "pick": "Choisir dans les registries…",
+    "pickTitle": "Choisir les artefacts",
+    "pickHint": "Cochez un dépôt (images) ou un dossier ou fichier (paquets). Un dossier coché inclut tout son contenu.",
+    "pickFilter": "Filtrer…",
+    "pickLoading": "Chargement…",
+    "pickEmpty": "Rien ici.",
+    "pickError": "Non explorable : {{error}}",
+    "pickApply": "Utiliser la sélection",
+    "pickSelected": "{{count}} sélectionnés",
+    "pickTruncated": "Les {{count}} premières entrées sont affichées ; utilisez le filtre ou saisissez le chemin."
   }
 }

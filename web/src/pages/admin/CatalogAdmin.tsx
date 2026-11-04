@@ -7,6 +7,7 @@ import {
 } from "../../components/ui";
 import { api, fetchImageUrl } from "../../lib/api";
 import AppIcon from "../../components/AppIcon";
+import ArtifactPicker from "../../components/ArtifactPicker";
 import { IconPlus } from "../../components/icons";
 
 type Artifact = { registry: string; ref: string; tag: string; label: string; primary?: string; position?: number };
@@ -197,6 +198,7 @@ export default function CatalogAdmin() {
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<App | null>(null);
+  const [picking, setPicking] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () =>
@@ -233,6 +235,32 @@ export default function CatalogAdmin() {
     setFormErr(null);
     setOpen(true);
   };
+  // Same thing, however it was typed: an image repository has no trailing slash.
+  const sameRef = (registry: string, a: string, b: string) =>
+    fmt(registry) === "oci" ? a.replace(/\/+$/, "") === b.replace(/\/+$/, "") : a === b;
+
+  // The picker owns the registries it could browse: those entries follow the
+  // checkboxes (keeping label, tag and main file of what stays), while entries
+  // of registries it could not open are left untouched.
+  const applyPick = (checked: { registry: string; ref: string }[], browsed: string[]) => {
+    const kept = form.artifacts.filter((a) => !browsed.includes(a.registry));
+    const next: Artifact[] = [...kept];
+    for (const c of checked) {
+      if (!browsed.includes(c.registry)) continue;
+      const prev = form.artifacts.find((a) => a.registry === c.registry && sameRef(c.registry, a.ref, c.ref));
+      next.push(
+        prev ?? {
+          registry: c.registry,
+          ref: c.ref,
+          tag: "",
+          label: c.ref.replace(/\/+$/, "").split("/").pop() || c.ref,
+          primary: "",
+        },
+      );
+    }
+    setForm({ ...form, artifacts: next });
+  };
+
   const setArt = (i: number, patch: Partial<Artifact>) =>
     setForm({ ...form, artifacts: form.artifacts.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
 
@@ -397,9 +425,14 @@ export default function CatalogAdmin() {
                 <Text fw={600}>{t("catalogAdmin.artifactsTitle")}</Text>
                 <Text size="xs" c="dimmed">{t("catalogAdmin.artifactsDesc")} {t("catalogAdmin.primaryDesc")}</Text>
               </div>
-              <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setForm({ ...form, artifacts: [...form.artifacts, { registry: regs[0]?.name || "", ref: "", tag: "", label: "" }] })}>
-                {t("catalogAdmin.addArtifact")}
-              </Button>
+              <Group gap="xs">
+                <Button size="xs" variant="light" onClick={() => setPicking(true)}>
+                  {t("catalogAdmin.pick")}
+                </Button>
+                <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setForm({ ...form, artifacts: [...form.artifacts, { registry: regs[0]?.name || "", ref: "", tag: "", label: "" }] })}>
+                  {t("catalogAdmin.addArtifact")}
+                </Button>
+              </Group>
             </Group>
             {form.artifacts.length === 0 && <Alert color="yellow" variant="light">{t("catalogAdmin.noArtifacts")}</Alert>}
             {form.artifacts.map((a, i) => (
@@ -457,6 +490,14 @@ export default function CatalogAdmin() {
           </FormFooter>
         </Stack>
       </Modal>
+
+      <ArtifactPicker
+        opened={picking}
+        registries={regs}
+        selected={form.artifacts.filter((a) => a.ref.trim()).map((a) => ({ registry: a.registry, ref: a.ref }))}
+        onApply={applyPick}
+        onClose={() => setPicking(false)}
+      />
 
       <ConfirmModal
         opened={!!confirmDel}

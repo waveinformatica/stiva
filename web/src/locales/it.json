@@ -849,6 +849,16 @@
     "moveDown": "Sposta dopo",
     "shotNote": "Ridimensionate a 1600 px di larghezza al massimo prima del caricamento.",
     "primaryLabel": "File principale (facoltativo)",
-    "primaryDesc": "Quale file ottiene il pulsante Scarica in ogni versione, come pattern sul nome, es. *-linux-amd64.tar.gz. Vuoto = il file più grande."
+    "primaryDesc": "Quale file ottiene il pulsante Scarica in ogni versione, come pattern sul nome, es. *-linux-amd64.tar.gz. Vuoto = il file più grande.",
+    "pick": "Scegli dai registry…",
+    "pickTitle": "Scegli gli artefatti",
+    "pickHint": "Spunta un repository (immagini) oppure una cartella o un file (pacchetti). Una cartella spuntata include tutto ciò che contiene.",
+    "pickFilter": "Filtra…",
+    "pickLoading": "Caricamento…",
+    "pickEmpty": "Qui non c’è niente.",
+    "pickError": "Non esplorabile: {{error}}",
+    "pickApply": "Usa la selezione",
+    "pickSelected": "{{count}} selezionati",
+    "pickTruncated": "Mostrate le prime {{count}} voci; usa il filtro o scrivi il percorso a mano."
   }
 }

@@ -9,14 +9,19 @@ import (
 	"registry/internal/storage"
 )
 
-func knownRegistries(names ...string) func(string) bool {
-	return func(n string) bool {
+// knownRegistries stands in for the registry lookup: "docker" is an OCI
+// registry, every other known name a raw one.
+func knownRegistries(names ...string) func(string) (string, bool) {
+	return func(n string) (string, bool) {
 		for _, k := range names {
 			if k == n {
-				return true
+				if n == "docker" {
+					return "oci", true
+				}
+				return "raw", true
 			}
 		}
-		return false
+		return "", false
 	}
 }
 
@@ -212,5 +217,29 @@ func TestPrimaryFilePatternPicksTheMainDownload(t *testing.T) {
 	a.Artifacts[0].Primary = "["
 	if err := validateCatalogApp(&a, knownRegistries("docker")); err == nil {
 		t.Error("an invalid glob was accepted")
+	}
+}
+
+func TestFolderPrefixKeepsItsTrailingSlash(t *testing.T) {
+	look := knownRegistries("docker", "files")
+	for _, c := range []struct{ registry, in, want string }{
+		{"files", "builds/", "builds/"}, // a folder stays a folder: it must not match builds-old/
+		{"files", "/builds//", "builds/"},
+		{"files", "builds/app-1.0.tar.gz", "builds/app-1.0.tar.gz"},
+		{"docker", "/acme/app/", "acme/app"}, // an image repository never has one
+	} {
+		a := goodApp()
+		a.Artifacts = []storage.CatalogArtifact{{Registry: c.registry, Ref: c.in}}
+		if err := validateCatalogApp(&a, look); err != nil {
+			t.Fatalf("%q: %v", c.in, err)
+		}
+		if a.Artifacts[0].Ref != c.want {
+			t.Errorf("%s %q -> %q, want %q", c.registry, c.in, a.Artifacts[0].Ref, c.want)
+		}
+	}
+	a := goodApp()
+	a.Artifacts = []storage.CatalogArtifact{{Registry: "files", Ref: " / "}}
+	if err := validateCatalogApp(&a, look); err == nil {
+		t.Error("an empty path was accepted")
 	}
 }
