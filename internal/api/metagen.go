@@ -81,7 +81,7 @@ func genPyPI(be registry.ArtifactBackend, p string) ([]byte, string, bool) {
 		var b strings.Builder
 		b.WriteString("<!DOCTYPE html><html><body>\n")
 		for _, n := range names {
-			b.WriteString(fmt.Sprintf(`<a href="/simple/%s/">%s</a><br/>`+"\n", n, n))
+			b.WriteString(fmt.Sprintf(`<a href="%s/">%s</a><br/>`+"\n", n, n))
 		}
 		b.WriteString("</body></html>\n")
 		return []byte(b.String()), "text/html", true
@@ -99,7 +99,8 @@ func genPyPI(be registry.ArtifactBackend, p string) ([]byte, string, bool) {
 		b.WriteString("<!DOCTYPE html><html><body>\n")
 		for _, o := range objs {
 			base := path.Base(o)
-			b.WriteString(fmt.Sprintf(`<a href="/%s">%s</a><br/>`+"\n", o, base))
+			// Relative to /simple/<name>/ so the link holds under any base path.
+			b.WriteString(fmt.Sprintf(`<a href="../../%s">%s</a><br/>`+"\n", o, base))
 		}
 		b.WriteString("</body></html>\n")
 		return []byte(b.String()), "text/html", true
@@ -132,16 +133,13 @@ func genGo(be registry.ArtifactBackend, p string) ([]byte, string, bool) {
 		if err != nil {
 			return nil, "", false
 		}
-		best := ""
+		var versions []string
 		for _, o := range objs {
-			base := path.Base(o)
-			if strings.HasSuffix(base, ".info") {
-				v := strings.TrimSuffix(base, ".info")
-				if v > best {
-					best = v
-				}
+			if base := path.Base(o); strings.HasSuffix(base, ".info") {
+				versions = append(versions, strings.TrimSuffix(base, ".info"))
 			}
 		}
+		best := latestGoVersion(versions)
 		if best == "" {
 			return nil, "", false
 		}
@@ -726,4 +724,24 @@ func extractControl(be registry.ArtifactBackend, p string) (map[string]string, e
 		return nil, err
 	}
 	return extractControlBytes(data)
+}
+
+// latestGoVersion is what @latest names: the highest release by semantic
+// version ("v1.10.0" is newer than "v1.9.0"), and only when there is no
+// release the highest pre-release. Plain string order gets both wrong.
+func latestGoVersion(versions []string) string {
+	best, bestPre := "", ""
+	for _, v := range versions {
+		if registry.IsPreRelease(v) {
+			if bestPre == "" || registry.CompareVersions(v, bestPre) > 0 {
+				bestPre = v
+			}
+		} else if best == "" || registry.CompareVersions(v, best) > 0 {
+			best = v
+		}
+	}
+	if best != "" {
+		return best
+	}
+	return bestPre
 }

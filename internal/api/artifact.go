@@ -180,8 +180,20 @@ func (h *Handler) artifactGet(c *gin.Context, be registry.ArtifactBackend, reg *
 }
 
 func (h *Handler) artifactPut(c *gin.Context, be registry.ArtifactBackend, reg *registry.Registry, p string) {
+	// `twine upload` posts a multipart form to the repository root.
+	if registry.Format(reg.Format) == registry.FormatPyPI && registry.Type(reg.Type) == registry.TypeHosted &&
+		c.Request.Method == http.MethodPost && strings.HasPrefix(c.GetHeader("Content-Type"), "multipart/form-data") {
+		h.pypiUpload(c, be, reg)
+		return
+	}
 	if p == "" {
 		c.JSON(http.StatusBadRequest, errorBody("INVALID", "object path is required"))
+		return
+	}
+	// `npm publish` sends one JSON document carrying the tarball; unpack it.
+	if registry.Format(reg.Format) == registry.FormatNpm && registry.Type(reg.Type) == registry.TypeHosted &&
+		!strings.Contains(p, "/-/") && strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
+		h.npmPublish(c, be, reg, p)
 		return
 	}
 	ct := c.GetHeader("Content-Type")
@@ -263,7 +275,7 @@ func (h *Handler) maybeGenerateMetadata(c *gin.Context, be registry.ArtifactBack
 		return false
 	case registry.FormatNpm:
 		if isNpmMetaPath(p) {
-			body, err := generateNpmMetadata(be, p)
+			body, err := generateNpmMetadata(be, p, h.endpointURL(c, reg))
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 				return true
@@ -397,52 +409,6 @@ func generateMavenMetadata(be registry.ArtifactBackend, p string) ([]byte, error
 	return []byte(b.String()), nil
 }
 
-func generateNpmMetadata(be registry.ArtifactBackend, pkg string) ([]byte, error) {
-	prefix := pkg + "/-/"
-	objs, err := be.List(prefix)
-	if err != nil {
-		return nil, err
-	}
-	versions := map[string]json.RawMessage{}
-	latest := ""
-	for _, o := range objs {
-		if !strings.HasSuffix(o, ".tgz") {
-			continue
-		}
-		rc, _, _, err := be.Get(o)
-		if err != nil {
-			continue
-		}
-		pkgJSON, err := extractPackageJSON(rc)
-		rc.Close()
-		if err != nil {
-			continue
-		}
-		ver, _ := pkgJSON["version"].(string)
-		if ver == "" {
-			continue
-		}
-		raw, _ := json.Marshal(pkgJSON)
-		versions[ver] = raw
-		if ver > latest {
-			latest = ver
-		}
-	}
-	doc := map[string]interface{}{
-		"name":        pkg,
-		"versions":    versions,
-		"dist-tags":   map[string]string{"latest": latest},
-		"_attachment": len(versions),
-	}
-	body, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
-}
-
-// extractPackageJSON reads a gzipped tarball and returns the package.json found
-// under the package/ directory.
 func extractPackageJSON(r io.Reader) (map[string]interface{}, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {

@@ -396,6 +396,7 @@ func (h *Handler) uiBlobTagsFor(c *gin.Context, repo, ref string) {
 	}
 	c.JSON(http.StatusOK, gin.H{"repo": repo, "digest": d.String(), "tags": tags})
 }
+
 // the build attestation when the push carried it, otherwise a reconstruction
 // from the image config history. Empty content means neither is available.
 // Reads go through the same access check as manifests.

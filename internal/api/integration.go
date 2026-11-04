@@ -100,6 +100,7 @@ func setupSnippets(format registry.Format, ep string) []snippet {
 		return []snippet{
 			{"pip (pip.conf)", "ini", fenced("[global]", "index-url = "+ep+"/simple/"), authNote},
 			{"One-off", "bash", "pip install --index-url " + ep + "/simple/ <package>", ""},
+			{"Publish (twine)", "bash", "twine upload --repository-url " + ep + "/ dist/*", authNote},
 		}
 	case registry.FormatGo:
 		return []snippet{{"Go", "bash", fenced(
