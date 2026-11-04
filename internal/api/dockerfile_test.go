@@ -40,11 +40,11 @@ func TestDockerfileFromStatement(t *testing.T) {
 
 func TestDockerfileFromHistory(t *testing.T) {
 	cfg := `{"history":[
-		{"createdBy":"ADD file:abc in / "},
-		{"createdBy":"/bin/sh -c #(nop)  CMD [\"sh\"]"},
-		{"createdBy":"/bin/sh -c apk add curl"},
-		{"createdBy":""},
-		{"createdBy":"WORKDIR /app"}
+		{"created_by":"ADD file:abc in / "},
+		{"created_by":"/bin/sh -c #(nop)  CMD [\"sh\"]"},
+		{"created_by":"/bin/sh -c apk add curl"},
+		{"created_by":""},
+		{"created_by":"WORKDIR /app"}
 	]}`
 	got := dockerfileFromHistory([]byte(cfg))
 	want := []string{"ADD file:abc in /", `CMD ["sh"]`, "RUN apk add curl", "WORKDIR /app"}
@@ -80,5 +80,18 @@ func TestPlatformManifests(t *testing.T) {
 	}
 	if got := platformManifests([]byte(`non json`)); len(got) != 0 {
 		t.Errorf("json invalido = %v, atteso vuoto", got)
+	}
+}
+
+func TestDockerfileFromBuildkitMetadata(t *testing.T) {
+	df := "FROM alpine\nRUN true\n"
+	b := base64.StdEncoding.EncodeToString([]byte(df))
+	raw := `{"predicate":{"metadata":{"https://mobyproject.org/buildkit@v1#metadata":{"source":{"infos":[{"filename":"Dockerfile","data":"` + b + `"}]}}}}}`
+	if got := dockerfileFromStatement([]byte(raw)); got != df {
+		t.Errorf("v0.2 = %q", got)
+	}
+	raw = `{"predicate":{"buildDefinition":{"internalParameters":{"buildkit_metadata":{"source":{"infos":[{"filename":"Dockerfile","data":"` + b + `"}]}}}}}}`
+	if got := dockerfileFromStatement([]byte(raw)); got != df {
+		t.Errorf("v1 = %q", got)
 	}
 }

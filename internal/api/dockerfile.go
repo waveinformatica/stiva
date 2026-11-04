@@ -189,14 +189,66 @@ func dockerfileFromStatement(raw []byte) string {
 			} `json:"buildDefinition"`
 		} `json:"predicate"`
 	}
-	if json.Unmarshal(stmt, &stt) != nil || stt.Predicate.BuildDefinition.Definition == "" {
+	if json.Unmarshal(stmt, &stt) == nil && stt.Predicate.BuildDefinition.Definition != "" {
+		if df, err := decodeB64(stt.Predicate.BuildDefinition.Definition); err == nil {
+			return string(df)
+		}
+	}
+	return buildkitSourceDockerfile(stmt)
+}
+
+// buildkitSourceDockerfile reads the Dockerfile as BuildKit really records
+// it: metadata["https://mobyproject.org/buildkit@v1#metadata"].source.infos[]
+// {filename, data(base64)}. SLSA v0.2 keeps it under predicate.metadata, v1
+// under predicate.buildDefinition.internalParameters.
+func buildkitSourceDockerfile(stmt []byte) string {
+	const key = "https://mobyproject.org/buildkit@v1#metadata"
+	type meta struct {
+		Source struct {
+			Infos []struct {
+				Filename string `json:"filename"`
+				Data     string `json:"data"`
+			} `json:"infos"`
+		} `json:"source"`
+	}
+	var stt struct {
+		Predicate struct {
+			Metadata        map[string]meta `json:"metadata"`
+			BuildDefinition struct {
+				Internal map[string]json.RawMessage `json:"internalParameters"`
+			} `json:"buildDefinition"`
+		} `json:"predicate"`
+	}
+	if json.Unmarshal(stmt, &stt) != nil {
 		return ""
 	}
-	df, err := decodeB64(stt.Predicate.BuildDefinition.Definition)
-	if err != nil {
-		return ""
+	candidates := []meta{}
+	if m, ok := stt.Predicate.Metadata[key]; ok {
+		candidates = append(candidates, m)
 	}
-	return string(df)
+	for _, raw := range stt.Predicate.BuildDefinition.Internal {
+		var m meta
+		if json.Unmarshal(raw, &m) == nil {
+			candidates = append(candidates, m)
+		}
+		var wrap map[string]meta
+		if json.Unmarshal(raw, &wrap) == nil {
+			if m, ok := wrap[key]; ok {
+				candidates = append(candidates, m)
+			}
+		}
+	}
+	for _, m := range candidates {
+		for _, in := range m.Source.Infos {
+			if in.Data == "" || !strings.Contains(strings.ToLower(in.Filename), "dockerfile") {
+				continue
+			}
+			if df, err := decodeB64(in.Data); err == nil {
+				return string(df)
+			}
+		}
+	}
+	return ""
 }
 
 // historyDockerfile rebuilds a Dockerfile from the image config history.
@@ -223,7 +275,7 @@ func historyDockerfile(be registry.Backend, repo, cfgDigestRef string) string {
 func dockerfileFromHistory(raw []byte) string {
 	var cfg struct {
 		History []struct {
-			CreatedBy string `json:"createdBy"`
+			CreatedBy string `json:"created_by"`
 			Comment   string `json:"comment"`
 		} `json:"history"`
 	}
