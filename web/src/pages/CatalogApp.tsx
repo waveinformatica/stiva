@@ -14,6 +14,7 @@ type PackageV = {
   others?: VersionV[];
   usage?: Snippet[];
   download?: Snippet[];
+  unversioned?: boolean;
 };
 type Artifact = {
   registry: string;
@@ -79,6 +80,26 @@ function VersionRow({ registry, v, onError }: { registry: string; v: VersionV; o
 function PackageBlock({ registry, p, showName, onError }: { registry: string; p: PackageV; showName: boolean; onError: (m: string) => void }) {
   const { t } = useTranslation();
   const [more, setMore] = useState(false);
+  if (p.unversioned) {
+    // Plain files with no version in the name: list them, with no "latest".
+    return (
+      <Stack gap="xs">
+        <Text size="sm" fw={600}>
+          {t("catalog.otherFiles")}
+        </Text>
+        {p.latest.files.map((f) => (
+          <Group key={f.path} justify="space-between" wrap="nowrap">
+            <Text size="sm" truncate>
+              {base(f.path)} {f.size ? <Text span c="dimmed">· {size(f.size)}</Text> : null}
+            </Text>
+            <Button size="compact-xs" variant="subtle" onClick={() => downloadArtifact(registry, f.path).catch((e) => onError(e.message))}>
+              {t("catalog.download")}
+            </Button>
+          </Group>
+        ))}
+      </Stack>
+    );
+  }
   const extra = p.latest.files.filter((f) => f.path !== p.latest.primary && !/\.(sha\d+|md5|asc|sig)$/.test(f.path));
   return (
     <Stack gap="xs">
@@ -302,14 +323,17 @@ function ArtifactSection({ a }: { a: Artifact }) {
 // The one thing most visitors came for: the newest version, one click away.
 function PrimaryAction({ app, onError }: { app: AppDetail; onError: (m: string) => void }) {
   const { t } = useTranslation();
-  for (const a of app.artifacts) {
-    const p = a.packages?.[0];
-    if (a.kind === "files" && p) {
-      return (
-        <Button size="md" onClick={() => downloadArtifact(a.registry, p.latest.primary).catch((e) => onError(e.message))}>
-          {t("catalog.downloadVersion", { version: p.latest.version })}
-        </Button>
-      );
+  // A real version first; failing that, the main plain file (a lone setup.exe).
+  for (const wantVersioned of [true, false]) {
+    for (const a of app.artifacts) {
+      const p = a.packages?.find((x) => !x.unversioned === wantVersioned);
+      if (a.kind === "files" && p && p.latest.primary) {
+        return (
+          <Button size="md" onClick={() => downloadArtifact(a.registry, p.latest.primary).catch((e) => onError(e.message))}>
+            {wantVersioned ? t("catalog.downloadVersion", { version: p.latest.version }) : `${t("catalog.download")} ${base(p.latest.primary)}`}
+          </Button>
+        );
+      }
     }
   }
   const img = app.artifacts.find((a) => a.kind === "image" && a.pull_host);

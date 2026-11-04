@@ -804,7 +804,8 @@
     "directDownload": "Download direto",
     "registryAddress": "Endereço do registry",
     "runTitle": "Execute a imagem",
-    "noIntegration": "Nada a configurar: baixe os arquivos diretamente."
+    "noIntegration": "Nada a configurar: baixe os arquivos diretamente.",
+    "otherFiles": "Outros arquivos"
   },
   "catalogAdmin": {
     "title": "Gestão do catálogo",

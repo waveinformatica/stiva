@@ -804,7 +804,8 @@
     "directDownload": "Direct download",
     "registryAddress": "Registry address",
     "runTitle": "Run the image",
-    "noIntegration": "Nothing to configure: download the files directly."
+    "noIntegration": "Nothing to configure: download the files directly.",
+    "otherFiles": "Other files"
   },
   "catalogAdmin": {
     "title": "Catalog editor",

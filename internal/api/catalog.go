@@ -288,6 +288,9 @@ type packageView struct {
 	// Usage is how to depend on the latest version; Download fetches its main file.
 	Usage    []snippet `json:"usage,omitempty"`
 	Download []snippet `json:"download,omitempty"`
+	// Unversioned marks a package made of plain files with no version in their
+	// names (a manifest.json): there is no "latest version" to speak of.
+	Unversioned bool `json:"unversioned,omitempty"`
 }
 
 func (h *Handler) describeArtifact(c *gin.Context, reg *registry.Registry, ar storage.CatalogArtifact) artifactView {
@@ -570,13 +573,10 @@ func buildPackages(format registry.Format, infos []storage.ObjectInfo, primaryPa
 		sizes[o.Path] = o.Size
 	}
 	names, byPkg := groupPackages(format, infos)
-	var out []packageView
+	out := make([]packageView, 0, len(names))
 	for _, n := range names {
-		if len(out) >= maxPackages {
-			break
-		}
 		us := byPkg[n]
-		pv := packageView{Name: n, Latest: versionOf(us[0], sizes, primaryPattern)}
+		pv := packageView{Name: n, Latest: versionOf(us[0], sizes, primaryPattern), Unversioned: unitTier(us[0].Version) == 0}
 		for _, u := range us[1:] {
 			if len(pv.Others) >= otherVersions {
 				break
@@ -585,7 +585,45 @@ func buildPackages(format registry.Format, infos []storage.ObjectInfo, primaryPa
 		}
 		out = append(out, pv)
 	}
+	// The first package is the one the page offers as "the" download, so the
+	// order matters: packages whose latest files match the main-file pattern
+	// first, then real versions before plain files with no version in the name
+	// (a manifest.json next to an extension), then by name.
+	matched := func(p packageView) bool {
+		return primaryPattern != "" && matchesPrimary(p.Latest.Files, primaryPattern)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if ma, mb := matched(a), matched(b); ma != mb {
+			return ma
+		}
+		if ta, tb := unitTier(a.Latest.Version), unitTier(b.Latest.Version); ta != tb {
+			return ta > tb
+		}
+		return a.Name < b.Name
+	})
+	if len(out) > maxPackages {
+		out = out[:maxPackages]
+	}
 	return out
+}
+
+// matchesPrimary reports whether any (non-checksum) file matches the pattern.
+func matchesPrimary(files []fileView, pattern string) bool {
+	pat := strings.ToLower(pattern)
+	for _, f := range files {
+		skip := false
+		for _, suf := range companionSuffix {
+			skip = skip || strings.HasSuffix(f.Path, suf)
+		}
+		if skip {
+			continue
+		}
+		if ok, _ := path.Match(pat, strings.ToLower(path.Base(f.Path))); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // groupPackages folds stored objects into packages, each with its versions

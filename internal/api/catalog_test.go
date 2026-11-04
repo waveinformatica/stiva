@@ -243,3 +243,31 @@ func TestFolderPrefixKeepsItsTrailingSlash(t *testing.T) {
 		t.Error("an empty path was accepted")
 	}
 }
+
+func TestVersionedPackageOutranksAPlainSidecarFile(t *testing.T) {
+	// A folder holding an extension, its checksum and a manifest: the manifest
+	// has no version in its name, so it is a unit of its own in the folder's
+	// package. It must not become the "main download" just because the folder
+	// name sorts before the extension's package name.
+	infos := []storage.ObjectInfo{
+		{Path: "vscode/acme-ext-1.4.0.vsix", Size: 900000, CreatedAt: 5},
+		{Path: "vscode/acme-ext-1.4.0.vsix.sha256", Size: 64, CreatedAt: 5},
+		{Path: "vscode/manifest.json", Size: 300, CreatedAt: 6},
+	}
+	for _, pattern := range []string{"*.vsix", ""} {
+		pk := buildPackages(registry.FormatRaw, infos, pattern)
+		if len(pk) == 0 || pk[0].Latest.Primary != "vscode/acme-ext-1.4.0.vsix" {
+			var got string
+			if len(pk) > 0 {
+				got = pk[0].Latest.Primary
+			}
+			t.Errorf("pattern %q: first package offers %q, want the .vsix", pattern, got)
+		}
+	}
+	// The pattern, when set, decides even against a versioned package that does not match.
+	infos = append(infos, storage.ObjectInfo{Path: "vscode/tool-9.0.0.zip", Size: 5, CreatedAt: 7})
+	pk := buildPackages(registry.FormatRaw, infos, "*.vsix")
+	if pk[0].Latest.Primary != "vscode/acme-ext-1.4.0.vsix" {
+		t.Errorf("with a pattern the matching package must come first, got %q", pk[0].Latest.Primary)
+	}
+}
