@@ -302,3 +302,36 @@ export async function fetchImageUrl(slug: string, id: number): Promise<string> {
   if (!res.ok) throw new ApiError(res.statusText || "image unavailable", res.status);
   return URL.createObjectURL(await res.blob());
 }
+
+/** Upload one file to a path-addressed registry from the page. Uses XHR for
+ *  upload progress, and carries the caller's token (a guest cannot upload). */
+export function uploadArtifact(
+  registry: string,
+  dir: string,
+  file: File,
+  overwrite: boolean,
+  onProgress: (fraction: number) => void,
+): Promise<{ path: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const q = new URLSearchParams({ registry, path: dir, name: file.name });
+    if (overwrite) q.set("overwrite", "1");
+    xhr.open("PUT", `/api/v1/artifact?${q.toString()}`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", "Bearer " + token);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onerror = () => reject(new ApiError("network error", 0));
+    xhr.onload = () => {
+      let body: any = {};
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        /* not JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new ApiError(body.error || xhr.statusText || "upload failed", xhr.status));
+    };
+    xhr.send(file);
+  });
+}

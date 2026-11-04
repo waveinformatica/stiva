@@ -150,7 +150,7 @@ function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
           <Route path="/catalog" element={<Catalog anonymous={user.anonymous} onSignIn={logout} />} />
           <Route path="/catalog/:slug" element={<CatalogApp />} />
           <Route path="/admin/catalog" element={<CatalogAdmin />} />
-          <Route path="/explorer" element={<Explorer />} />
+          <Route path="/explorer" element={<Explorer anonymous={user.anonymous} />} />
           <Route path="/apikeys" element={<ApiKeys anonymous={user.anonymous} />} />
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/service-accounts" element={<ServiceAccounts />} />

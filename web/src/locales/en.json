@@ -861,5 +861,27 @@
     "pickApply": "Use selection",
     "pickSelected": "{{count}} selected",
     "pickTruncated": "Showing the first {{count}} entries; use the filter or type the path by hand."
+  },
+  "upload": {
+    "button": "Upload",
+    "title": "Upload to {{registry}}",
+    "drop": "Drop files here, or",
+    "choose": "choose files",
+    "destination": "Destination folder",
+    "destinationDesc": "Leave empty for the root of the registry, or give a path like builds/linux/.",
+    "overwrite": "Replace files that already exist",
+    "start": "Upload {{count}} files",
+    "close": "Close",
+    "queued": "Waiting",
+    "uploading": "Uploading…",
+    "done": "Uploaded as {{path}}",
+    "failed": "Failed: {{error}}",
+    "signIn": "Sign in to upload files.",
+    "hintNpm": "Upload the tarball made by `npm pack` (.tgz). It is filed under its own name and version; a published version cannot be replaced.",
+    "hintPypi": "Upload wheels or source distributions (.whl, .tar.gz). Each is filed under its project; a published file cannot be replaced.",
+    "hintConan": "Conan packages are uploaded with `conan upload`, not from the page.",
+    "hintMaven": "Give the folder in Maven layout, e.g. org/acme/lib/1.0/, and upload the jar, pom and checksums.",
+    "hintP2": "Bundles go in plugins/ and features/; the repository index is generated from them.",
+    "hintDefault": "Files are stored as they are, under the folder you give."
   }
 }

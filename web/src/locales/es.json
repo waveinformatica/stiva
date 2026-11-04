@@ -861,5 +861,27 @@
     "pickApply": "Usar la selección",
     "pickSelected": "{{count}} seleccionados",
     "pickTruncated": "Se muestran las primeras {{count}} entradas; usa el filtro o escribe la ruta a mano."
+  },
+  "upload": {
+    "button": "Subir",
+    "title": "Subir a {{registry}}",
+    "drop": "Suelta archivos aquí, o",
+    "choose": "elige archivos",
+    "destination": "Carpeta de destino",
+    "destinationDesc": "Déjalo vacío para la raíz del registry, o indica una ruta como builds/linux/.",
+    "overwrite": "Reemplazar archivos existentes",
+    "start": "Subir {{count}} archivos",
+    "close": "Cerrar",
+    "queued": "En espera",
+    "uploading": "Subiendo…",
+    "done": "Subido como {{path}}",
+    "failed": "Fallido: {{error}}",
+    "signIn": "Inicia sesión para subir archivos.",
+    "hintNpm": "Sube el tarball creado por `npm pack` (.tgz). Se archiva con su nombre y versión; una versión publicada no se puede reemplazar.",
+    "hintPypi": "Sube wheels o distribuciones fuente (.whl, .tar.gz). Cada una se archiva en su proyecto; un archivo publicado no se puede reemplazar.",
+    "hintConan": "Los paquetes Conan se suben con `conan upload`, no desde la página.",
+    "hintMaven": "Indica la carpeta con el diseño Maven, p. ej. org/acme/lib/1.0/, y sube jar, pom y checksums.",
+    "hintP2": "Los bundles van en plugins/ y features/; el índice del repositorio se genera a partir de ellos.",
+    "hintDefault": "Los archivos se guardan tal cual, en la carpeta indicada."
   }
 }

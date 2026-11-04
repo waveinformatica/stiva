@@ -861,5 +861,27 @@
     "pickApply": "Auswahl übernehmen",
     "pickSelected": "{{count}} ausgewählt",
     "pickTruncated": "Es werden die ersten {{count}} Einträge gezeigt; Filter nutzen oder Pfad von Hand eingeben."
+  },
+  "upload": {
+    "button": "Hochladen",
+    "title": "Hochladen nach {{registry}}",
+    "drop": "Dateien hier ablegen oder",
+    "choose": "Dateien wählen",
+    "destination": "Zielordner",
+    "destinationDesc": "Leer lassen für das Stammverzeichnis der Registry oder einen Pfad wie builds/linux/ angeben.",
+    "overwrite": "Vorhandene Dateien ersetzen",
+    "start": "{{count}} Dateien hochladen",
+    "close": "Schließen",
+    "queued": "Wartet",
+    "uploading": "Wird hochgeladen…",
+    "done": "Hochgeladen als {{path}}",
+    "failed": "Fehlgeschlagen: {{error}}",
+    "signIn": "Melden Sie sich an, um Dateien hochzuladen.",
+    "hintNpm": "Laden Sie das von `npm pack` erzeugte Tarball (.tgz) hoch. Es wird unter Name und Version abgelegt; eine veröffentlichte Version lässt sich nicht ersetzen.",
+    "hintPypi": "Laden Sie Wheels oder Quellverteilungen (.whl, .tar.gz) hoch. Jede wird unter ihrem Projekt abgelegt; eine veröffentlichte Datei lässt sich nicht ersetzen.",
+    "hintConan": "Conan-Pakete werden mit `conan upload` hochgeladen, nicht über die Seite.",
+    "hintMaven": "Geben Sie den Ordner im Maven-Layout an, z. B. org/acme/lib/1.0/, und laden Sie Jar, Pom und Prüfsummen hoch.",
+    "hintP2": "Bundles gehören in plugins/ und features/; der Repository-Index wird daraus erzeugt.",
+    "hintDefault": "Dateien werden unverändert im angegebenen Ordner gespeichert."
   }
 }

@@ -28,7 +28,7 @@ type SearchResult = {
   kind: string;
 };
 
-export default function Explorer() {
+export default function Explorer({ anonymous = false }: { anonymous?: boolean }) {
   const { t } = useTranslation();
   const [regs, setRegs] = useState<Reg[]>([]);
   const [registry, setRegistry] = useState("");
@@ -114,7 +114,7 @@ export default function Explorer() {
                 focusRepo={focus}
               />
             ) : (
-              <PackageBrowser registry={registry} format={selected.format} />
+              <PackageBrowser registry={registry} format={selected.format} anonymous={anonymous} />
             )
           ) : (
             <Text c="dimmed" size="sm">

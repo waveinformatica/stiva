@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"registry/internal/registry"
 )
 
 func makeTgz(t *testing.T, name, version string) []byte {
@@ -142,6 +144,38 @@ func TestLatestGoVersion(t *testing.T) {
 	} {
 		if got := latestGoVersion(c.in); got != c.want {
 			t.Errorf("latestGoVersion(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestWebUploadTarget(t *testing.T) {
+	tgz := makeTgz(t, "@acme/hello", "1.2.3")
+	cases := []struct {
+		format    registry.Format
+		dir, file string
+		data      []byte
+		want      string
+		ok        bool
+	}{
+		{registry.FormatRaw, "", "setup.exe", nil, "setup.exe", true},
+		{registry.FormatRaw, "builds/linux/", "app-1.0.tar.gz", nil, "builds/linux/app-1.0.tar.gz", true},
+		{registry.FormatRaw, "/a//b/", "f.txt", nil, "a/b/f.txt", true},
+		{registry.FormatRaw, "../etc", "passwd", nil, "", false},
+		{registry.FormatRaw, "a/./b", "f", nil, "", false},
+		{registry.FormatRaw, "", "../../x", nil, "x", true}, // only the base name of the upload counts
+		{registry.FormatMaven, "org/acme/lib/1.0/", "lib-1.0.jar", nil, "org/acme/lib/1.0/lib-1.0.jar", true},
+		{registry.FormatNpm, "ignored", "acme-hello-1.2.3.tgz", tgz, "@acme/hello/-/hello-1.2.3.tgz", true},
+		{registry.FormatNpm, "", "x.zip", tgz, "", false},
+		{registry.FormatNpm, "", "x.tgz", []byte("junk"), "", false},
+		{registry.FormatPyPI, "ignored", "My_Pkg-1.0-py3-none-any.whl", nil, "my-pkg/My_Pkg-1.0-py3-none-any.whl", true},
+		{registry.FormatPyPI, "", "readme.txt", nil, "", false},
+		{registry.FormatConan, "", "conanfile.py", nil, "", false},
+		{registry.FormatDocker, "", "x", nil, "", false},
+	}
+	for _, c := range cases {
+		got, err := webUploadTarget(c.format, c.dir, c.file, c.data)
+		if (err == nil) != c.ok || got != c.want {
+			t.Errorf("%s dir=%q file=%q = (%q, %v), want (%q, ok=%v)", c.format, c.dir, c.file, got, err, c.want, c.ok)
 		}
 	}
 }

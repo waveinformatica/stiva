@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Badge, Button, Card, Code, Group, Loader, ScrollArea, Stack, Tabs, Text, TextInput } from "@mantine/core";
 import { api } from "../lib/api";
 import { ErrorAlert } from "./ui";
+import UploadModal from "./UploadModal";
 import { IconRefresh, IconSearch } from "./icons";
 import { SnippetTabs, VersionList, fmtSize, isPre, type Snippet, type VersionV } from "./ArtifactParts";
 
@@ -21,7 +22,7 @@ type Detail = {
 // reads the stored paths the way each format lays them out, so the same view
 // fits every format: packages on the left; versions, files and how to use them
 // on the right.
-export default function PackageBrowser({ registry, format }: { registry: string; format: string }) {
+export default function PackageBrowser({ registry, format, anonymous = false }: { registry: string; format: string; anonymous?: boolean }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Row[]>([]);
   const [endpoint, setEndpoint] = useState("");
@@ -31,6 +32,8 @@ export default function PackageBrowser({ registry, format }: { registry: string;
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = () => {
     setLoading(true);
@@ -65,7 +68,7 @@ export default function PackageBrowser({ registry, format }: { registry: string;
     return () => {
       live = false;
     };
-  }, [registry, selected]);
+  }, [registry, selected, reloadKey]);
 
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -83,7 +86,21 @@ export default function PackageBrowser({ registry, format }: { registry: string;
         <Button variant="default" size="xs" leftSection={<IconRefresh size={14} />} onClick={load} loading={loading}>
           {t("common.refresh")}
         </Button>
+        <Button size="xs" onClick={() => setUploading(true)}>
+          {t("upload.button")}
+        </Button>
       </Group>
+      <UploadModal
+        opened={uploading}
+        registry={registry}
+        format={format}
+        anonymous={anonymous}
+        onClose={() => setUploading(false)}
+        onUploaded={() => {
+          load();
+          setReloadKey((k) => k + 1); // re-read the package that is open
+        }}
+      />
       {err && <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>}
 
       <div style={{ display: "grid", gap: "var(--mantine-spacing-md)", gridTemplateColumns: "minmax(240px, 340px) minmax(0, 1fr)", alignItems: "start" }} className="stiva-pkg-grid">

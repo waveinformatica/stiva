@@ -861,5 +861,27 @@
     "pickApply": "Utiliser la sélection",
     "pickSelected": "{{count}} sélectionnés",
     "pickTruncated": "Les {{count}} premières entrées sont affichées ; utilisez le filtre ou saisissez le chemin."
+  },
+  "upload": {
+    "button": "Téléverser",
+    "title": "Téléverser vers {{registry}}",
+    "drop": "Déposez des fichiers ici, ou",
+    "choose": "choisissez des fichiers",
+    "destination": "Dossier de destination",
+    "destinationDesc": "Laissez vide pour la racine du registry, ou indiquez un chemin comme builds/linux/.",
+    "overwrite": "Remplacer les fichiers existants",
+    "start": "Téléverser {{count}} fichiers",
+    "close": "Fermer",
+    "queued": "En attente",
+    "uploading": "Envoi…",
+    "done": "Envoyé comme {{path}}",
+    "failed": "Échec : {{error}}",
+    "signIn": "Connectez-vous pour téléverser.",
+    "hintNpm": "Téléversez le tarball créé par `npm pack` (.tgz). Il est rangé sous son nom et sa version ; une version publiée ne peut pas être remplacée.",
+    "hintPypi": "Téléversez des wheels ou distributions source (.whl, .tar.gz). Chacun est rangé dans son projet ; un fichier publié ne peut pas être remplacé.",
+    "hintConan": "Les paquets Conan se téléversent avec `conan upload`, pas depuis la page.",
+    "hintMaven": "Indiquez le dossier au format Maven, ex. org/acme/lib/1.0/, et téléversez jar, pom et sommes.",
+    "hintP2": "Les bundles vont dans plugins/ et features/ ; l’index du dépôt en est généré.",
+    "hintDefault": "Les fichiers sont stockés tels quels, dans le dossier indiqué."
   }
 }

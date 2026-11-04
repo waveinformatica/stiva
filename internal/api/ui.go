@@ -40,6 +40,7 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.GET("/package", h.uiPackage)
 	v1.GET("/search", h.uiSearch)
 	v1.GET("/artifact", h.uiArtifact)
+	v1.PUT("/artifact", h.uiArtifactUpload)
 	v1.POST("/account/password", h.uiChangePassword)
 	v1.GET("/account/keys", h.accountListKeys)
 	v1.POST("/account/keys", h.accountCreateKey)

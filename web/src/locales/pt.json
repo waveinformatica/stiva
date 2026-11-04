@@ -861,5 +861,27 @@
     "pickApply": "Usar a seleção",
     "pickSelected": "{{count}} selecionados",
     "pickTruncated": "Mostrando as primeiras {{count}} entradas; use o filtro ou digite o caminho à mão."
+  },
+  "upload": {
+    "button": "Enviar",
+    "title": "Enviar para {{registry}}",
+    "drop": "Solte arquivos aqui, ou",
+    "choose": "escolha arquivos",
+    "destination": "Pasta de destino",
+    "destinationDesc": "Deixe vazio para a raiz do registry, ou informe um caminho como builds/linux/.",
+    "overwrite": "Substituir arquivos existentes",
+    "start": "Enviar {{count}} arquivos",
+    "close": "Fechar",
+    "queued": "Aguardando",
+    "uploading": "Enviando…",
+    "done": "Enviado como {{path}}",
+    "failed": "Falhou: {{error}}",
+    "signIn": "Entre para enviar arquivos.",
+    "hintNpm": "Envie o tarball criado por `npm pack` (.tgz). Ele é guardado com seu nome e versão; uma versão publicada não pode ser substituída.",
+    "hintPypi": "Envie wheels ou distribuições-fonte (.whl, .tar.gz). Cada uma é guardada em seu projeto; um arquivo publicado não pode ser substituído.",
+    "hintConan": "Pacotes Conan são enviados com `conan upload`, não pela página.",
+    "hintMaven": "Informe a pasta no layout Maven, ex.: org/acme/lib/1.0/, e envie jar, pom e checksums.",
+    "hintP2": "Os bundles vão em plugins/ e features/; o índice do repositório é gerado a partir deles.",
+    "hintDefault": "Os arquivos são guardados como estão, na pasta indicada."
   }
 }
