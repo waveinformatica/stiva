@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Title, Badge, Text, NavLink } from "@mantine/core";
+import { AppShell, Burger, Group, Title, Text, NavLink } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import UserMenu from "./UserMenu";
@@ -71,9 +71,6 @@ export default function AppShellLayout({
             <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label={t("nav.navigation")} />
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
             <Title order={4} fw={700}>Stiva</Title>
-            <Badge variant="light" color="indigo" visibleFrom="sm">
-              OCI
-            </Badge>
           </Group>
           <UserMenu user={user} setView={setView} onLogout={onLogout} />
         </Group>
