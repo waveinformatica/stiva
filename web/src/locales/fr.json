@@ -17,6 +17,7 @@
     "search": "Rechercher"
   },
   "nav": {
+    "account": "Compte",
     "administration": "Administration",
     "anonymous": "Accès anonyme",
     "anonymousAccess": "Accès anonyme",
@@ -30,11 +31,19 @@
     "logout": "Déconnexion",
     "navigation": "Navigation",
     "registries": "Registres",
+    "roleAdmin": "Administrateur",
+    "roleUser": "Utilisateur",
     "roles": "Rôles",
     "serviceAccounts": "Comptes de service",
     "settings": "Paramètres",
+    "signIn": "Se connecter",
+    "signedInAs": "Connecté en tant que",
     "sso": "Single sign-on",
     "stores": "Magasins de blobs",
+    "theme": "Thème",
+    "themeAuto": "Système",
+    "themeDark": "Sombre",
+    "themeLight": "Clair",
     "users": "Utilisateurs"
   },
   "login": {

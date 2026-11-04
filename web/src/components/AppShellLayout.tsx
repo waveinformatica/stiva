@@ -1,7 +1,7 @@
-import { AppShell, Burger, Group, Title, Badge, Button, Text, NavLink, Select } from "@mantine/core";
+import { AppShell, Burger, Group, Title, Badge, Text, NavLink } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
-import { LANGUAGES } from "../lib/i18n";
+import UserMenu from "./UserMenu";
 import {
   IconSearch,
   IconUsers,
@@ -9,7 +9,6 @@ import {
   IconCloud,
   IconShield,
   IconSettings,
-  IconLogout,
 } from "./icons";
 
 export type View =
@@ -46,7 +45,7 @@ export default function AppShellLayout({
   onLogout: () => void;
   children: React.ReactNode;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const link = (key: View, label: string, icon: React.ReactNode) => (
     <NavLink
       label={label}
@@ -76,28 +75,7 @@ export default function AppShellLayout({
               OCI
             </Badge>
           </Group>
-          <Group gap="xs">
-            <Select
-              size="xs"
-              w={130}
-              aria-label={t("nav.language")}
-              data={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
-              value={i18n.language?.split("-")[0] || "en"}
-              onChange={(v) => v && i18n.changeLanguage(v)}
-              allowDeselect={false}
-            />
-            <Badge size="lg" variant="light" color={user.admin ? "grape" : "gray"}>
-              {user.anonymous ? t("nav.anonymous") : user.name}
-            </Badge>
-            <Button
-              size="xs"
-              variant="default"
-              leftSection={<IconLogout size={14} />}
-              onClick={onLogout}
-            >
-              {t("nav.logout")}
-            </Button>
-          </Group>
+          <UserMenu user={user} setView={setView} onLogout={onLogout} />
         </Group>
       </AppShell.Header>
 

@@ -17,6 +17,7 @@
     "search": "Cerca"
   },
   "nav": {
+    "account": "Account",
     "administration": "Amministrazione",
     "anonymous": "Accesso anonimo",
     "anonymousAccess": "Accesso anonimo",
@@ -30,11 +31,19 @@
     "logout": "Esci",
     "navigation": "Navigazione",
     "registries": "Registry",
+    "roleAdmin": "Amministratore",
+    "roleUser": "Utente",
     "roles": "Ruoli",
     "serviceAccounts": "Account di servizio",
     "settings": "Impostazioni",
+    "signIn": "Accedi",
+    "signedInAs": "Connesso come",
     "sso": "Single sign-on",
     "stores": "Blob store",
+    "theme": "Tema",
+    "themeAuto": "Sistema",
+    "themeDark": "Scuro",
+    "themeLight": "Chiaro",
     "users": "Utenti"
   },
   "login": {
