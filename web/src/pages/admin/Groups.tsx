@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  TextInput, MultiSelect, ActionIcon, DataTable, ConfirmModal,
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal,
+  TextInput, MultiSelect, DataTable, ConfirmModal, PageLoader, ErrorAlert, DeleteButton, FormFooter,
 } from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+import { IconPlus } from "../../components/icons";
 import { api } from "../../lib/api";
 
 type Grp = { name: string; description: string; members: string[] };
@@ -79,12 +79,13 @@ export default function Groups() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("groups.title")}
+        description={t("groups.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("groups.newGroup")}
@@ -93,9 +94,7 @@ export default function Groups() {
       />
 
       {err && !open && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -145,9 +144,7 @@ export default function Groups() {
                 <Button size="xs" variant="default" onClick={() => openEdit(g)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(g)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(g)} />
               </Group>
             ),
           },
@@ -182,14 +179,9 @@ export default function Groups() {
             searchable
             clearable
           />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={save}>
-              {editName ? t("common.saveChanges") : t("groups.createGroup")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setOpen(false)} loading={busy} onSubmit={save}>
+            {editName ? t("common.saveChanges") : t("groups.createGroup")}
+          </FormFooter>
         </Stack>
       </Modal>
 

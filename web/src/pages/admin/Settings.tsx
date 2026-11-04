@@ -9,11 +9,11 @@ import {
   Stack,
   StatCard,
   Alert,
-  Loader,
+  
   PasswordInput,
   Button,
   Switch,
-  Code,
+  Code, PageLoader, ErrorAlert,
 } from "../../components/ui";
 import { api, MeResponse } from "../../lib/api";
 
@@ -84,12 +84,13 @@ export default function Settings() {
     }
   };
 
-  if (!me) return <Loader />;
-  if (err && !me) return <Alert color="red" title={t("common.error")}>{err}</Alert>;
+  if (!me) return <PageLoader />;
+  if (err && !me) return <ErrorAlert mb="0">{err}</ErrorAlert>;
 
   return (
     <div>
-      <PageHeader title={t("settings.title")} />
+      <PageHeader title={t("settings.title")}
+        description={t("settings.description")} />
       <Group grow mb="md">
         <StatCard label={t("settings.repositoriesStat")} value={stats?.repositories ?? 0} />
         <StatCard label={t("settings.tagsStat")} value={stats?.tags ?? 0} />

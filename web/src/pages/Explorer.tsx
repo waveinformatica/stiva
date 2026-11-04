@@ -11,9 +11,9 @@ import {
   TextInput,
   Select,
   Loader,
-  Alert,
+  
   Stack,
-  Code,
+  Code, ErrorAlert,
 } from "../components/ui";
 import { api } from "../lib/api";
 import RepoBrowser, { registryEndpoint, type FocusRepo, type Reg } from "../components/RepoBrowser";
@@ -116,6 +116,7 @@ export default function Explorer() {
     <div>
       <PageHeader
         title={t("explorer.title")}
+        description={t("explorer.description")}
         actions={
           <Select
             w={240}
@@ -233,7 +234,7 @@ function ArtifactBrowser({
           {t("common.refresh")}
         </Button>
       </Group>
-      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
+      {err && <ErrorAlert>{err}</ErrorAlert>}
       {loading && <Loader />}
       {!loading && grouped.length === 0 && (
         <Text c="dimmed" size="sm">
@@ -242,7 +243,7 @@ function ArtifactBrowser({
       )}
       <Stack gap="xs">
         {grouped.map(([pkg, files]) => (
-          <Card key={pkg} withBorder p="xs">
+          <Card key={pkg} padding="sm">
             <Group justify="space-between" mb={4}>
               <Text fw={600} size="sm">
                 {pkg}
@@ -335,7 +336,7 @@ function GlobalSearch({
           {t("common.search")}
         </Button>
       </Group>
-      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
+      {err && <ErrorAlert>{err}</ErrorAlert>}
       {loading && <Loader />}
       {searched && !loading && results.length === 0 && (
         <Text c="dimmed" size="sm">
@@ -344,7 +345,7 @@ function GlobalSearch({
       )}
       <Stack gap="xs">
         {results.map((r, i) => (
-          <Card key={i} withBorder p="xs">
+          <Card key={i} padding="sm">
             <Group justify="space-between">
               <Group gap="xs">
                 <Badge color="blue">{r.format}</Badge>

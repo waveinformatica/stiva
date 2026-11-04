@@ -4,6 +4,7 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "create": "Criar",
+    "delete": "Excluir",
     "done": "Concluído",
     "download": "Baixar",
     "edit": "Editar",
@@ -111,7 +112,8 @@
     "searchPlaceholder": "Pesquisar artefactos em todos os registos…",
     "searchTab": "Pesquisar",
     "selectRegistry": "Seleciona um registo.",
-    "title": "Explorador"
+    "title": "Explorador",
+    "description": "Navegue por repositórios, tags e artefatos de um registry."
   },
   "apikeys": {
     "createdTitle": "Chave API criada — copia-a agora",
@@ -131,7 +133,8 @@
     "revokeTitle": "Revogar chave",
     "signinRequiredBody": "As chaves API pertencem a uma conta nomeada. Chamantes anónimos não têm conta a que atribuir uma.",
     "signinRequiredTitle": "Início de sessão necessário",
-    "title": "Chaves API"
+    "title": "Chaves API",
+    "description": "Chaves pessoais para push e pull pela linha de comando e CI."
   },
   "grants": {
     "anonBody": "Um papel com permissões administrativas é recusado aqui. O acesso anónimo serve para leitura, tipicamente pulls de imagens de dentro do cluster.",
@@ -158,7 +161,8 @@
     "whoGroup": "Um grupo",
     "whoHeader": "Quem",
     "whoLabel": "Quem",
-    "whoUser": "Um utilizador"
+    "whoUser": "Um utilizador",
+    "description": "Quem pode fazer o quê, e onde."
   },
   "grantsEditor": {
     "add": "Adicionar restrição",
@@ -238,7 +242,8 @@
     "typeHeader": "Tipo",
     "typeLabel": "Tipo",
     "unused": "não usado",
-    "usedByHeader": "Usado por"
+    "usedByHeader": "Usado por",
+    "description": "Backends de armazenamento de blobs compartilhados pelos registries."
   },
   "registries": {
     "allowWritesLabel": "Permitir escritas (write-through)",
@@ -315,7 +320,8 @@
     "typeLabel": "Tipo",
     "upstreamsLabel": "Upstreams (um por linha: host=url [user pass])",
     "warmPrompt": "Pré-aquecer uma imagem nesta cache (p. ex. gcr.io/x/y:v1):",
-    "writeMemberLabel": "Membro de escrita (destino predefinido dos pushes)"
+    "writeMemberLabel": "Membro de escrita (destino predefinido dos pushes)",
+    "description": "Registries hospedados, proxy e virtuais, e seu armazenamento."
   },
   "roles": {
     "adminHint": "Sempre globais: uma concessão não os pode restringir a um registo.",
@@ -339,7 +345,8 @@
     "permissionsTitle": "Permissões",
     "registryHint": "Aplicam onde aponta a concessão que usa este papel.",
     "registrySection": "Registo",
-    "title": "Papéis"
+    "title": "Papéis",
+    "description": "Conjuntos de permissões atribuíveis a usuários e grupos."
   },
   "serviceAccounts": {
     "actionsHeader": "Ações",
@@ -356,7 +363,8 @@
     "revokeTitle": "Revogar chave",
     "title": "Contas de serviço",
     "usernameHeader": "Utilizador",
-    "usernameLabel": "Utilizador"
+    "usernameLabel": "Utilizador",
+    "description": "Chaves não interativas para automação e pipelines."
   },
   "settings": {
     "actionRequired": "Ação necessária",
@@ -379,7 +387,8 @@
     "tempPasswordBody": "Ainda estás a usar uma palavra-passe temporária. Altera-a para continuar a usar o registo.",
     "title": "Definições",
     "updatePassword": "Atualizar palavra-passe",
-    "userLabel": "Utilizador"
+    "userLabel": "Utilizador",
+    "description": "Sua sessão, senha e opções do servidor."
   },
   "sso": {
     "adminGroupLabel": "Grupo admin",
@@ -437,7 +446,8 @@
     "providerLabel": "Fornecedor",
     "secretSet": "secret definido",
     "statusHeader": "Estado",
-    "title": "Single sign-on"
+    "title": "Single sign-on",
+    "description": "Provedores de login único (OIDC e SAML)."
   },
   "users": {
     "access": "Acesso",
@@ -473,7 +483,8 @@
     "noGroups": "nenhum",
     "passwordLabel": "Palavra-passe",
     "statusHeader": "Estado",
-    "title": "Utilizadores"
+    "title": "Utilizadores",
+    "description": "Gerencie contas locais, senhas e acessos efetivos."
   },
   "groups": {
     "createGroup": "Criar grupo",
@@ -491,7 +502,8 @@
     "namePlaceholder": "devs",
     "newGroup": "Novo grupo",
     "newTitle": "Novo grupo",
-    "title": "Grupos"
+    "title": "Grupos",
+    "description": "Agrupe usuários para conceder acesso uma única vez."
   },
   "credentials": {
     "deleteMessage": "Eliminar {{key}}? O valor desaparece para sempre.",
@@ -522,7 +534,8 @@
     "secretLabel": "Valor secreto",
     "title": "Credenciais",
     "updatedHeader": "Atualizada",
-    "usedByHeader": "Usada por"
+    "usedByHeader": "Usada por",
+    "description": "Segredos usados por stores e registries upstream."
   },
   "anonymous": {
     "addressesDesc": "Um CIDR por linha. Deixa vazio para aceitar qualquer endereço — isto torna-a catch-all, tentada após cada identidade restrita.",
@@ -555,6 +568,7 @@
     "proxyTitle": "Os filtros por endereço não funcionam como esperas",
     "recognisedHeader": "Reconhecida por",
     "sharedCount": "{{count}} partilhadas",
-    "title": "Acesso anónimo"
+    "title": "Acesso anónimo",
+    "description": "Identidades para chamadas não autenticadas, com limites de rede opcionais."
   }
 }

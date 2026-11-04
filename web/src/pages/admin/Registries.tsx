@@ -16,15 +16,14 @@ import {
   Textarea,
   Alert,
   Loader,
-  ActionIcon,
+  
   Stack,
   ScrollArea,
   Code,
-  Text,
-} from "../../components/ui";
+  Text, PageLoader, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
 import { api } from "../../lib/api";
 import { BlobStoreForm, emptyStore, type BlobStore } from "../../components/BlobStoreForm";
-import { IconPlus, IconTrash } from "../../components/icons";
+import { IconPlus } from "../../components/icons";
 
 type Reg = {
   name: string;
@@ -238,20 +237,21 @@ export default function Registries() {
     return `curl -fsSL ${repo}KEY.gpg | gpg --dearmor | sudo tee ${keyring} > /dev/null\ndeb [signed-by=${keyring}] ${repo} ./`;
   };
 
-  if (loading) return <Loader />;
-  if (err) return <Alert color="red" title={t("common.error")}>{err}</Alert>;
+  if (loading) return <PageLoader />;
+  if (err) return <ErrorAlert mb="0">{err}</ErrorAlert>;
 
   return (
     <div>
       <PageHeader
         title={t("registries.title")}
+        description={t("registries.description")}
         actions={
-          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openNew}>
+          <Button size="xs" leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("registries.newRegistry")}
           </Button>
         }
       />
-      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
+      {err && <ErrorAlert>{err}</ErrorAlert>}
       <DataTable
         rowKey={(r) => r.name}
         rows={list}
@@ -302,9 +302,7 @@ export default function Registries() {
                 <Button size="compact-xs" variant="default" onClick={() => openEdit(r)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => del(r.name)}>
-                  <IconTrash size={14} />
-                </ActionIcon>
+                <DeleteButton onClick={() => del(r.name)} />
               </Group>
             ),
           },
@@ -430,7 +428,7 @@ export default function Registries() {
             </Group>
 
             {newStore && (
-              <Card withBorder mt="sm" padding="md">
+              <Card mt="sm" padding="md">
                 <BlobStoreForm
                   value={newStore}
                   onChange={setNewStore}
@@ -580,12 +578,9 @@ export default function Registries() {
           </div>
         ) : null}
 
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={() => setOpen(false)}>
-            {t("common.cancel")}
-          </Button>
-          <Button onClick={save}>{t("common.save")}</Button>
-        </Group>
+        <FormFooter onCancel={() => setOpen(false)} onSubmit={save}>
+            {t("common.save")}
+          </FormFooter>
       </Modal>
 
       <Modal opened={gcName !== null} onClose={() => setGcName(null)} title={t("registries.gcTitle", { name: gcName || "" })} size="lg">

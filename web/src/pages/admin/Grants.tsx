@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  Select, ActionIcon, DataTable, ConfirmModal, Code,
-} from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal,
+  Select, DataTable, ConfirmModal, Code, PageLoader, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
+import { IconPlus } from "../../components/icons";
 import { ScopeBuilder } from "../../components/ScopeBuilder";
 import { api } from "../../lib/api";
 
@@ -111,12 +110,13 @@ export default function Grants() {
     return <Badge color="blue">{s.replace("user:", "")}</Badge>;
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("grants.title")}
+        description={t("grants.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("grants.newGrant")}
@@ -125,9 +125,7 @@ export default function Grants() {
       />
 
       {err && !open && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -155,9 +153,7 @@ export default function Grants() {
                 <Button size="xs" variant="default" onClick={() => openEdit(g)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(g)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(g)} />
               </Group>
             ),
           },
@@ -216,14 +212,9 @@ export default function Grants() {
             </Alert>
           )}
 
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={save} disabled={!role || ((kind === "user" || kind === "group") && !who)}>
-              {editId === null ? t("grants.createGrant") : t("common.saveChanges")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setOpen(false)} onSubmit={save} loading={busy} disabled={!role || ((kind === "user" || kind === "group") && !who)}>
+            {editId === null ? t("grants.createGrant") : t("common.saveChanges")}
+          </FormFooter>
         </Stack>
       </Modal>
 

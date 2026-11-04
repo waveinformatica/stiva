@@ -471,7 +471,6 @@ export default function RepoBrowser({
       mih={narrow ? undefined : 320}
     >
       <Card
-        withBorder
         padding="sm"
         w={narrow ? "100%" : 300}
         style={{ flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0 }}
@@ -502,7 +501,6 @@ export default function RepoBrowser({
       </Card>
 
       <Card
-        withBorder
         padding="md"
         style={{ flex: 1, minWidth: narrow ? "100%" : 0, display: "flex", flexDirection: "column", minHeight: 0 }}
       >
@@ -587,7 +585,7 @@ export default function RepoBrowser({
             )}
 
             {tag && manifest && (
-              <Card withBorder padding="sm">
+              <Card padding="sm">
                 {path.length > 0 && (
                   <Group gap="xs" mb="xs">
                     <Button size="compact-xs" variant="subtle" onClick={goBack}>

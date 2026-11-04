@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal, Switch,
-  TextInput, Textarea, PasswordInput, Select, ActionIcon, DataTable, ConfirmModal,
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal, Switch,
+  TextInput, Textarea, PasswordInput, Select, DataTable, ConfirmModal, PageLoader, ErrorAlert, DeleteButton, FormFooter,
 } from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+import { IconPlus } from "../../components/icons";
 import { api } from "../../lib/api";
 
 type Preset = {
@@ -224,12 +224,13 @@ export default function SSO() {
 
   const presetLabel = (key: string) => presets.find((x) => x.key === key)?.label || key;
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("sso.title")}
+        description={t("sso.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("sso.newProvider")}
@@ -238,9 +239,7 @@ export default function SSO() {
       />
 
       {err && !open && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -288,9 +287,7 @@ export default function SSO() {
                 <Button size="xs" variant="default" onClick={() => openEdit(p)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(p)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(p)} />
               </Group>
             ),
           },
@@ -370,14 +367,9 @@ export default function SSO() {
             onChange={set("admin_group")}
           />
           <Switch label={t("sso.enabledLabel")} checked={enabled} onChange={(e) => setEnabled(e.currentTarget.checked)} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={save}>
-              {editId ? t("common.saveChanges") : t("sso.createProvider")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setOpen(false)} loading={busy} onSubmit={save}>
+            {editId ? t("common.saveChanges") : t("sso.createProvider")}
+          </FormFooter>
         </Stack>
       </Modal>
 

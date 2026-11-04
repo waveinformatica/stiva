@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Card, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  ActionIcon, DataTable, ConfirmModal,
+  PageHeader, Section, Group, Text, Badge, Stack, Button, Modal,
+  DataTable, ConfirmModal, PageLoader, ErrorAlert, DeleteButton,
 } from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+import { IconPlus } from "../../components/icons";
 import { BlobStoreForm, emptyStore, type BlobStore } from "../../components/BlobStoreForm";
 import { api } from "../../lib/api";
 
@@ -63,12 +63,13 @@ export default function Stores() {
     return "";
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("stores.title")}
+        description={t("stores.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("stores.newStore")}
@@ -77,9 +78,7 @@ export default function Stores() {
       />
 
       {err && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <DataTable<Row>
@@ -140,9 +139,7 @@ export default function Stores() {
                 <Button size="xs" variant="default" onClick={() => openEdit(r)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(r)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(r)} />
               </Group>
             ),
           },
@@ -180,14 +177,13 @@ export default function Stores() {
         onCancel={() => setConfirmDel(null)}
       />
 
-      <Card withBorder mt="lg" padding="md">
-        <Text size="sm" fw={500} mb={4}>
-          {t("stores.credentialsTitle")}
-        </Text>
-        <Text size="xs" c="dimmed">
-          {t("stores.credentialsBody")}
-        </Text>
-      </Card>
+      <div style={{ marginTop: "var(--mantine-spacing-lg)" }}>
+        <Section title={t("stores.credentialsTitle")}>
+          <Text size="sm" c="dimmed">
+            {t("stores.credentialsBody")}
+          </Text>
+        </Section>
+      </div>
     </div>
   );
 }

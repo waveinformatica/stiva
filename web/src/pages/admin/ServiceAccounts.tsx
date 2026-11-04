@@ -12,11 +12,10 @@ import {
   Stack,
   Alert,
   ConfirmModal,
-  ActionIcon,
-  Code,
-} from "../../components/ui";
+  
+  Code, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
 import { api } from "../../lib/api";
-import { IconPlus, IconTrash, IconKey } from "../../components/icons";
+import { IconPlus, IconKey } from "../../components/icons";
 import { GrantsEditor, type KeyGrant } from "../../components/GrantsEditor";
 
 interface KeyRow {
@@ -76,13 +75,14 @@ export default function ServiceAccounts() {
     <div>
       <PageHeader
         title={t("serviceAccounts.title")}
+        description={t("serviceAccounts.description")}
         actions={
-          <Button leftSection={<IconPlus size={14} />} onClick={() => { setCreatedKey(null); setCreateOpen(true); }}>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => { setCreatedKey(null); setCreateOpen(true); }}>
             {t("serviceAccounts.newKey")}
           </Button>
         }
       />
-      {err && <Alert color="red" mb="md" title={t("common.error")}>{err}</Alert>}
+      {err && <ErrorAlert>{err}</ErrorAlert>}
       {createdKey && (
         <Alert color="teal" mb="md" title={t("serviceAccounts.createdTitle")}>
           <Code block style={{ overflowWrap: "anywhere" }}>{createdKey}</Code>
@@ -111,9 +111,7 @@ export default function ServiceAccounts() {
           {
             header: t("serviceAccounts.actionsHeader"),
             render: (r) => (
-              <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(r.key || r.masked)}>
-                <IconTrash size={16} />
-              </ActionIcon>
+              <DeleteButton onClick={() => setConfirmDel(r.key || r.masked)} />
             ),
           },
         ]}
@@ -124,10 +122,13 @@ export default function ServiceAccounts() {
           <TextInput label={t("serviceAccounts.usernameLabel")} value={username} onChange={(e) => setUsername(e.currentTarget.value)} />
           <TextInput label={t("serviceAccounts.labelLabel")} value={label} onChange={(e) => setLabel(e.currentTarget.value)} />
           <GrantsEditor value={grants} onChange={setGrants} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
-            <Button leftSection={<IconKey size={14} />} onClick={submitCreate}>{t("serviceAccounts.generate")}</Button>
-          </Group>
+          <FormFooter
+            onCancel={() => setCreateOpen(false)}
+            leftSection={<IconKey size={16} />}
+            onSubmit={submitCreate}
+          >
+            {t("serviceAccounts.generate")}
+          </FormFooter>
         </Stack>
       </Modal>
 

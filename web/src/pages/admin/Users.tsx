@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   PageHeader, DataTable, Badge, Button, Modal, TextInput, PasswordInput, Switch,
-  Group, Text, Stack, Alert, ConfirmModal, ActionIcon, Code, Loader,
-} from "../../components/ui";
+  Group, Text, Stack, ConfirmModal, Code, PageLoader, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
 import { api } from "../../lib/api";
-import { IconPlus, IconTrash, IconShield } from "../../components/icons";
+import { IconPlus, IconShield } from "../../components/icons";
 
 interface UserRow {
   name: string;
@@ -101,12 +100,13 @@ export default function Users() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("users.title")}
+        description={t("users.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>
             {t("users.newUser")}
@@ -115,9 +115,7 @@ export default function Users() {
       />
 
       {err && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -184,9 +182,7 @@ export default function Users() {
                 <Button size="xs" variant="default" onClick={() => openEdit(u)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(u.name)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(u.name)} />
               </Group>
             ),
           },
@@ -204,12 +200,9 @@ export default function Users() {
           <Text size="xs" c="dimmed">
             {t("users.createHint")}
           </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button onClick={create}>{t("common.create")}</Button>
-          </Group>
+          <FormFooter onCancel={() => setCreateOpen(false)} onSubmit={create}>
+            {t("common.create")}
+          </FormFooter>
         </Stack>
       </Modal>
 
@@ -227,12 +220,9 @@ export default function Users() {
             checked={disabled}
             onChange={(e) => setDisabled(e.currentTarget.checked)}
           />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setEditOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button onClick={saveEdit}>{t("common.save")}</Button>
-          </Group>
+          <FormFooter onCancel={() => setEditOpen(false)} onSubmit={saveEdit}>
+            {t("common.save")}
+          </FormFooter>
         </Stack>
       </Modal>
 

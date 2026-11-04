@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  TextInput, Textarea, Switch, ActionIcon, DataTable, ConfirmModal, Code,
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal,
+  TextInput, Textarea, Switch, DataTable, ConfirmModal, Code, PageLoader, ErrorAlert, DeleteButton, FormFooter,
 } from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+import { IconPlus } from "../../components/icons";
 import { api } from "../../lib/api";
 
 type Identity = {
@@ -100,7 +100,7 @@ export default function Anonymous() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   const catchAlls = rows.filter((r) => !(r.cidrs || []).length && !r.disabled);
 
@@ -108,6 +108,7 @@ export default function Anonymous() {
     <div>
       <PageHeader
         title={t("anonymous.title")}
+        description={t("anonymous.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("anonymous.newIdentity")}
@@ -116,9 +117,7 @@ export default function Anonymous() {
       />
 
       {err && !open && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -195,9 +194,7 @@ export default function Anonymous() {
                 <Button size="xs" variant="default" onClick={() => openEdit(i)}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(i)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(i)} />
               </Group>
             ),
           },
@@ -248,14 +245,9 @@ export default function Anonymous() {
           <Text size="xs" c="dimmed">
             {t("anonymous.createHint")}
           </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={save}>
-              {editName ? t("common.saveChanges") : t("anonymous.createIdentity")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setOpen(false)} loading={busy} onSubmit={save}>
+            {editName ? t("common.saveChanges") : t("anonymous.createIdentity")}
+          </FormFooter>
         </Stack>
       </Modal>
 

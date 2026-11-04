@@ -4,6 +4,7 @@
     "cancel": "Annulla",
     "confirm": "Conferma",
     "create": "Crea",
+    "delete": "Elimina",
     "done": "Fatto",
     "download": "Scarica",
     "edit": "Modifica",
@@ -111,7 +112,8 @@
     "searchPlaceholder": "Cerca artifact in tutti i registry…",
     "searchTab": "Cerca",
     "selectRegistry": "Seleziona un registry.",
-    "title": "Esplora"
+    "title": "Esplora",
+    "description": "Sfoglia repository, tag e artefatti di un registry."
   },
   "apikeys": {
     "createdTitle": "Chiave API creata — copiala ora",
@@ -131,7 +133,8 @@
     "revokeTitle": "Revoca chiave",
     "signinRequiredBody": "Le chiavi API appartengono a un account nominato. I chiamanti anonimi non hanno un account a cui intestare una chiave.",
     "signinRequiredTitle": "Accesso richiesto",
-    "title": "Chiavi API"
+    "title": "Chiavi API",
+    "description": "Chiavi personali per push e pull da riga di comando e CI."
   },
   "grants": {
     "anonBody": "Un ruolo con permessi amministrativi è rifiutato qui. L'accesso anonimo serve per la lettura, tipicamente per le pull delle immagini dall'interno del cluster.",
@@ -158,7 +161,8 @@
     "whoGroup": "Un gruppo",
     "whoHeader": "Chi",
     "whoLabel": "Chi",
-    "whoUser": "Un utente"
+    "whoUser": "Un utente",
+    "description": "Chi può fare cosa, e dove."
   },
   "grantsEditor": {
     "add": "Aggiungi restrizione",
@@ -238,7 +242,8 @@
     "typeHeader": "Tipo",
     "typeLabel": "Tipo",
     "unused": "inutilizzato",
-    "usedByHeader": "Usato da"
+    "usedByHeader": "Usato da",
+    "description": "Backend di storage dei blob condivisi dai registry."
   },
   "registries": {
     "allowWritesLabel": "Consenti scritture (write-through)",
@@ -315,7 +320,8 @@
     "typeLabel": "Tipo",
     "upstreamsLabel": "Upstream (uno per riga: host=url [user pass])",
     "warmPrompt": "Precarica un'immagine in questa cache (es. gcr.io/x/y:v1):",
-    "writeMemberLabel": "Membro di scrittura (destinazione predefinita delle push)"
+    "writeMemberLabel": "Membro di scrittura (destinazione predefinita delle push)",
+    "description": "Registry hosted, proxy e virtuali, con il relativo storage."
   },
   "roles": {
     "adminHint": "Sempre globali: una concessione non può restringerli a un registry.",
@@ -339,7 +345,8 @@
     "permissionsTitle": "Permessi",
     "registryHint": "Si applicano dove punta la concessione che usa questo ruolo.",
     "registrySection": "Registry",
-    "title": "Ruoli"
+    "title": "Ruoli",
+    "description": "Insiemi di permessi assegnabili a utenti e gruppi."
   },
   "serviceAccounts": {
     "actionsHeader": "Azioni",
@@ -356,7 +363,8 @@
     "revokeTitle": "Revoca chiave",
     "title": "Account di servizio",
     "usernameHeader": "Nome utente",
-    "usernameLabel": "Nome utente"
+    "usernameLabel": "Nome utente",
+    "description": "Chiavi non interattive per automazioni e pipeline."
   },
   "settings": {
     "actionRequired": "Azione richiesta",
@@ -379,7 +387,8 @@
     "tempPasswordBody": "Stai ancora usando una password temporanea. Cambiala per continuare a usare il registry.",
     "title": "Impostazioni",
     "updatePassword": "Aggiorna password",
-    "userLabel": "Utente"
+    "userLabel": "Utente",
+    "description": "Sessione, password e opzioni del server."
   },
   "sso": {
     "adminGroupLabel": "Gruppo admin",
@@ -437,7 +446,8 @@
     "providerLabel": "Provider",
     "secretSet": "secret impostato",
     "statusHeader": "Stato",
-    "title": "Single sign-on"
+    "title": "Single sign-on",
+    "description": "Provider di single sign-on (OIDC e SAML)."
   },
   "users": {
     "access": "Accesso",
@@ -473,7 +483,8 @@
     "noGroups": "nessuno",
     "passwordLabel": "Password",
     "statusHeader": "Stato",
-    "title": "Utenti"
+    "title": "Utenti",
+    "description": "Gestisci account locali, password e accessi effettivi."
   },
   "groups": {
     "createGroup": "Crea gruppo",
@@ -491,7 +502,8 @@
     "namePlaceholder": "devs",
     "newGroup": "Nuovo gruppo",
     "newTitle": "Nuovo gruppo",
-    "title": "Gruppi"
+    "title": "Gruppi",
+    "description": "Raggruppa gli utenti per assegnare l’accesso una sola volta."
   },
   "credentials": {
     "deleteMessage": "Eliminare {{key}}? Il valore sparisce per sempre.",
@@ -522,7 +534,8 @@
     "secretLabel": "Valore segreto",
     "title": "Credenziali",
     "updatedHeader": "Aggiornata",
-    "usedByHeader": "Usata da"
+    "usedByHeader": "Usata da",
+    "description": "Segreti usati da store e registry upstream."
   },
   "anonymous": {
     "addressesDesc": "Un CIDR per riga. Lascia vuoto per accettare qualsiasi indirizzo — diventa un catch-all, provato dopo ogni identità ristretta.",
@@ -555,6 +568,7 @@
     "proxyTitle": "I filtri per indirizzo non funzionano come ti aspetti",
     "recognisedHeader": "Riconosciuta da",
     "sharedCount": "{{count}} condivise",
-    "title": "Accesso anonimo"
+    "title": "Accesso anonimo",
+    "description": "Identità per chiamanti non autenticati, con limiti di rete opzionali."
   }
 }

@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "create": "Create",
+    "delete": "Delete",
     "done": "Done",
     "download": "Download",
     "edit": "Edit",
@@ -111,7 +112,8 @@
     "searchPlaceholder": "Search artifacts across all registries…",
     "searchTab": "Search",
     "selectRegistry": "Select a registry.",
-    "title": "Explorer"
+    "title": "Explorer",
+    "description": "Browse repositories, tags and artifacts in a registry."
   },
   "apikeys": {
     "createdTitle": "API key created — copy it now",
@@ -131,7 +133,8 @@
     "revokeTitle": "Revoke key",
     "signinRequiredBody": "API keys belong to a named account. Anonymous callers have no account to own one with.",
     "signinRequiredTitle": "Sign in required",
-    "title": "API keys"
+    "title": "API keys",
+    "description": "Personal keys for pushing and pulling from the command line and CI."
   },
   "grants": {
     "anonBody": "A role holding administrative permissions is refused here. Anonymous access is for reading, and typically for image pulls from inside the cluster.",
@@ -158,7 +161,8 @@
     "whoGroup": "A group",
     "whoHeader": "Who",
     "whoLabel": "Who",
-    "whoUser": "A user"
+    "whoUser": "A user",
+    "description": "Who can do what, and where."
   },
   "grantsEditor": {
     "add": "Add restriction",
@@ -238,7 +242,8 @@
     "typeHeader": "Type",
     "typeLabel": "Type",
     "unused": "unused",
-    "usedByHeader": "Used by"
+    "usedByHeader": "Used by",
+    "description": "Blob storage backends shared by registries."
   },
   "registries": {
     "allowWritesLabel": "Allow writes (write-through)",
@@ -315,7 +320,8 @@
     "typeLabel": "Type",
     "upstreamsLabel": "Upstreams (one per line: host=url [user pass])",
     "warmPrompt": "Warm image into this cache (e.g. gcr.io/x/y:v1):",
-    "writeMemberLabel": "Write member (default target for pushes)"
+    "writeMemberLabel": "Write member (default target for pushes)",
+    "description": "Hosted, proxy and virtual registries, and their storage."
   },
   "roles": {
     "adminHint": "Always global: a grant cannot narrow these to one registry.",
@@ -339,7 +345,8 @@
     "permissionsTitle": "Permissions",
     "registryHint": "Apply wherever the grant using this role points.",
     "registrySection": "Registry",
-    "title": "Roles"
+    "title": "Roles",
+    "description": "Sets of permissions that can be granted to users and groups."
   },
   "serviceAccounts": {
     "actionsHeader": "Actions",
@@ -356,7 +363,8 @@
     "revokeTitle": "Revoke key",
     "title": "Service Accounts",
     "usernameHeader": "Username",
-    "usernameLabel": "Username"
+    "usernameLabel": "Username",
+    "description": "Non-interactive keys for automation and pipelines."
   },
   "settings": {
     "actionRequired": "Action required",
@@ -379,7 +387,8 @@
     "tempPasswordBody": "You are still using a temporary password. Change it to continue using the registry.",
     "title": "Settings",
     "updatePassword": "Update password",
-    "userLabel": "User"
+    "userLabel": "User",
+    "description": "Your session, password and server-wide options."
   },
   "sso": {
     "adminGroupLabel": "Admin group",
@@ -437,7 +446,8 @@
     "providerLabel": "Provider",
     "secretSet": "secret set",
     "statusHeader": "Status",
-    "title": "Single sign-on"
+    "title": "Single sign-on",
+    "description": "Single sign-on providers (OIDC and SAML)."
   },
   "users": {
     "access": "Access",
@@ -473,7 +483,8 @@
     "noGroups": "none",
     "passwordLabel": "Password",
     "statusHeader": "Status",
-    "title": "Users"
+    "title": "Users",
+    "description": "Manage local accounts, passwords and effective access."
   },
   "groups": {
     "createGroup": "Create group",
@@ -491,7 +502,8 @@
     "namePlaceholder": "devs",
     "newGroup": "New group",
     "newTitle": "New group",
-    "title": "Groups"
+    "title": "Groups",
+    "description": "Collect users so access can be granted once."
   },
   "credentials": {
     "deleteMessage": "Delete {{key}}? The value is gone for good.",
@@ -522,7 +534,8 @@
     "secretLabel": "Secret value",
     "title": "Credentials",
     "updatedHeader": "Updated",
-    "usedByHeader": "Used by"
+    "usedByHeader": "Used by",
+    "description": "Secrets referenced by stores and upstream registries."
   },
   "anonymous": {
     "addressesDesc": "One CIDR per line. Leave empty to accept any address — that makes this a catch-all, and it is tried after every restricted identity.",
@@ -555,6 +568,7 @@
     "proxyTitle": "Address filters are not being applied as you expect",
     "recognisedHeader": "Recognised by",
     "sharedCount": "{{count}} shared",
-    "title": "Anonymous access"
+    "title": "Anonymous access",
+    "description": "Identities for unauthenticated callers, optionally limited by network."
   }
 }

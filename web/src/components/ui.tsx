@@ -30,7 +30,7 @@ import {
   CopyButton,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconInbox } from "./icons";
+import { IconInbox, IconPlus, IconTrash } from "./icons";
 
 // Re-export the core Mantine primitives so the whole UI imports from one place.
 export {
@@ -237,5 +237,94 @@ export function ConfirmModal({
         </Group>
       </Stack>
     </Modal>
+  );
+}
+
+// ---- Shared building blocks: every page uses these instead of ad hoc markup ----
+
+export function PageLoader() {
+  return (
+    <Stack align="center" py="xl">
+      <Loader size="sm" />
+    </Stack>
+  );
+}
+
+// Standard error banner (dismissible when onClose is given).
+export function ErrorAlert({
+  children,
+  title,
+  onClose,
+  mb = "md",
+}: {
+  children: ReactNode;
+  title?: string;
+  onClose?: () => void;
+  mb?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Alert color="red" title={title ?? t("common.error")} mb={mb} withCloseButton={!!onClose} onClose={onClose}>
+      {children}
+    </Alert>
+  );
+}
+
+// Primary "create" action used in page headers.
+export function AddButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <Button leftSection={<IconPlus size={16} />} onClick={onClick}>
+      {children}
+    </Button>
+  );
+}
+
+// Destructive row action.
+export function DeleteButton({
+  onClick,
+  label,
+  disabled,
+}: {
+  onClick: () => void;
+  label?: string;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const text = label ?? t("common.delete");
+  return (
+    <Tooltip label={text}>
+      <ActionIcon color="red" variant="subtle" disabled={disabled} onClick={onClick} aria-label={text}>
+        <IconTrash size={16} />
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
+// Standard modal footer: cancel on the left of the primary action.
+export function FormFooter({
+  onCancel,
+  onSubmit,
+  loading,
+  disabled,
+  leftSection,
+  children,
+}: {
+  onCancel: () => void;
+  leftSection?: ReactNode;
+  onSubmit: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Group justify="flex-end" mt="xs">
+      <Button variant="default" onClick={onCancel}>
+        {t("common.cancel")}
+      </Button>
+      <Button leftSection={leftSection} loading={loading} disabled={disabled} onClick={onSubmit}>
+        {children}
+      </Button>
+    </Group>
   );
 }

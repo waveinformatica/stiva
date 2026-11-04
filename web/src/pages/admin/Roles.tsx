@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  TextInput, ActionIcon, DataTable, ConfirmModal, Tooltip,
-} from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal,
+  TextInput, DataTable, ConfirmModal, Tooltip, PageLoader, ErrorAlert, FormFooter, DeleteButton } from "../../components/ui";
+import { IconPlus } from "../../components/icons";
 import { PermissionPicker } from "../../components/PermissionPicker";
 import { api } from "../../lib/api";
 
@@ -82,12 +81,13 @@ export default function Roles() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("roles.title")}
+        description={t("roles.description")}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openNew}>
             {t("roles.newRole")}
@@ -96,9 +96,7 @@ export default function Roles() {
       />
 
       {err && !open && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -152,14 +150,7 @@ export default function Roles() {
                 <Button size="xs" variant="default" onClick={() => openEdit(r)} disabled={r.built_in}>
                   {t("common.edit")}
                 </Button>
-                <ActionIcon
-                  color="red"
-                  variant="subtle"
-                  disabled={r.built_in}
-                  onClick={() => setConfirmDel(r)}
-                >
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton disabled={r.built_in} onClick={() => setConfirmDel(r)} />
               </Group>
             ),
           },
@@ -192,14 +183,9 @@ export default function Roles() {
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <PermissionPicker value={perms} onChange={setPerms} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={save}>
-              {editName ? t("common.saveChanges") : t("roles.createRole")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setOpen(false)} loading={busy} onSubmit={save}>
+            {editName ? t("common.saveChanges") : t("roles.createRole")}
+          </FormFooter>
         </Stack>
       </Modal>
 

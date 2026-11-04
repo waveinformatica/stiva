@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  PageHeader, Group, Text, Badge, Stack, Alert, Loader, Button, Modal,
-  TextInput, PasswordInput, ActionIcon, DataTable, ConfirmModal, Code,
-} from "../../components/ui";
-import { IconPlus, IconTrash } from "../../components/icons";
+  PageHeader, Group, Text, Badge, Stack, Alert, Button, Modal,
+  TextInput, PasswordInput, DataTable, ConfirmModal, Code, PageLoader, ErrorAlert, DeleteButton, FormFooter } from "../../components/ui";
+import { IconPlus } from "../../components/icons";
 import { api } from "../../lib/api";
 
 type Secret = {
@@ -112,12 +111,13 @@ export default function Credentials() {
     }
   };
 
-  if (loading) return <Loader />;
+  if (loading) return <PageLoader />;
 
   return (
     <div>
       <PageHeader
         title={t("credentials.title")}
+        description={t("credentials.description")}
         actions={
           <Button
             leftSection={<IconPlus size={16} />}
@@ -132,9 +132,7 @@ export default function Credentials() {
       />
 
       {err && !createOpen && !rotateTarget && (
-        <Alert color="red" title={t("common.error")} mb="md" withCloseButton onClose={() => setErr(null)}>
-          {err}
-        </Alert>
+        <ErrorAlert onClose={() => setErr(null)}>{err}</ErrorAlert>
       )}
 
       <Text size="sm" c="dimmed" mb="md">
@@ -219,9 +217,7 @@ export default function Credentials() {
                 >
                   {t("credentials.rotate")}
                 </Button>
-                <ActionIcon color="red" variant="subtle" onClick={() => setConfirmDel(s)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
+                <DeleteButton onClick={() => setConfirmDel(s)} />
               </Group>
             ),
           },
@@ -267,14 +263,9 @@ export default function Credentials() {
             value={value}
             onChange={(e) => setValue(e.currentTarget.value)}
           />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={create} disabled={!key || !value}>
-              {t("common.create")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setCreateOpen(false)} onSubmit={create} loading={busy} disabled={!key || !value}>
+            {t("common.create")}
+          </FormFooter>
         </Stack>
       </Modal>
 
@@ -302,14 +293,9 @@ export default function Credentials() {
             value={value}
             onChange={(e) => setValue(e.currentTarget.value)}
           />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setRotateTarget(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button loading={busy} onClick={rotate} disabled={!value}>
-              {t("credentials.rotate")}
-            </Button>
-          </Group>
+          <FormFooter onCancel={() => setRotateTarget(null)} onSubmit={rotate} loading={busy} disabled={!value}>
+            {t("credentials.rotate")}
+          </FormFooter>
         </Stack>
       </Modal>
 

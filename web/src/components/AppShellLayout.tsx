@@ -72,7 +72,7 @@ export default function AppShellLayout({
             <Burger opened={navOpened} onClick={toggleNav} hiddenFrom="sm" size="sm" aria-label={t("nav.navigation")} />
             <img src="/stiva-mark.png" alt="Stiva" style={{ height: 28, width: "auto" }} />
             <Title order={4} fw={700}>Stiva</Title>
-            <Badge variant="light" color="blue" visibleFrom="sm">
+            <Badge variant="light" color="indigo" visibleFrom="sm">
               OCI
             </Badge>
           </Group>

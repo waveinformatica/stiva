@@ -27,3 +27,9 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
     radial-gradient(60rem 30rem at 50% -10%, light-dark(var(--mantine-color-indigo-1), rgba(76, 110, 245, 0.18)), transparent),
     light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
 }
+
+/* Table cells: align to the middle, keep row actions on one line, never clip badges. */
+.stiva-table td { vertical-align: middle; }
+.stiva-table td .mantine-Group-root { flex-wrap: nowrap; }
+.stiva-table .mantine-Badge-root { max-width: none; flex-shrink: 0; }
+.stiva-table .mantine-Badge-label { overflow: visible; text-overflow: clip; }
