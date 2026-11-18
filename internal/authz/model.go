@@ -20,6 +20,10 @@ const (
 	RegistryRead   Permission = "registry:read"
 	RegistryWrite  Permission = "registry:write"
 	RegistryDelete Permission = "registry:delete"
+	// RegistryScan submits scan results (SBOM, vulnerabilities, secrets) for
+	// the registry's images. It is the scanner's power and nobody else's: a
+	// result is believed as submitted.
+	RegistryScan Permission = "registry:scan"
 
 	// Administrative. These are only meaningful at scope "*".
 	AdminRegistries Permission = "admin:registries"
@@ -30,7 +34,7 @@ const (
 
 // All is the vocabulary, in the order the UI should present it.
 var All = []Permission{
-	RegistryRead, RegistryWrite, RegistryDelete,
+	RegistryRead, RegistryWrite, RegistryDelete, RegistryScan,
 	AdminRegistries, AdminStores, AdminUsers, AdminSettings,
 }
 
@@ -41,6 +45,7 @@ var Describe = map[Permission]string{
 	RegistryRead:    "Pull images and browse repositories",
 	RegistryWrite:   "Push images and upload artifacts",
 	RegistryDelete:  "Delete tags, manifests and repositories",
+	RegistryScan:    "Submit image scan results (SBOM, vulnerabilities, secrets)",
 	AdminRegistries: "Create, edit and delete registries",
 	AdminStores:     "Manage blob stores and their credentials",
 	AdminUsers:      "Manage users, groups, roles and grants",

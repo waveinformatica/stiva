@@ -56,6 +56,9 @@ type Handler struct {
 
 	// Application catalog (home page), wired by SetCatalog.
 	catalog storage.CatalogStore
+
+	// Image scan results, wired by SetScans.
+	scans storage.ScanStore
 }
 
 // NewHandler builds an API handler.
@@ -174,6 +177,8 @@ func (h *Handler) Dispatch(c *gin.Context) {
 		h.uploadOp(c, be, segs[:n-3], segs[n-1])
 	case n >= 2 && segs[n-2] == "tags" && segs[n-1] == "list":
 		h.tagsList(c, be, segs[:n-2])
+	case n >= 2 && segs[n-2] == "referrers":
+		h.referrers(c, be, segs[:n-2], segs[n-1])
 	default:
 		c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "unknown endpoint"))
 	}
@@ -266,11 +271,21 @@ func (h *Handler) putManifest(c *gin.Context, be registry.Backend, repo, referen
 	if mediaType == "" {
 		mediaType = "application/vnd.oci.image.manifest.v1+json"
 	}
+	info, err := storage.ParseManifestInfo(mediaType, body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorBody("MANIFEST_INVALID", err.Error()))
+		return
+	}
 
 	d, err := be.PutManifest(repo, reference, mediaType, body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 		return
+	}
+	if info.Subject != "" {
+		// Tells the client this registry records the subject itself, so it
+		// must not maintain a fallback referrers tag.
+		c.Header("OCI-Subject", info.Subject.String())
 	}
 
 	if err := linkManifestBlobs(repo, d, body, be); err != nil {

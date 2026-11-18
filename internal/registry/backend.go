@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sort"
 	"sync"
 
 	"registry/internal/digest"
@@ -31,6 +32,10 @@ type Backend interface {
 	GetBlob(repo string, d digest.Digest) (io.ReadCloser, int64, error)
 	StatBlob(repo string, d digest.Digest) (int64, error)
 	GetManifest(repo, reference string) ([]byte, string, error)
+	// Referrers lists the manifests whose subject is d (OCI 1.1). Proxy and
+	// cache registries list what they hold locally; upstream referrers are
+	// not fetched.
+	Referrers(repo string, d digest.Digest) ([]storage.Referrer, error)
 
 	// Writes
 	PutBlob(repo string, d digest.Digest, r io.Reader) error
@@ -273,6 +278,28 @@ func (g *groupBackend) GetManifest(repo, reference string) ([]byte, string, erro
 		}
 	}
 	return nil, "", ErrNotFound
+}
+
+// Referrers merges the referrers every member holds. The same referrer in two
+// members is the same content (same digest), listed once; the result is in
+// digest order like each member's list.
+func (g *groupBackend) Referrers(repo string, d digest.Digest) ([]storage.Referrer, error) {
+	seen := map[digest.Digest]bool{}
+	out := []storage.Referrer{}
+	for _, m := range g.members {
+		refs, err := m.Referrers(repo, d)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range refs {
+			if !seen[r.Digest] {
+				seen[r.Digest] = true
+				out = append(out, r)
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Digest < out[j].Digest })
+	return out, nil
 }
 
 func (g *groupBackend) PutBlob(repo string, d digest.Digest, r io.Reader) error {

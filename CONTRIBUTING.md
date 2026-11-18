@@ -22,7 +22,9 @@ go build ./... && go test ./...   # backend (migrations-safe unit tests)
 cd web && pnpm install && pnpm build   # typecheck + bundle (tsc && vite build)
 ```
 
-Both must pass. New behavior needs tests where the repo already has them
+Both must pass. The image scanner is a module of its own (Trivy is built into
+it and must not reach the registry's dependencies): `cd scanner && go vet ./...
+&& go build ./...` must pass too. New behavior needs tests where the repo already has them
 (`internal/*/[a-z]*_test.go`); tests that need a live database do not belong
 in the suite — keep them as throwaway scripts, never committed.
 

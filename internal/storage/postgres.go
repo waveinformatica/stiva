@@ -163,15 +163,18 @@ func (m *PostgresMetadataStore) OrphanBlobs(registry string, olderThan time.Time
 	return out, rows.Err()
 }
 
-func (m *PostgresMetadataStore) PutManifest(registry, repo string, d digest.Digest, mediaType, author, imageCreated string, content []byte) error {
+func (m *PostgresMetadataStore) PutManifest(registry, repo string, d digest.Digest, mediaType string, info ManifestInfo, author, imageCreated string, content []byte) error {
 	if _, err := m.pool.Exec(context.Background(),
-		`INSERT INTO manifests(registry, repo, digest, media_type, author, image_created, content, created_at)
-		 VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+		`INSERT INTO manifests(registry, repo, digest, media_type, subject, artifact_type, image, author, image_created, content, created_at)
+		 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		 ON CONFLICT (registry, repo, digest) DO UPDATE SET media_type = EXCLUDED.media_type,
+			subject = EXCLUDED.subject,
+			artifact_type = EXCLUDED.artifact_type,
+			image = EXCLUDED.image,
 			author = COALESCE(NULLIF(EXCLUDED.author, ''), manifests.author),
 			image_created = COALESCE(NULLIF(EXCLUDED.image_created, ''), manifests.image_created),
 			content = EXCLUDED.content`,
-		registry, repo, d.String(), mediaType, author, imageCreated, content, m.now()); err != nil {
+		registry, repo, d.String(), mediaType, info.Subject.String(), info.ArtifactType, info.Image, author, imageCreated, content, m.now()); err != nil {
 		return err
 	}
 	return m.CreateRepo(registry, repo)
@@ -228,20 +231,74 @@ func (m *PostgresMetadataStore) DeleteManifest(registry, repo string, d digest.D
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM manifest_blobs WHERE registry = $1 AND repo = $2 AND manifest_digest = $3`,
-		registry, repo, d.String()); err != nil {
+	// The manifest and every manifest that refers to it, at any depth (an SBOM
+	// of an image, a signature of that SBOM...).
+	rows, err := tx.Query(ctx,
+		`WITH RECURSIVE doomed(digest) AS (
+			SELECT $3::text
+			UNION
+			SELECT m.digest FROM manifests m JOIN doomed ON m.subject = doomed.digest
+			 WHERE m.registry = $1 AND m.repo = $2
+		 ) SELECT digest FROM doomed`,
+		registry, repo, d.String())
+	if err != nil {
+		return err
+	}
+	var digests []string
+	for rows.Next() {
+		var ds string
+		if err := rows.Scan(&ds); err != nil {
+			rows.Close()
+			return err
+		}
+		digests = append(digests, ds)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM tags WHERE registry = $1 AND repo = $2 AND digest = $3`, registry, repo, d.String()); err != nil {
+		`DELETE FROM manifest_blobs WHERE registry = $1 AND repo = $2 AND manifest_digest = ANY($3)`,
+		registry, repo, digests); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM manifests WHERE registry = $1 AND repo = $2 AND digest = $3`, registry, repo, d.String()); err != nil {
+		`DELETE FROM tags WHERE registry = $1 AND repo = $2 AND digest = ANY($3)`, registry, repo, digests); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM manifests WHERE registry = $1 AND repo = $2 AND digest = ANY($3)`, registry, repo, digests); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (m *PostgresMetadataStore) ListReferrers(registry, repo string, d digest.Digest) ([]Referrer, error) {
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT digest, media_type, artifact_type, content FROM manifests
+		  WHERE registry = $1 AND repo = $2 AND subject = $3 ORDER BY digest`,
+		registry, repo, d.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Referrer{}
+	for rows.Next() {
+		var ds, mt, at string
+		var content []byte
+		if err := rows.Scan(&ds, &mt, &at, &content); err != nil {
+			return nil, err
+		}
+		ann, err := manifestAnnotations(content)
+		if err != nil {
+			return nil, fmt.Errorf("referrer %s: %w", ds, err)
+		}
+		out = append(out, Referrer{
+			Digest: digest.Digest(ds), MediaType: mt, ArtifactType: at,
+			Size: int64(len(content)), Annotations: ann,
+		})
+	}
+	return out, rows.Err()
 }
 
 func (m *PostgresMetadataStore) ListManifests(registry, repo string) ([]digest.Digest, error) {

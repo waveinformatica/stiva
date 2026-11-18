@@ -178,6 +178,11 @@ func main() {
 	}
 	handler.SetStorage(vlt, stores)
 	handler.SetAuthz(az)
+	if ss, ok := meta.(storage.ScanStore); ok {
+		handler.SetScans(ss)
+	} else {
+		log.Printf("WARNING: metadata store has no scan support; image scanning is disabled")
+	}
 
 	if os.Getenv("REGISTRY_DEBUG") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -214,6 +219,7 @@ func main() {
 	{
 		handler.Register(protected)
 		handler.RegisterUI(protected)
+		handler.RegisterMetrics(protected)
 	}
 
 	// Serve the web UI if a build directory is provided/mounted. Known

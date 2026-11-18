@@ -73,6 +73,14 @@ released as open source so that anyone running Kubernetes can benefit from it.
   manifest detail, global cross-format search, per-format artifact browsers
   with download links, and full administration (registries, stores, users,
   roles, grants, SSO, settings).
+- **Image scanning** ([docs/scanning.md](docs/scanning.md)): CycloneDX SBOMs
+  attached to every image as OCI 1.1 referrers, an archive of distinct packages
+  whose vulnerabilities are refreshed daily once per package, exposed secrets,
+  per-digest Prometheus metrics. The
+  analysis runs in `stiva-scanner` (Trivy built in), a separate image, so the
+  registry stays lean.
+- **OCI 1.1 Referrers API**: `GET /v2/<repo>/referrers/<digest>`, subjects
+  recorded at push, referrers deleted with their subject.
 - Single static binary (+ companion `registry-warmer` for cache pre-warming),
   distroless container image, Apache-2.0 licensed.
 

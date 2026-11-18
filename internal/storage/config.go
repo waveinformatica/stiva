@@ -30,10 +30,16 @@ type MetadataStore interface {
 	OrphanBlobs(registry string, olderThan time.Time) ([]BlobInfo, error)
 
 	// Manifests
-	PutManifest(registry, repo string, d digest.Digest, mediaType, author, imageCreated string, content []byte) error
+	PutManifest(registry, repo string, d digest.Digest, mediaType string, info ManifestInfo, author, imageCreated string, content []byte) error
 	GetManifest(registry, repo string, d digest.Digest) ([]byte, string, error)
 	ManifestExists(registry, repo string, d digest.Digest) (bool, error)
+	// DeleteManifest removes the manifest and, recursively, every manifest of
+	// the same repository whose subject it is: a referrer never outlives its
+	// subject.
 	DeleteManifest(registry, repo string, d digest.Digest) error
+	// ListReferrers lists the manifests of repo whose subject is d, in digest
+	// order.
+	ListReferrers(registry, repo string, d digest.Digest) ([]Referrer, error)
 	ListManifests(registry, repo string) ([]digest.Digest, error)
 	// ManifestProvenance returns the recorded image author and creation time
 	// (from the image config at push time), possibly empty when the config

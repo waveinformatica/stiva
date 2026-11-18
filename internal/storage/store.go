@@ -137,9 +137,13 @@ func (s *Store) GetManifest(repo, reference string) ([]byte, string, error) {
 }
 
 func (s *Store) PutManifest(repo, reference, mediaType string, content []byte) (digest.Digest, error) {
+	info, err := ParseManifestInfo(mediaType, content)
+	if err != nil {
+		return "", err
+	}
 	d := digest.FromBytes(content)
 	author, created := s.provenanceFromConfig(content)
-	if err := s.meta.PutManifest(s.registry, repo, d, mediaType, author, created, content); err != nil {
+	if err := s.meta.PutManifest(s.registry, repo, d, mediaType, info, author, created, content); err != nil {
 		return "", err
 	}
 	// If reference is a tag (not a digest), record the tag.
@@ -216,6 +220,11 @@ func (s *Store) DeleteManifest(repo, reference string) error {
 		return err
 	}
 	return s.meta.DeleteManifest(s.registry, repo, d)
+}
+
+// Referrers lists the manifests of repo whose subject is d (OCI 1.1).
+func (s *Store) Referrers(repo string, d digest.Digest) ([]Referrer, error) {
+	return s.meta.ListReferrers(s.registry, repo, d)
 }
 
 func (s *Store) ListTags(repo string) ([]string, error) {

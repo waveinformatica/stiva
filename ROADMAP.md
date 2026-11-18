@@ -19,6 +19,8 @@ land; anything unchecked is a statement of intent, not a promise.
 - [x] Hosted Conan 2 REST API (ping, auth, revisions, search, delete) and hosted p2 repositories (generated artifacts.xml / content.xml)
 - [x] Webhooks: push/delete/job/security events, queued delivery with retries, HMAC-SHA256 signing, delivery log and redelivery
 - [x] Background jobs: PostgreSQL-backed queue, run history, schedules for cleanup and garbage collection
+- [x] OCI 1.1 Referrers API
+- [x] Image scanning: SBOMs as referrers, distinct-package archive with daily vulnerability refresh, exposed secrets, Prometheus metrics (stiva-scanner, Trivy built in)
 
 ## Planned
 

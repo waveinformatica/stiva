@@ -181,3 +181,48 @@ warmer:
     limits:
       cpu: "1"
       memory: 256Mi
+
+# Image scanner (docs/scanning.md): two CronJobs running stiva-scanner, a full
+# scan of the new images and a daily vulnerability refresh of the distinct
+# packages. scanner.tokenSecret names a Secret, created out of band, whose key
+# "token" is an API key of an account bound to the "scanner" role
+# (registry:read + registry:scan) on every OCI registry. The key never goes
+# through Helm values.
+scanner:
+  enabled: false
+  tokenSecret: ""
+  image:
+    registry: repo.intra.waveinformatica.com
+    repository: kosmos/stiva-scanner
+    tag: latest
+    pullPolicy: Always
+  # Defaults to http://<release>-registry:<service.port> when empty.
+  stivaUrl: ""
+  schedules:
+    full: "*/15 * * * *"
+    vulnerabilities: "30 5 * * *"
+  dbRepository: mirror.gcr.io/aquasec/trivy-db
+  javaDbRepository: mirror.gcr.io/aquasec/trivy-java-db
+  ignoreUnfixed: true
+  # Content of a Trivy ignore policy (.trivyignore.yaml); empty for none.
+  ignorePolicy: ""
+  # Trivy databases (~1 GB with the Java one) and layer analyses.
+  cache:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# Prometheus scraping of /metrics (scan findings per image digest). /metrics
+# requires authentication: the ServiceMonitor uses the scanner's API key
+# (scanner.tokenSecret), which can read every registry it scans.
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 5m
+    labels: {}

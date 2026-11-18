@@ -1,0 +1,113 @@
+{{- if .Values.scanner.enabled }}
+{{- $fullname := include "registry.fullname" . }}
+{{- $name := printf "%s-scanner" $fullname }}
+{{- $s := .Values.scanner }}
+{{- if not $s.tokenSecret }}{{ fail "scanner.tokenSecret is required: a Secret (key \"token\") holding the API key of an account bound to the scanner role" }}{{ end }}
+{{- if $s.ignorePolicy }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+data:
+  .trivyignore.yaml: |
+    {{- $s.ignorePolicy | nindent 4 }}
+---
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "registry.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with $s.cache.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $s.cache.size }}
+{{- range $mode, $schedule := dict "full" $s.schedules.full "vulnerabilities" $s.schedules.vulnerabilities }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}-{{ $mode }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "registry.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: scanner
+spec:
+  schedule: {{ $schedule | quote }}
+  # The two modes share the Trivy cache volume: never two runs at once.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ $name }}
+            app.kubernetes.io/component: scanner
+        spec:
+          restartPolicy: Never
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          {{- with $.Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: scanner
+              image: "{{ $s.image.registry }}/{{ $s.image.repository }}:{{ $s.image.tag }}"
+              imagePullPolicy: {{ $s.image.pullPolicy }}
+              args:
+                - -mode={{ $mode }}
+                - -stiva-url={{ $s.stivaUrl | default (printf "http://%s:%v" $fullname $.Values.service.port) }}
+                - -token-file=/secrets/token
+                - -cache-dir=/cache
+                - -db-repository={{ $s.dbRepository }}
+                - -java-db-repository={{ $s.javaDbRepository }}
+                {{- if $s.ignoreUnfixed }}
+                - -ignore-unfixed
+                {{- end }}
+                {{- if $s.ignorePolicy }}
+                - -ignore-file=/policy/.trivyignore.yaml
+                {{- end }}
+              volumeMounts:
+                - name: token
+                  mountPath: /secrets
+                  readOnly: true
+                - name: cache
+                  mountPath: /cache
+                - name: tmp
+                  mountPath: /tmp
+                {{- if $s.ignorePolicy }}
+                - name: policy
+                  mountPath: /policy
+                  readOnly: true
+                {{- end }}
+              resources:
+                {{- toYaml $s.resources | nindent 16 }}
+          volumes:
+            - name: token
+              secret:
+                secretName: {{ $s.tokenSecret }}
+            - name: cache
+              persistentVolumeClaim:
+                claimName: {{ $name }}-cache
+            - name: tmp
+              emptyDir: {}
+            {{- if $s.ignorePolicy }}
+            - name: policy
+              configMap:
+                name: {{ $name }}-policy
+            {{- end }}
+{{- end }}
+{{- end }}
