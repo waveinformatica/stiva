@@ -1,4 +1,5 @@
 {{- if .Values.warmer.enabled }}
+{{- if not .Values.warmer.tokenSecret }}{{ fail "warmer.tokenSecret is required: a Secret (key \"token\") holding the API key of an account with admin:registries" }}{{ end }}
 {{- $fullname := include "registry.fullname" . }}
 {{- $sa := printf "%s-warmer" $fullname }}
 apiVersion: v1
@@ -41,17 +42,6 @@ subjects:
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ $sa }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "registry.labels" . | nindent 4 }}
-type: Opaque
-stringData:
-  token: {{ .Values.warmer.token | quote }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -86,7 +76,7 @@ spec:
             - name: REGISTRY_WARMER_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ $sa }}
+                  name: {{ .Values.warmer.tokenSecret }}
                   key: token
             - name: REGISTRY_WARMER_INTERVAL
               value: {{ .Values.warmer.interval | quote }}

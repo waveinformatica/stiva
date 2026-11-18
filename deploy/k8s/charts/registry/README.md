@@ -97,14 +97,19 @@ config:
     `cacheMirror.restartCommand` to your distribution.
   - `warmer` — a Deployment that watches cluster workloads and pre-pulls the
     referenced images into the `cache` registry (POST `/api/v1/admin/registries/cache/warm`).
-    Requires an admin token: set `warmer.token` (or manage the
-    `<release>-registry-warmer` Secret out of band). It is granted a
+    Requires the API key of an account with `admin:registries`, in a Secret
+    created out of band and named by `warmer.tokenSecret` (key `token`; the key
+    never goes through Helm values). It is granted a
     cluster-scoped `ClusterRole` to list/watch Pods/Deployments/StatefulSets/
     ReplicaSets/DaemonSets/Jobs/CronJobs.
 
   Enable example:
   ```bash
+  kubectl create secret generic registry-warmer-token --from-file=token=/dev/stdin  # paste the key, then Ctrl-D
   helm install registry . --set cacheMirror.enabled=true --set warmer.enabled=true \
-    --set warmer.token="$(curl -s -u admin:... http://.../auth/token | jq -r .token)"
+    --set warmer.tokenSecret=registry-warmer-token
   ```
+  - `scanner` — two CronJobs running `stiva-scanner` (image scanning, see
+    `docs/scanning.md`); the API key of an account bound to the `scanner` role
+    goes in a Secret named by `scanner.tokenSecret`.
   (Create a `cache` registry first, e.g. from the UI → Registries → New → type `cache`.)

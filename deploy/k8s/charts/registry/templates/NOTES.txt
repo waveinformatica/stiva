@@ -28,6 +28,11 @@
 {{- if .Values.warmer.enabled }}
 
 7. warmer Deployment is active: it pre-pulls referenced images into the `cache`
-   registry. Ensure `warmer.token` holds a valid admin token
-   (set --set warmer.token=... or manage the {{ .Release.Name }}-registry-warmer
-   secret).{{- end }}
+   registry, authenticating with the API key in the Secret
+   {{ .Values.warmer.tokenSecret }} (key "token"; an account with admin:registries).{{- end }}
+{{- if .Values.scanner.enabled }}
+
+8. scanner CronJobs are active (full every "{{ .Values.scanner.schedules.full }}",
+   vulnerabilities at "{{ .Values.scanner.schedules.vulnerabilities }}"), authenticating
+   with the API key in the Secret {{ .Values.scanner.tokenSecret }} (key "token"; an
+   account bound to the scanner role on every OCI registry). See docs/scanning.md.{{- end }}

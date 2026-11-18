@@ -165,11 +165,13 @@ cacheMirror:
     - containerd
   resources: {}
 
-# Pre-warm controller (Deployment). Requires an admin token for the cache
-# registry — set warmer.token (or manage the <release>-warmer secret out of band).
+# Pre-warm controller (Deployment). warmer.tokenSecret names a Secret, created
+# out of band, whose key "token" is the API key of an account with
+# admin:registries (the warm endpoint is administrative). The key never goes
+# through Helm values.
 warmer:
   enabled: false
-  token: ""
+  tokenSecret: ""
   # Defaults to http://<release>-registry:<service.port> when empty.
   cacheUrl: ""
   registry: cache
