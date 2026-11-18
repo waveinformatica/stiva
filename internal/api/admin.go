@@ -335,14 +335,28 @@ func (h *Handler) adminDeleteRegistry(c *gin.Context) {
 type warmBody struct {
 	Image string `json:"image"` // container image reference, e.g. gcr.io/x/y:v1
 	Ref   string `json:"ref"`   // optional explicit reference; defaults to Image's tag/digest
+	// Platforms to pull out of a multi-platform index ("linux/amd64"):
+	// required, the cluster's own, so a cache does not hold images for
+	// platforms nobody runs.
+	Platforms []string `json:"platforms"`
 }
 
-// adminWarmRegistry handles POST /api/v1/admin/registries/:name/warm. It pulls
-// the given image (manifest + config + layers, recursively for multi-arch
-// indexes) into a cache registry so future pulls are served entirely from the
-// local store. This is the hook the Kubernetes pre-warm controller calls.
-func (h *Handler) adminWarmRegistry(c *gin.Context) {
+// warmRegistry handles POST /api/v1/registries/:name/warm. It pulls the given
+// image (manifest + config + layers, recursively for multi-arch indexes) into a
+// cache registry so future pulls are served entirely from the local store. This
+// is the hook the Kubernetes pre-warm controller calls; it needs registry:warm
+// on the registry, not administrative power.
+func (h *Handler) warmRegistry(c *gin.Context) {
 	name := c.Param("name")
+	reg, found := h.mgr.Get(name)
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
+		return
+	}
+	if h.authz == nil || !h.authz.Allows(principal(h.currentUser(c)), authz.RegistryWarm, reg.Format, reg.Name, "") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "permission required", "permission": string(authz.RegistryWarm)})
+		return
+	}
 	be, err := h.mgr.BackendFor(name)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "registry not found"})
@@ -358,9 +372,18 @@ func (h *Handler) adminWarmRegistry(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if b.Image == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "image is required"})
+	if b.Image == "" || len(b.Platforms) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "image and platforms are required"})
 		return
+	}
+	platforms := make([]registry.Platform, 0, len(b.Platforms))
+	for _, s := range b.Platforms {
+		p, err := registry.ParsePlatform(s)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		platforms = append(platforms, p)
 	}
 	repo, ref, err := registry.NormalizeImage(b.Image)
 	if err != nil {
@@ -370,7 +393,7 @@ func (h *Handler) adminWarmRegistry(c *gin.Context) {
 	if b.Ref != "" {
 		ref = b.Ref
 	}
-	if err := warmer.WarmImage(c.Request.Context(), repo, ref); err != nil {
+	if err := warmer.WarmImage(c.Request.Context(), repo, ref, platforms); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

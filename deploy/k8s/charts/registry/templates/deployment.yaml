@@ -25,6 +25,9 @@ spec:
         # a value and run an upgrade.
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        # The service-account keys are read at startup: a rotated key restarts
+        # the registry.
+        checksum/service-accounts: {{ include (print $.Template.BasePath "/serviceaccount-keys.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -51,12 +54,22 @@ spec:
             {{- with .Values.extraEnvFrom }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          env:
+            # Declared service accounts, provisioned at every start from the
+            # keys mounted below (an empty list removes earlier ones).
+            - name: REGISTRY_SERVICE_ACCOUNTS
+              value: {{ $sa := list }}{{ range $a := include "registry.serviceAccounts" . | fromJsonArray }}{{ $sa = append $sa (dict "name" $a.name "role" $a.role "scope" $a.scope "key_file" (printf "/etc/stiva/service-accounts/%s/token" $a.name)) }}{{ end }}{{ toJson $sa | quote }}
           # /data is always mounted: even with an object-store blob backend the
           # registry stages in-progress uploads on local disk, and the image
           # runs as a non-root user that cannot create /data itself.
           volumeMounts:
             - name: blobs
               mountPath: /data
+            {{- range $a := include "registry.serviceAccounts" . | fromJsonArray }}
+            - name: key-{{ $a.name }}
+              mountPath: /etc/stiva/service-accounts/{{ $a.name }}
+              readOnly: true
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
@@ -72,6 +85,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+        {{- range $a := include "registry.serviceAccounts" . | fromJsonArray }}
+        - name: key-{{ $a.name }}
+          secret:
+            secretName: {{ include "registry.serviceAccountSecret" (dict "root" $ "name" $a.name) }}
+        {{- end }}
         - name: blobs
         {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:

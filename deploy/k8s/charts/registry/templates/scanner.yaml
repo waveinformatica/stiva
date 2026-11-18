@@ -2,7 +2,6 @@
 {{- $fullname := include "registry.fullname" . }}
 {{- $name := printf "%s-scanner" $fullname }}
 {{- $s := .Values.scanner }}
-{{- if not $s.tokenSecret }}{{ fail "scanner.tokenSecret is required: a Secret (key \"token\") holding the API key of an account bound to the scanner role" }}{{ end }}
 {{- if $s.ignorePolicy }}
 apiVersion: v1
 kind: ConfigMap
@@ -98,7 +97,7 @@ spec:
           volumes:
             - name: token
               secret:
-                secretName: {{ $s.tokenSecret }}
+                secretName: {{ include "registry.serviceAccountSecret" (dict "root" $ "name" "stiva-scanner") }}
             - name: cache
               persistentVolumeClaim:
                 claimName: {{ $name }}-cache

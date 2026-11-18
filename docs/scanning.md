@@ -294,10 +294,19 @@ The Helm chart (`deploy/k8s/charts/registry`, values `scanner.*` and
   it, so a vulnerability exception limited to `paths` cannot be honoured: the
   scanner refuses such a policy (use `purls`, or no restriction). Secret
   exceptions may use paths;
-- the scanner's API key in a Secret created out of band and named by
-  `scanner.tokenSecret` (key `token`; the key never goes through Helm values): an account bound to
-  the `scanner` role on every OCI registry;
+- the declared service account `stiva-scanner` (role `scanner` on every
+  registry). The chart generates its key once in the Secret
+  `<release>-stiva-scanner` and mounts it both into the registry, which
+  provisions the account from it at every start (`REGISTRY_SERVICE_ACCOUNTS`),
+  and into the scanner. No account is created by hand; deleting the Secret and
+  upgrading rotates the key;
 - optionally a ServiceMonitor scraping `/metrics` with that same key.
+
+The pre-warm controller (`warmer.enabled`) is declared the same way, as
+`stiva-warmer` with the role `warmer` (`registry:warm` on the cache registry
+only). It warms the platforms of the cluster's nodes: of a multi-platform
+image the cache stores the index and the images of those platforms, so the
+scanner analyses what the cluster can run and nothing else.
 
 A full-scan run exits non-zero when an image could not be analysed; that image
 stays pending and is retried by the next run. A refresh run exits non-zero

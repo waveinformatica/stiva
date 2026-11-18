@@ -57,3 +57,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "postgres://%s:%s@%s:%s/%s?sslmode=%s" $e.username (urlquery $e.password) $e.host (toString $e.port) $e.database $e.sslmode -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Declared service accounts (docs/scanning.md): the accounts the enabled
+components use. Each has a Secret holding its API key, mounted both into the
+registry, which provisions the account from it at startup, and into the
+component that authenticates with it.
+*/}}
+{{- define "registry.serviceAccounts" -}}
+{{- $accounts := list -}}
+{{- if .Values.scanner.enabled -}}
+{{- $accounts = append $accounts (dict "name" "stiva-scanner" "role" "scanner" "scope" "*") -}}
+{{- end -}}
+{{- if .Values.warmer.enabled -}}
+{{- $accounts = append $accounts (dict "name" "stiva-warmer" "role" "warmer" "scope" (printf "oci:%s" .Values.warmer.registry)) -}}
+{{- end -}}
+{{- toJson $accounts -}}
+{{- end }}
+
+{{- define "registry.serviceAccountSecret" -}}
+{{- printf "%s-%s" (include "registry.fullname" .root) .name -}}
+{{- end }}
+
+{{/*
+The key of a service account: the one already in its Secret, or a new random
+one when the Secret does not exist yet. Deleting the Secret and upgrading
+rotates the key.
+*/}}
+{{- define "registry.serviceAccountKey" -}}
+{{- $secret := lookup "v1" "Secret" .root.Release.Namespace (include "registry.serviceAccountSecret" .) -}}
+{{- if $secret -}}
+{{- index $secret.data "token" | b64dec -}}
+{{- else -}}
+{{- printf "rk_%s" (randAlphaNum 48 | lower) -}}
+{{- end -}}
+{{- end }}

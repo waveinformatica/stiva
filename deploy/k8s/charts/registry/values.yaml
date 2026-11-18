@@ -165,13 +165,12 @@ cacheMirror:
     - containerd
   resources: {}
 
-# Pre-warm controller (Deployment). warmer.tokenSecret names a Secret, created
-# out of band, whose key "token" is the API key of an account with
-# admin:registries (the warm endpoint is administrative). The key never goes
-# through Helm values.
+# Pre-warm controller (Deployment). It authenticates as the declared service
+# account stiva-warmer (role warmer: registry:warm on warmer.registry), whose
+# key the chart generates in the Secret <release>-stiva-warmer and mounts both
+# here and into the registry.
 warmer:
   enabled: false
-  tokenSecret: ""
   # Defaults to http://<release>-registry:<service.port> when empty.
   cacheUrl: ""
   registry: cache
@@ -186,13 +185,12 @@ warmer:
 
 # Image scanner (docs/scanning.md): two CronJobs running stiva-scanner, a full
 # scan of the new images and a daily vulnerability refresh of the distinct
-# packages. scanner.tokenSecret names a Secret, created out of band, whose key
-# "token" is an API key of an account bound to the "scanner" role
-# (registry:read + registry:scan) on every OCI registry. The key never goes
-# through Helm values.
+# packages. It authenticates as the declared service account stiva-scanner
+# (role scanner: registry:read + registry:scan on every registry), whose key
+# the chart generates in the Secret <release>-stiva-scanner and mounts both
+# here and into the registry.
 scanner:
   enabled: false
-  tokenSecret: ""
   image:
     registry: repo.intra.waveinformatica.com
     repository: kosmos/stiva-scanner
@@ -221,8 +219,8 @@ scanner:
       memory: 4Gi
 
 # Prometheus scraping of /metrics (scan findings per image digest). /metrics
-# requires authentication: the ServiceMonitor uses the scanner's API key
-# (scanner.tokenSecret), which can read every registry it scans.
+# requires authentication: the ServiceMonitor uses the stiva-scanner key, which
+# can read every registry it scans.
 metrics:
   serviceMonitor:
     enabled: false

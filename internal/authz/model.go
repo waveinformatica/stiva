@@ -24,6 +24,10 @@ const (
 	// the registry's images. It is the scanner's power and nobody else's: a
 	// result is believed as submitted.
 	RegistryScan Permission = "registry:scan"
+	// RegistryWarm asks a cache registry to pull images into its store: the
+	// pre-warm controller's power. It reads nothing and changes nothing but
+	// the cache's content.
+	RegistryWarm Permission = "registry:warm"
 
 	// Administrative. These are only meaningful at scope "*".
 	AdminRegistries Permission = "admin:registries"
@@ -34,7 +38,7 @@ const (
 
 // All is the vocabulary, in the order the UI should present it.
 var All = []Permission{
-	RegistryRead, RegistryWrite, RegistryDelete, RegistryScan,
+	RegistryRead, RegistryWrite, RegistryDelete, RegistryScan, RegistryWarm,
 	AdminRegistries, AdminStores, AdminUsers, AdminSettings,
 }
 
@@ -46,6 +50,7 @@ var Describe = map[Permission]string{
 	RegistryWrite:   "Push images and upload artifacts",
 	RegistryDelete:  "Delete tags, manifests and repositories",
 	RegistryScan:    "Submit image scan results (SBOM, vulnerabilities, secrets)",
+	RegistryWarm:    "Pre-pull images into a cache registry",
 	AdminRegistries: "Create, edit and delete registries",
 	AdminStores:     "Manage blob stores and their credentials",
 	AdminUsers:      "Manage users, groups, roles and grants",

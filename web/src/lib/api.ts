@@ -87,8 +87,8 @@ export const api = {
     req("PUT", `/api/v1/admin/registries/${enc(name)}`, b),
   adminDeleteRegistry: (name: string) =>
     req("DELETE", `/api/v1/admin/registries/${enc(name)}`),
-  adminWarmRegistry: (name: string, image: string) =>
-    req("POST", `/api/v1/admin/registries/${enc(name)}/warm`, { image }),
+  adminWarmRegistry: (name: string, image: string, platforms: string[]) =>
+    req("POST", `/api/v1/registries/${enc(name)}/warm`, { image, platforms }),
   cleanupGet: (name: string) => req("GET", `/api/v1/admin/registries/${enc(name)}/cleanup`),
   cleanupSet: (name: string, b: any) =>
     req("PUT", `/api/v1/admin/registries/${enc(name)}/cleanup`, b),

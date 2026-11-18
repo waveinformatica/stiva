@@ -1,5 +1,4 @@
 {{- if .Values.warmer.enabled }}
-{{- if not .Values.warmer.tokenSecret }}{{ fail "warmer.tokenSecret is required: a Secret (key \"token\") holding the API key of an account with admin:registries" }}{{ end }}
 {{- $fullname := include "registry.fullname" . }}
 {{- $sa := printf "%s-warmer" $fullname }}
 apiVersion: v1
@@ -20,6 +19,10 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
+  # The platforms to warm are those of the nodes.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
     verbs: ["get", "list", "watch"]
@@ -76,7 +79,7 @@ spec:
             - name: REGISTRY_WARMER_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.warmer.tokenSecret }}
+                  name: {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-warmer") }}
                   key: token
             - name: REGISTRY_WARMER_INTERVAL
               value: {{ .Values.warmer.interval | quote }}

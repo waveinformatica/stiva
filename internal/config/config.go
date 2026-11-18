@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"registry/internal/auth"
 )
@@ -26,6 +27,13 @@ type Config struct {
 	// AdminBootstrap is used only at startup to create the first local admin.
 	AdminUser string `json:"-"`
 	AdminPass string `json:"-"`
+
+	// ServiceAccounts are declared service accounts, from the JSON array in
+	// REGISTRY_SERVICE_ACCOUNTS. Every startup makes the database match them
+	// (auth.ProvisionServiceAccounts); an empty list removes the accounts
+	// declared before.
+	ServiceAccounts    []auth.ServiceAccount `json:"-"`
+	serviceAccountsErr error
 }
 
 // Default returns sane defaults (file blobs, no auth, anonymous access).
@@ -47,9 +55,26 @@ func Default() Config {
 	}
 }
 
+// withServiceAccounts reads REGISTRY_SERVICE_ACCOUNTS. A malformed value is
+// kept as an error for Validate: the registry does not start with half a
+// declaration.
+func withServiceAccounts(c Config) Config {
+	raw := os.Getenv("REGISTRY_SERVICE_ACCOUNTS")
+	if raw == "" {
+		c.ServiceAccounts = []auth.ServiceAccount{}
+		return c
+	}
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&c.ServiceAccounts); err != nil {
+		c.serviceAccountsErr = fmt.Errorf("REGISTRY_SERVICE_ACCOUNTS: %w", err)
+	}
+	return c
+}
+
 // Load resolves configuration from an optional JSON file, flags and environment.
 func Load() Config {
-	cfg := Default()
+	cfg := withServiceAccounts(Default())
 
 	configFile := flag.String("config", envOr("REGISTRY_CONFIG", ""), "path to JSON config file")
 	flag.StringVar(&cfg.ListenAddr, "listen", cfg.ListenAddr, "HTTP listen address")
@@ -99,6 +124,9 @@ func (c Config) Validate() error {
 	}
 	if c.Auth == nil {
 		return fmt.Errorf("auth config must not be nil")
+	}
+	if c.serviceAccountsErr != nil {
+		return c.serviceAccountsErr
 	}
 	return nil
 }

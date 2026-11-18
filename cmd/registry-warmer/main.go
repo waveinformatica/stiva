@@ -4,7 +4,7 @@
 // store, so node pulls are served entirely from the cache.
 //
 // It is deterministic: each discovered image is normalized exactly once by the
-// registry's NormalizeImage and warmed via POST /api/v1/admin/registries/:name/warm.
+// registry's NormalizeImage and warmed via POST /api/v1/registries/:name/warm.
 package main
 
 import (
@@ -17,6 +17,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,7 @@ func main() {
 	registry := flag.String("registry", envOr("REGISTRY_WARMER_NAME", "cache"),
 		"name of the cache registry to warm")
 	token := flag.String("token", envOr("REGISTRY_WARMER_TOKEN", ""),
-		"admin bearer token for the warm endpoint (required)")
+		"API key of an account with registry:warm on the cache registry (required)")
 	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig (in-cluster if empty)")
 	interval := flag.Duration("interval", envDuration("REGISTRY_WARMER_INTERVAL", 10*time.Minute),
 		"full rescan interval for workload controllers")
@@ -47,7 +48,7 @@ func main() {
 	flag.Parse()
 
 	if *token == "" {
-		log.Fatal("an admin token is required (-token or REGISTRY_WARMER_TOKEN)")
+		log.Fatal("an API key with registry:warm is required (-token or REGISTRY_WARMER_TOKEN)")
 	}
 
 	cfg, err := loadKubeConfig(*kubeconfig)
@@ -66,6 +67,12 @@ func main() {
 		concurrency: *concurrency,
 		client:      newHTTPClient(*insecure),
 		seen:        make(map[string]struct{}),
+	}
+
+	// The platforms to warm are those of the cluster's nodes, read before
+	// anything is warmed and again at every rescan.
+	if err := w.refreshPlatforms(context.Background(), cs); err != nil {
+		log.Fatalf("reading the nodes' platforms: %v", err)
 	}
 
 	// React immediately to running pods.
@@ -92,8 +99,45 @@ type warmer struct {
 	concurrency int
 	client      *http.Client
 
-	mu   sync.Mutex
-	seen map[string]struct{}
+	mu        sync.Mutex
+	seen      map[string]struct{}
+	platforms []string // "os/architecture" of the nodes, sorted
+}
+
+// refreshPlatforms reads the platforms of the cluster's nodes. When they
+// change (a node of a new architecture joined) every image is warmed again
+// for the new set.
+func (w *warmer) refreshPlatforms(ctx context.Context, cs kubernetes.Interface) error {
+	nodes, err := cs.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	set := map[string]bool{}
+	for _, n := range nodes.Items {
+		set[n.Status.NodeInfo.OperatingSystem+"/"+n.Status.NodeInfo.Architecture] = true
+	}
+	if len(set) == 0 {
+		return fmt.Errorf("no nodes")
+	}
+	platforms := make([]string, 0, len(set))
+	for p := range set {
+		platforms = append(platforms, p)
+	}
+	sort.Strings(platforms)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if strings.Join(platforms, ",") != strings.Join(w.platforms, ",") {
+		log.Printf("registry-warmer: node platforms %v", platforms)
+		w.platforms = platforms
+		w.seen = make(map[string]struct{})
+	}
+	return nil
+}
+
+func (w *warmer) currentPlatforms() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.platforms
 }
 
 func (w *warmer) enqueue(images []string) {
@@ -125,6 +169,9 @@ func (w *warmer) rescanLoop(ctx context.Context, cs kubernetes.Interface, interv
 }
 
 func (w *warmer) rescan(ctx context.Context, cs kubernetes.Interface) {
+	if err := w.refreshPlatforms(ctx, cs); err != nil {
+		log.Printf("registry-warmer: reading the nodes' platforms: %v (keeping %v)", err, w.currentPlatforms())
+	}
 	opts := metav1.ListOptions{}
 	collect := func(imgs []string) { w.enqueue(imgs) }
 
@@ -166,8 +213,8 @@ func (w *warmer) rescan(ctx context.Context, cs kubernetes.Interface) {
 }
 
 func (w *warmer) warm(img string) {
-	body, _ := json.Marshal(map[string]string{"image": img})
-	url := fmt.Sprintf("%s/api/v1/admin/registries/%s/warm", w.cacheURL, w.registry)
+	body, _ := json.Marshal(map[string]any{"image": img, "platforms": w.currentPlatforms()})
+	url := fmt.Sprintf("%s/api/v1/registries/%s/warm", w.cacheURL, w.registry)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("warm %s: %v", img, err)

@@ -357,6 +357,7 @@
     "typeLabel": "Tipo",
     "upstreamsLabel": "Upstream (uno per riga: host=url [user pass])",
     "warmPrompt": "Precarica un'immagine in questa cache (es. gcr.io/x/y:v1):",
+    "warmPlatformsPrompt": "Piattaforme da scaricare, separate da virgole (es. linux/amd64,linux/arm64):",
     "writeMemberLabel": "Membro di scrittura (destinazione predefinita delle push)"
   },
   "roles": {

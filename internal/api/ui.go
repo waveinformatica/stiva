@@ -46,6 +46,7 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.DELETE("/account/keys/:key", h.accountRevokeKey)
 	v1.GET("/roles", h.uiRolesList)
 	h.registerScan(v1)
+	v1.POST("/registries/:name/warm", h.warmRegistry)
 
 	admin := v1.Group("/admin")
 	admin.Use(h.requireAdmin)
@@ -122,7 +123,6 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 		admin.POST("/registries", h.adminCreateRegistry)
 		admin.PUT("/registries/:name", h.adminUpdateRegistry)
 		admin.DELETE("/registries/:name", h.adminDeleteRegistry)
-		admin.POST("/registries/:name/warm", h.adminWarmRegistry)
 
 		// Retention policy for hosted OCI registries (dry run first).
 		admin.GET("/registries/:name/cleanup", h.adminGetCleanup)

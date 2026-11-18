@@ -302,7 +302,13 @@ export default function Registries() {
                     color="cyan"
                     onClick={() => {
                       const img = window.prompt(t("registries.warmPrompt"));
-                      if (img) api.adminWarmRegistry(r.name, img).then(load).catch((e) => setErr(e.message));
+                      if (!img) return;
+                      const platforms = (window.prompt(t("registries.warmPlatformsPrompt")) ?? "")
+                        .split(",")
+                        .map((p) => p.trim())
+                        .filter((p) => p !== "");
+                      if (platforms.length === 0) return;
+                      api.adminWarmRegistry(r.name, img, platforms).then(load).catch((e) => setErr(e.message));
                     }}
                   >
                     Warm

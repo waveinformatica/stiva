@@ -1,5 +1,5 @@
 {{- if .Values.metrics.serviceMonitor.enabled }}
-{{- if not .Values.scanner.tokenSecret }}{{ fail "metrics.serviceMonitor authenticates with the scanner's API key: set scanner.tokenSecret" }}{{ end }}
+{{- if not .Values.scanner.enabled }}{{ fail "metrics.serviceMonitor authenticates with the stiva-scanner account: enable the scanner" }}{{ end }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -21,6 +21,6 @@ spec:
       authorization:
         type: Bearer
         credentials:
-          name: {{ .Values.scanner.tokenSecret }}
+          name: {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-scanner") }}
           key: token
 {{- end }}

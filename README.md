@@ -79,6 +79,10 @@ released as open source so that anyone running Kubernetes can benefit from it.
   per-digest Prometheus metrics. The
   analysis runs in `stiva-scanner` (Trivy built in), a separate image, so the
   registry stays lean.
+- **Declared service accounts** (`REGISTRY_SERVICE_ACCOUNTS`: name, role,
+  scope, key file): the registry makes the database match the declaration at
+  every start, so a component and the registry share one Kubernetes Secret
+  and no account is created by hand.
 - **OCI 1.1 Referrers API**: `GET /v2/<repo>/referrers/<digest>`, subjects
   recorded at push, referrers deleted with their subject.
 - Single static binary (+ companion `registry-warmer` for cache pre-warming),

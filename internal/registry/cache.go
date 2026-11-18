@@ -18,7 +18,59 @@ import (
 // Kubernetes cluster (see the pre-warm controller). It is intentionally not part
 // of the core Backend interface: hosted/proxy/group registries are not warmers.
 type Warmer interface {
-	WarmImage(ctx context.Context, repo, reference string) error
+	// WarmImage pulls an image into the store. Of a multi-platform index it
+	// stores the index and the images of the given platforms only: the others
+	// stay pullable on demand, like anything else in a pull-through cache.
+	WarmImage(ctx context.Context, repo, reference string, platforms []Platform) error
+}
+
+// Platform is an OS/architecture[/variant] an image is built for.
+type Platform struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	Variant      string `json:"variant,omitempty"`
+}
+
+func (p Platform) String() string {
+	s := p.OS + "/" + p.Architecture
+	if p.Variant != "" {
+		s += "/" + p.Variant
+	}
+	return s
+}
+
+// ParsePlatform reads "os/architecture" or "os/architecture/variant".
+func ParsePlatform(s string) (Platform, error) {
+	parts := strings.Split(s, "/")
+	if len(parts) < 2 || len(parts) > 3 {
+		return Platform{}, fmt.Errorf("platform %q: expected os/architecture[/variant]", s)
+	}
+	for _, p := range parts {
+		if p == "" {
+			return Platform{}, fmt.Errorf("platform %q: empty part", s)
+		}
+	}
+	p := Platform{OS: parts[0], Architecture: parts[1]}
+	if len(parts) == 3 {
+		p.Variant = parts[2]
+	}
+	return p, nil
+}
+
+// matches reports whether an index entry is an image for one of the
+// platforms. The variant is compared only when the request names one
+// ("linux/arm64" takes arm64/v8 too). Entries without a platform (build
+// attestations) match nothing.
+func matchesPlatform(entry *Platform, want []Platform) bool {
+	if entry == nil {
+		return false
+	}
+	for _, w := range want {
+		if entry.OS == w.OS && entry.Architecture == w.Architecture && (w.Variant == "" || entry.Variant == w.Variant) {
+			return true
+		}
+	}
+	return false
 }
 
 var errCacheReadOnly = fmt.Errorf("cache registry is read-only")
@@ -152,11 +204,14 @@ func (c *cacheBackend) LinkManifestBlob(repo string, manifest, blob digest.Diges
 // WarmImage pulls a manifest (and, for image manifests, its config + layers;
 // for indexes, every referenced platform manifest recursively) into the local
 // store so a later pull is served entirely from cache.
-func (c *cacheBackend) WarmImage(ctx context.Context, repo, reference string) error {
-	return c.warmManifest(ctx, repo, reference, map[digest.Digest]bool{})
+func (c *cacheBackend) WarmImage(ctx context.Context, repo, reference string, platforms []Platform) error {
+	if len(platforms) == 0 {
+		return fmt.Errorf("warming %s:%s: no platform given", repo, reference)
+	}
+	return c.warmManifest(ctx, repo, reference, platforms, map[digest.Digest]bool{})
 }
 
-func (c *cacheBackend) warmManifest(ctx context.Context, repo, reference string, seen map[digest.Digest]bool) error {
+func (c *cacheBackend) warmManifest(ctx context.Context, repo, reference string, platforms []Platform, seen map[digest.Digest]bool) error {
 	up, urepo, err := c.resolve(repo)
 	if err != nil {
 		return err
@@ -177,7 +232,8 @@ func (c *cacheBackend) warmManifest(ctx context.Context, repo, reference string,
 			Digest string `json:"digest"`
 		} `json:"layers"`
 		Manifests []struct {
-			Digest string `json:"digest"`
+			Digest   string    `json:"digest"`
+			Platform *Platform `json:"platform"`
 		} `json:"manifests"`
 	}
 	if err := json.Unmarshal(content, &m); err != nil {
@@ -186,11 +242,11 @@ func (c *cacheBackend) warmManifest(ctx context.Context, repo, reference string,
 	if strings.Contains(m.MediaType, "manifest.list") || strings.Contains(m.MediaType, "image.index") {
 		for _, child := range m.Manifests {
 			d := digest.Digest(child.Digest)
-			if d == "" || seen[d] {
+			if d == "" || seen[d] || !matchesPlatform(child.Platform, platforms) {
 				continue
 			}
 			seen[d] = true
-			if err := c.warmManifest(ctx, repo, d.String(), seen); err != nil {
+			if err := c.warmManifest(ctx, repo, d.String(), platforms, seen); err != nil {
 				return err
 			}
 		}

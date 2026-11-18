@@ -1,6 +1,6 @@
 # Pre-warm controller for cache registries. It watches every workload in the
 # cluster, extracts the referenced container images, and asks the "cache" registry
-# to pull them into its local store (POST /api/v1/admin/registries/cache/warm).
+# to pull them into its local store (POST /api/v1/registries/cache/warm).
 # This makes images available in the cache before nodes pull them.
 apiVersion: v1
 kind: ServiceAccount
@@ -15,6 +15,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]

@@ -28,11 +28,11 @@
 {{- if .Values.warmer.enabled }}
 
 7. warmer Deployment is active: it pre-pulls referenced images into the `cache`
-   registry, authenticating with the API key in the Secret
-   {{ .Values.warmer.tokenSecret }} (key "token"; an account with admin:registries).{{- end }}
+   registry as the declared service account stiva-warmer (key in the Secret
+   {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-warmer") }}).{{- end }}
 {{- if .Values.scanner.enabled }}
 
 8. scanner CronJobs are active (full every "{{ .Values.scanner.schedules.full }}",
    vulnerabilities at "{{ .Values.scanner.schedules.vulnerabilities }}"), authenticating
-   with the API key in the Secret {{ .Values.scanner.tokenSecret }} (key "token"; an
-   account bound to the scanner role on every OCI registry). See docs/scanning.md.{{- end }}
+   as the declared service account stiva-scanner (key in the Secret
+   {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-scanner") }}). See docs/scanning.md.{{- end }}

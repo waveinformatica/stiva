@@ -108,6 +108,19 @@ func main() {
 	if err := az.EnsureAdmin(context.Background(), cfg.AdminUser); err != nil {
 		log.Fatalf("cannot ensure administrator: %v", err)
 	}
+	// Declared service accounts (keys from mounted Secrets) are made to match
+	// the declaration at every start, an empty one included.
+	if lr := authMgr.Local(); lr != nil {
+		if err := lr.ProvisionServiceAccounts(context.Background(), cfg.ServiceAccounts, os.ReadFile); err != nil {
+			log.Fatalf("cannot provision service accounts: %v", err)
+		}
+		if err := az.Reload(context.Background()); err != nil {
+			log.Fatalf("cannot load authorization rules: %v", err)
+		}
+		log.Printf("service accounts: %d declared", len(cfg.ServiceAccounts))
+	} else if len(cfg.ServiceAccounts) > 0 {
+		log.Fatalf("service accounts are declared but the local realm is not enabled")
+	}
 
 	handler := api.NewHandler(mgr, authMgr)
 
