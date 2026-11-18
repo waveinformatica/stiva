@@ -120,7 +120,8 @@ type ImageVulnerability struct {
 // ScanStore persists image scan results (docs/scanning.md).
 type ScanStore interface {
 	// PendingScans lists the image manifests of the given registries that have
-	// no scan, or whose full scan was made by another analyzer, oldest first.
+	// no scan, or whose full scan was made by another analyzer, newest first:
+	// what was just pushed or pulled is what runs.
 	PendingScans(registries []string, analyzer string, limit int) ([]ScanTarget, error)
 	GetImageScan(t ScanTarget) (*ImageScan, error)
 	// PutFullScan writes the result of a full scan, replacing any previous one
@@ -147,7 +148,7 @@ func (m *PostgresMetadataStore) PendingScans(registries []string, analyzer strin
 		     ON s.registry = m.registry AND s.repo = m.repo AND s.digest = m.digest
 		  WHERE m.image AND m.registry = ANY($1)
 		    AND (s.digest IS NULL OR s.analyzer <> $2)
-		  ORDER BY m.created_at, m.registry, m.repo, m.digest
+		  ORDER BY m.created_at DESC, m.registry, m.repo, m.digest
 		  LIMIT $3`,
 		registries, analyzer, limit)
 	if err != nil {
