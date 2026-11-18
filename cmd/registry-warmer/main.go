@@ -237,11 +237,20 @@ func (w *warmer) warm(img string) bool {
 		return false
 	}
 	defer resp.Body.Close()
+	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		// Only the warm endpoint's own answer counts: a 200 from anything else
+		// (an older registry without the endpoint) is not a warmed image.
+		var r struct {
+			Registry string `json:"registry"`
+		}
+		if json.Unmarshal(msg, &r) != nil || r.Registry != w.registry {
+			log.Printf("warm %s: unexpected answer from the registry (%d bytes)", img, len(msg))
+			return false
+		}
 		log.Printf("warmed %s", img)
 		return true
 	}
-	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 	log.Printf("warm %s: %d %s", img, resp.StatusCode, strings.TrimSpace(string(msg)))
 	return false
 }

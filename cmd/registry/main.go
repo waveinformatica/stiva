@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -269,6 +270,12 @@ func main() {
 			if handler.ArtifactDispatch(c) {
 				return
 			}
+		}
+		// An unknown API path is an error, not the application page: a client
+		// calling an endpoint this version does not have must not read a 200.
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "no such API endpoint"})
+			return
 		}
 		serveWebUIFile(c, webDir)
 	})
