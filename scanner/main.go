@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -72,6 +73,7 @@ func parseFlags(args []string) (config, error) {
 		}
 	}
 	if len(missing) > 0 {
+		sort.Strings(missing)
 		return c, fmt.Errorf("required: %s", strings.Join(missing, ", "))
 	}
 	if c.mode != modeFull && c.mode != modeVulnerabilities {
