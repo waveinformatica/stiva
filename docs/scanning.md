@@ -237,11 +237,17 @@ vulnerability), for whoever can read the image.
 can read:
 
 ```
-stiva_image_vulnerabilities{registry, repository, image_digest, severity}       count
-stiva_image_exposedsecrets{registry, repository, image_digest, severity}        count
-stiva_image_scan_timestamp_seconds{registry, repository, image_digest}           full scan
-stiva_image_vulnerabilities_timestamp_seconds{registry, repository, image_digest} oldest package match
+stiva_image_vulnerabilities{registry, repository, image_digest, platform, severity}       count
+stiva_image_exposedsecrets{registry, repository, image_digest, platform, severity}        count
+stiva_image_scan_timestamp_seconds{registry, repository, image_digest, platform}           full scan
+stiva_image_vulnerabilities_timestamp_seconds{registry, repository, image_digest, platform} oldest package match
 ```
+
+`image_digest` is a digest a client can pull the image by. A scanned image is
+exported under its own manifest digest (`platform=""`) and under the digest
+of every index that lists it, with the platform it is listed for
+(`platform="linux/amd64"`): a node that pulls a multi-platform tag records
+the index digest, and the join below must find it.
 
 Only non-zero counts are exported. `/metrics` requires authentication like the
 rest of the API (fail closed): Prometheus scrapes it with an API key that has
@@ -256,7 +262,7 @@ the same Alertmanager routing:
 
 ```promql
 sum by (namespace, image_repository, image_tag) (
-    max by (image_digest) (stiva_image_vulnerabilities{severity="Critical"})
+    max by (image_digest) (stiva_image_vulnerabilities{severity="Critical", platform=~"|linux/amd64"})
   * on (image_digest) group_right
     max by (namespace, image_digest, image_repository, image_tag) (
       label_replace(label_replace(label_replace(kube_pod_container_info,

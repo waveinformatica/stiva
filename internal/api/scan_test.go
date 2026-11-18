@@ -126,13 +126,14 @@ func TestWriteScanMetrics(t *testing.T) {
 	var b bytes.Buffer
 	writeScanMetrics(&b, []storage.ScanSummary{{
 		ScanTarget:               storage.ScanTarget{Registry: "cache", Repo: "library/nginx", Digest: d},
+		Platform:                 "linux/amd64",
 		VulnerabilityCounts:      map[string]int{"Critical": 2, "Low": 1, "High": 0},
 		SecretCounts:             map[string]int{},
 		ScannedAt:                at,
 		VulnerabilitiesScannedAt: at.Add(time.Hour),
 	}})
 	out := b.String()
-	lbl := `registry="cache",repository="library/nginx",image_digest="` + d.String() + `"`
+	lbl := `registry="cache",repository="library/nginx",image_digest="` + d.String() + `",platform="linux/amd64"`
 	for _, want := range []string{
 		"# TYPE stiva_image_vulnerabilities gauge\n",
 		"stiva_image_vulnerabilities{" + lbl + `,severity="Critical"} 2` + "\n",

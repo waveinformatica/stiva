@@ -95,9 +95,13 @@ type PackageVulnerabilities struct {
 	Vulnerabilities []PackageVulnerability
 }
 
-// ScanSummary is the per-severity summary of one scanned image.
+// ScanSummary is the per-severity summary of one scanned image, under a digest
+// a client can pull it by: the image manifest's own (Platform empty), or that
+// of an index listing it for Platform ("linux/amd64"). A node pulling a
+// multi-platform tag records the index digest, so both are exported.
 type ScanSummary struct {
 	ScanTarget
+	Platform string
 	VulnerabilityCounts map[string]int
 	SecretCounts        map[string]int
 	ScannedAt           time.Time
@@ -348,14 +352,28 @@ func (m *PostgresMetadataStore) ScanSummaries(registries []string) ([]ScanSummar
 		     SELECT i.registry, i.repo, i.digest, MIN(p.vulnerabilities_scanned_at) AS at
 		       FROM image_packages i JOIN scan_packages p ON p.key = i.package_key
 		      WHERE i.registry = ANY($1)
-		      GROUP BY i.registry, i.repo, i.digest)
-		 SELECT s.registry, s.repo, s.digest, COALESCE(counts.c, '{}'::jsonb), s.secret_counts,
-		        s.scanned_at, COALESCE(fresh.at, s.scanned_at)
-		   FROM image_scans s
-		   LEFT JOIN counts ON counts.registry = s.registry AND counts.repo = s.repo AND counts.digest = s.digest
-		   LEFT JOIN fresh ON fresh.registry = s.registry AND fresh.repo = s.repo AND fresh.digest = s.digest
-		  WHERE s.registry = ANY($1)
-		  ORDER BY s.registry, s.repo, s.digest`,
+		      GROUP BY i.registry, i.repo, i.digest),
+		  base AS (
+		     SELECT s.registry, s.repo, s.digest, COALESCE(counts.c, '{}'::jsonb) AS c, s.secret_counts AS sc,
+		            s.scanned_at AS at, COALESCE(fresh.at, s.scanned_at) AS vat
+		       FROM image_scans s
+		       LEFT JOIN counts ON counts.registry = s.registry AND counts.repo = s.repo AND counts.digest = s.digest
+		       LEFT JOIN fresh ON fresh.registry = s.registry AND fresh.repo = s.repo AND fresh.digest = s.digest
+		      WHERE s.registry = ANY($1)),
+		  entries AS (
+		     SELECT m.registry, m.repo, m.digest AS index_digest, e->>'digest' AS child,
+		            concat_ws('/', e->'platform'->>'os', e->'platform'->>'architecture',
+		                      NULLIF(e->'platform'->>'variant', '')) AS platform
+		       FROM manifests m
+		      CROSS JOIN LATERAL jsonb_array_elements(convert_from(m.content, 'UTF8')::jsonb->'manifests') e
+		      WHERE m.registry = ANY($1)
+		        AND m.media_type IN ('application/vnd.oci.image.index.v1+json',
+		                             'application/vnd.docker.distribution.manifest.list.v2+json'))
+		 SELECT registry, repo, digest, '' AS platform, c, sc, at, vat FROM base
+		 UNION ALL
+		 SELECT e.registry, e.repo, e.index_digest, e.platform, b.c, b.sc, b.at, b.vat
+		   FROM entries e JOIN base b ON b.registry = e.registry AND b.repo = e.repo AND b.digest = e.child
+		  ORDER BY 1, 2, 3, 4`,
 		registries)
 	if err != nil {
 		return nil, err
@@ -367,7 +385,7 @@ func (m *PostgresMetadataStore) ScanSummaries(registries []string) ([]ScanSummar
 		var d string
 		var vc, sc []byte
 		var at, vat int64
-		if err := rows.Scan(&s.Registry, &s.Repo, &d, &vc, &sc, &at, &vat); err != nil {
+		if err := rows.Scan(&s.Registry, &s.Repo, &d, &s.Platform, &vc, &sc, &at, &vat); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(vc, &s.VulnerabilityCounts); err != nil {

@@ -774,8 +774,8 @@ func (h *Handler) metrics(c *gin.Context) {
 
 func writeScanMetrics(w io.Writer, sums []storage.ScanSummary) {
 	labels := func(s storage.ScanSummary) string {
-		return fmt.Sprintf(`registry="%s",repository="%s",image_digest="%s"`,
-			promEscape(s.Registry), promEscape(s.Repo), promEscape(s.Digest.String()))
+		return fmt.Sprintf(`registry="%s",repository="%s",image_digest="%s",platform="%s"`,
+			promEscape(s.Registry), promEscape(s.Repo), promEscape(s.Digest.String()), promEscape(s.Platform))
 	}
 	counts := func(name, help string, pick func(storage.ScanSummary) map[string]int) {
 		fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s gauge\n", name, help, name)
