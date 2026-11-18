@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -149,8 +150,16 @@ func (w *warmer) enqueue(images []string) {
 		_, known := w.seen[img]
 		w.seen[img] = struct{}{}
 		w.mu.Unlock()
-		if !known {
-			w.warm(img)
+		if known {
+			continue
+		}
+		// An image counts as warmed only once the cache took it: a failure
+		// (cache registry missing, upstream rate limit) is retried at the next
+		// rescan.
+		if !w.warm(img) {
+			w.mu.Lock()
+			delete(w.seen, img)
+			w.mu.Unlock()
 		}
 	}
 }
@@ -212,27 +221,29 @@ func (w *warmer) rescan(ctx context.Context, cs kubernetes.Interface) {
 	}
 }
 
-func (w *warmer) warm(img string) {
+func (w *warmer) warm(img string) bool {
 	body, _ := json.Marshal(map[string]any{"image": img, "platforms": w.currentPlatforms()})
 	url := fmt.Sprintf("%s/api/v1/registries/%s/warm", w.cacheURL, w.registry)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("warm %s: %v", img, err)
-		return
+		return false
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+w.token)
 	resp, err := w.client.Do(req)
 	if err != nil {
 		log.Printf("warm %s: %v", img, err)
-		return
+		return false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		log.Printf("warmed %s", img)
-	} else {
-		log.Printf("warm %s: unexpected status %d", img, resp.StatusCode)
+		return true
 	}
+	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	log.Printf("warm %s: %d %s", img, resp.StatusCode, strings.TrimSpace(string(msg)))
+	return false
 }
 
 // ---- image extraction ----
