@@ -71,6 +71,8 @@ spec:
           args:
             - -interval={{ $w.interval }}
           env:
+            - name: REGISTRY_WARMER_REGISTRY
+              value: {{ .Values.cache.registry | quote }}
             - name: REGISTRY_WARMER_CACHE_URL
               value: {{ printf "http://%s:%v" $fullname .Values.cache.port | quote }}
             - name: REGISTRY_WARMER_NODE

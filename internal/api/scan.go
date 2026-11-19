@@ -31,6 +31,10 @@ const (
 	annotationScanAnalyzer = "dev.stiva.scan.analyzer"
 
 	maxScanResultsBytes = 64 << 20
+	// placementFreshness is how long a node's report of what it runs counts:
+	// three rounds of a pre-warm agent at its default 10 minutes. A node gone
+	// silent stops counting.
+	placementFreshness = 30 * time.Minute
 	// scanFailureRetry is how long an image the analyzer failed on waits
 	// before it is pending again: a failure is usually the image's (a file
 	// the analyzer cannot read, a blob missing), not a passing condition.
@@ -54,6 +58,17 @@ func validSeverity(s string) bool {
 // SetScans wires the scan result store.
 func (h *Handler) SetScans(s storage.ScanStore) { h.scans = s }
 
+// SetFindings wires the placement and vulnerability-set store.
+func (h *Handler) SetFindings(f storage.FindingsStore) { h.findings = f }
+
+func (h *Handler) findingsReady(c *gin.Context) bool {
+	if h.findings == nil {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "vulnerability sets not configured"})
+		return false
+	}
+	return true
+}
+
 func (h *Handler) scansReady(c *gin.Context) bool {
 	if h.scans == nil {
 		c.JSON(http.StatusNotImplemented, gin.H{"error": "image scanning not configured"})
@@ -72,6 +87,9 @@ func (h *Handler) registerScan(v1 gin.IRouter) {
 	s.GET("/vulnerabilities", h.scanImageVulnerabilities)
 	s.PUT("/results", h.scanPutResults)
 	s.PUT("/failures", h.scanPutFailure)
+	s.PUT("/placements", h.scanPutPlacements)
+	s.GET("/sets", h.scanSets)
+	s.GET("/sets/:set", h.scanSet)
 	s.GET("/packages", h.scanPackages)
 	s.PUT("/packages/vulnerabilities", h.scanPutPackageVulnerabilities)
 	s.POST("/packages/prune", h.scanPrunePackages)
@@ -588,6 +606,117 @@ func (h *Handler) scanPutFailure(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// placementsBody is the body of PUT /api/v1/scan/placements.
+type placementsBody struct {
+	Placements []storage.Placement `json:"placements"`
+}
+
+// scanPutPlacements handles PUT /api/v1/scan/placements?registry=&node=: the
+// containers a node runs, from its pre-warm agent (registry:warm on the
+// cache registry it warms). The report replaces the node's previous one.
+func (h *Handler) scanPutPlacements(c *gin.Context) {
+	if !h.findingsReady(c) {
+		return
+	}
+	reg, ok := h.mgr.Get(c.Query("registry"))
+	if !ok || registry.Type(reg.Type) != registry.TypeCache {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such cache registry"})
+		return
+	}
+	if h.authz == nil || !h.authz.Allows(principal(h.currentUser(c)), authz.RegistryWarm, reg.Format, reg.Name, "") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "permission required", "permission": string(authz.RegistryWarm)})
+		return
+	}
+	node := c.Query("node")
+	if node == "" {
+		return400(c, "node is required")
+		return
+	}
+	var b placementsBody
+	if !decodeStrict(c, &b) {
+		return
+	}
+	if b.Placements == nil {
+		return400(c, "placements is required (an empty list when nothing runs)")
+		return
+	}
+	for i, p := range b.Placements {
+		if p.Namespace == "" || p.Pod == "" || p.Container == "" || p.Image == "" || p.Platform == "" {
+			return400(c, fmt.Sprintf("placements[%d]: namespace, pod, container, image and platform are required", i))
+			return
+		}
+		if _, err := digest.Parse(p.Digest.String()); err != nil {
+			return400(c, fmt.Sprintf("placements[%d]: invalid digest", i))
+			return
+		}
+		b.Placements[i].Node = node
+	}
+	if err := h.findings.ReplacePlacements(node, b.Placements, time.Now().UTC()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// severitiesQuery reads ?severity=Critical,High; every value must be a
+// severity. Empty means all.
+func severitiesQuery(c *gin.Context) ([]string, bool) {
+	raw := c.Query("severity")
+	if raw == "" {
+		return scanSeverities, true
+	}
+	out := []string{}
+	for _, s := range strings.Split(raw, ",") {
+		if !validSeverity(s) {
+			return400(c, fmt.Sprintf("unknown severity %q", s))
+			return nil, false
+		}
+		out = append(out, s)
+	}
+	return out, true
+}
+
+// scanSets handles GET /api/v1/scan/sets?severity=: the vulnerability sets
+// that run, over the registries the caller can read.
+func (h *Handler) scanSets(c *gin.Context) {
+	if !h.findingsReady(c) {
+		return
+	}
+	sev, ok := severitiesQuery(c)
+	if !ok {
+		return
+	}
+	sets, err := h.findings.VulnerabilitySets(h.scanRegistries(c, authz.RegistryRead), sev, placementFreshness)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"sets": sets})
+}
+
+// scanSet handles GET /api/v1/scan/sets/:set?severity=: one set with its
+// packages, vulnerabilities, images and where they run.
+func (h *Handler) scanSet(c *gin.Context) {
+	if !h.findingsReady(c) {
+		return
+	}
+	sev := c.Query("severity")
+	if !validSeverity(sev) {
+		return400(c, "severity is required")
+		return
+	}
+	d, err := h.findings.GetVulnerabilitySet(c.Param("set"), sev, h.scanRegistries(c, authz.RegistryRead), placementFreshness)
+	if errors.Is(err, storage.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no running image carries this set"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, d)
+}
+
 // scanImageVulnerabilities handles GET /api/v1/scan/vulnerabilities?registry=&repo=&digest=.
 func (h *Handler) scanImageVulnerabilities(c *gin.Context) {
 	if !h.scansReady(c) {
@@ -822,6 +951,14 @@ func (h *Handler) metrics(c *gin.Context) {
 	var b bytes.Buffer
 	writeScanMetrics(&b, sums)
 	writeScanFailureMetrics(&b, fails)
+	if h.findings != nil {
+		sets, err := h.findings.VulnerabilitySets(regs, alertSeverities, placementFreshness)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		writeSetMetrics(&b, sets)
+	}
 	c.Data(http.StatusOK, "text/plain; version=0.0.4; charset=utf-8", b.Bytes())
 }
 
@@ -863,6 +1000,26 @@ func writeScanFailureMetrics(w io.Writer, fails []storage.ScanFailure) {
 	for _, f := range fails {
 		fmt.Fprintf(w, "%s{registry=\"%s\",repository=\"%s\",image_digest=\"%s\",analyzer=\"%s\"} %d\n", name,
 			promEscape(f.Registry), promEscape(f.Repo), promEscape(f.Digest.String()), promEscape(f.Analyzer), f.FailedAt.Unix())
+	}
+}
+
+// alertSeverities are the severities exported as vulnerability sets: what
+// alerts are raised on (Critical, and High as warnings).
+var alertSeverities = []string{"Critical", "High"}
+
+// maxSetPackagesLabel bounds the package names carried in a set's label.
+const maxSetPackagesLabel = 200
+
+func writeSetMetrics(w io.Writer, sets []storage.VulnerabilitySet) {
+	name := "stiva_vulnerability_set"
+	fmt.Fprintf(w, "# HELP %s Running images sharing a set of vulnerabilities of one severity (same packages, same vulnerabilities).\n# TYPE %s gauge\n", name, name)
+	for _, s := range sets {
+		pk := strings.Join(s.Packages, ", ")
+		if len(pk) > maxSetPackagesLabel {
+			pk = strings.ToValidUTF8(pk[:maxSetPackagesLabel], "") + "…"
+		}
+		fmt.Fprintf(w, "%s{set=\"%s\",severity=\"%s\",packages=\"%s\",vulnerabilities=\"%d\",namespaces=\"%s\"} %d\n", name,
+			promEscape(s.Set), promEscape(s.Severity), promEscape(pk), s.Vulnerabilities, promEscape(strings.Join(s.Namespaces, ", ")), s.Images)
 	}
 }
 

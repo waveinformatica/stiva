@@ -60,6 +60,8 @@ type Handler struct {
 
 	// Image scan results, wired by SetScans.
 	scans storage.ScanStore
+	// Placements and vulnerability sets, wired by SetFindings.
+	findings storage.FindingsStore
 }
 
 // NewHandler builds an API handler.

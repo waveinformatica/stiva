@@ -194,6 +194,7 @@ func main() {
 	handler.SetAuthz(az)
 	if ss, ok := meta.(storage.ScanStore); ok {
 		handler.SetScans(ss)
+		handler.SetFindings(meta.(storage.FindingsStore))
 	} else {
 		log.Printf("WARNING: metadata store has no scan support; image scanning is disabled")
 	}

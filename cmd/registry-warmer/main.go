@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -47,6 +48,7 @@ import (
 )
 
 type config struct {
+	registry   string
 	cacheURL   string
 	token      string
 	node       string
@@ -56,6 +58,7 @@ type config struct {
 }
 
 func main() {
+	registryName := flag.String("registry", os.Getenv("REGISTRY_WARMER_REGISTRY"), "name of the cache registry (required)")
 	cacheURL := flag.String("cache-url", os.Getenv("REGISTRY_WARMER_CACHE_URL"),
 		"base URL of the cache registry's own listener, e.g. http://registry:5001 (required)")
 	node := flag.String("node", os.Getenv("REGISTRY_WARMER_NODE"), "name of the node this agent runs on (required)")
@@ -67,11 +70,11 @@ func main() {
 	flag.Parse()
 
 	cfg := config{
-		cacheURL: strings.TrimRight(*cacheURL, "/"), token: os.Getenv("REGISTRY_WARMER_TOKEN"),
+		registry: *registryName, cacheURL: strings.TrimRight(*cacheURL, "/"), token: os.Getenv("REGISTRY_WARMER_TOKEN"),
 		node: *node, contentDir: *contentDir, exclude: map[string]bool{}, interval: *interval,
 	}
 	var missing []string
-	for name, v := range map[string]string{"-cache-url": cfg.cacheURL, "-node": cfg.node, "-content-dir": cfg.contentDir, "REGISTRY_WARMER_TOKEN": cfg.token} {
+	for name, v := range map[string]string{"-registry": cfg.registry, "-cache-url": cfg.cacheURL, "-node": cfg.node, "-content-dir": cfg.contentDir, "REGISTRY_WARMER_TOKEN": cfg.token} {
 		if v == "" {
 			missing = append(missing, name)
 		}
@@ -136,14 +139,31 @@ type image struct {
 
 func (im image) String() string { return im.repo + ":" + im.ref + "@" + string(im.digest) }
 
-// running lists the images of the node's running containers, deduplicated.
-func (w *warmer) running(ctx context.Context) ([]image, error) {
+// placement is a container of the node and the digest it runs, reported to
+// the registry every round (all of them, excluded registries included: where
+// an image runs matters whatever its origin).
+type placement struct {
+	Namespace string `json:"namespace"`
+	Pod       string `json:"pod"`
+	Container string `json:"container"`
+	Image     string `json:"image"`
+	Digest    string `json:"digest"`
+	Platform  string `json:"platform"`
+}
+
+// platform is the node's, the agent running on it.
+var platform = runtime.GOOS + "/" + runtime.GOARCH
+
+// running lists the images of the node's running containers to warm,
+// deduplicated, and every container with a resolved digest.
+func (w *warmer) running(ctx context.Context) ([]image, []placement, error) {
 	pods, err := w.kube.CoreV1().Pods("").List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + w.cfg.node})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	seen := map[string]bool{}
 	var out []image
+	places := []placement{}
 	for _, p := range pods.Items {
 		// The name comes from the spec, what the pod asks for: the status may
 		// report a bare image ID instead. The digest comes from the status,
@@ -154,6 +174,10 @@ func (w *warmer) running(ctx context.Context) ([]image, error) {
 		}
 		statuses := append(append([]corev1.ContainerStatus{}, p.Status.InitContainerStatuses...), p.Status.ContainerStatuses...)
 		for _, st := range statuses {
+			if i := strings.LastIndex(st.ImageID, "@"); i >= 0 && names[st.Name] != "" {
+				places = append(places, placement{Namespace: p.Namespace, Pod: p.Name, Container: st.Name,
+					Image: names[st.Name], Digest: st.ImageID[i+1:], Platform: platform})
+			}
 			im, ok, err := w.imageOf(names[st.Name], st.ImageID)
 			if err != nil {
 				log.Printf("%s/%s %s: %v", p.Namespace, p.Name, names[st.Name], err)
@@ -165,7 +189,25 @@ func (w *warmer) running(ctx context.Context) ([]image, error) {
 			}
 		}
 	}
-	return out, nil
+	return out, places, nil
+}
+
+// report tells the registry what the node runs.
+func (w *warmer) report(ctx context.Context, places []placement) error {
+	body, err := json.Marshal(map[string]any{"placements": places})
+	if err != nil {
+		return err
+	}
+	resp, err := w.request(ctx, http.MethodPut, "/api/v1/scan/placements",
+		url.Values{"registry": {w.cfg.registry}, "node": {w.cfg.node}}, bytes.NewReader(body), int64(len(body)), "application/json")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		return errorOf(resp)
+	}
+	return nil
 }
 
 // imageOf reads a container's image: the name its spec gives, the digest its
@@ -195,10 +237,13 @@ func (w *warmer) imageOf(name, imageID string) (image, bool, error) {
 }
 
 func (w *warmer) round(ctx context.Context) {
-	images, err := w.running(ctx)
+	images, places, err := w.running(ctx)
 	if err != nil {
 		log.Printf("listing the node's pods: %v", err)
 		return
+	}
+	if err := w.report(ctx, places); err != nil {
+		log.Printf("reporting the node's %d containers: %v", len(places), err)
 	}
 	pushed, failed := 0, 0
 	for _, im := range images {

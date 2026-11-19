@@ -239,7 +239,31 @@ contains are pruned by the next refresh.
 vulnerabilities (target, occurrences, package URL, name, version,
 vulnerability), for whoever can read the image.
 
-## 5. Metrics and alerts
+## 5. Where images run, and vulnerability sets
+
+Each pre-warm agent reports, every round, the containers of its node with
+the digest each runs and the node's platform (`PUT
+/api/v1/scan/placements?registry=<cache>&node=<node>`, registry:warm); a
+report replaces the node's previous one and counts for 30 minutes. A
+container is resolved onto the image manifest it runs: the digest itself, or
+the entry of the node's platform when the digest is an index.
+
+A **vulnerability set** is, for one image and one severity, the set of its
+(package, vulnerability) pairs, identified by their digest: images built from
+the same base with the same vulnerabilities share it. It is the unit of
+alerting and of tickets.
+
+- `GET /api/v1/scan/sets?severity=Critical,High` lists the sets that run, with
+  package names, number of vulnerabilities, images, containers and namespaces;
+- `GET /api/v1/scan/sets/<set>?severity=Critical` gives one set in full: its
+  packages with their vulnerabilities, and its images with where they run;
+- `stiva_vulnerability_set{set, severity, packages, vulnerabilities,
+  namespaces}` (Critical and High) is the number of running images that carry
+  the set.
+
+All three cover the registries the caller can read.
+
+## 6. Metrics and alerts
 
 `GET /metrics` (Prometheus text format) exposes, for the registries the caller
 can read:
@@ -290,7 +314,7 @@ visible (a rule can alert on running digests without a scan), and
 `stiva_image_vulnerabilities_timestamp_seconds` on findings that stopped
 being refreshed.
 
-## 6. Deployment
+## 7. Deployment
 
 The Helm chart (`deploy/k8s/charts/registry`, values `scanner.*` and
 `metrics.serviceMonitor.*`) deploys:

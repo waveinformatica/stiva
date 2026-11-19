@@ -75,6 +75,9 @@ component that authenticates with it.
 {{- if .Values.cacheMirror.enabled -}}
 {{- $accounts = append $accounts (dict "name" "stiva-nodes" "role" "reader" "scope" (printf "oci:%s" .Values.cache.registry)) -}}
 {{- end -}}
+{{- range .Values.serviceAccounts.extra -}}
+{{- $accounts = append $accounts (dict "name" .name "role" .role "scope" .scope "secretNamespace" (.secretNamespace | default "")) -}}
+{{- end -}}
 {{- toJson $accounts -}}
 {{- end }}
 

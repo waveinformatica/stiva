@@ -245,3 +245,11 @@ metrics:
     enabled: false
     interval: 5m
     labels: {}
+
+# Further declared service accounts, for clients of the registry: each gets a
+# generated key in the Secret <release>-<name>, and a copy of it in
+# secretNamespace when the client lives elsewhere. E.g. the Kosmos alt-infra
+# module reading vulnerability sets for its tickets:
+#   - {name: kosmos-alt-infra, role: reader, scope: "*", secretNamespace: kosmos}
+serviceAccounts:
+  extra: []
