@@ -238,7 +238,7 @@ func (h *Handler) manifestOp(c *gin.Context, be registry.Backend, repoSegs []str
 func (h *Handler) getManifest(c *gin.Context, be registry.Backend, repo, reference string) {
 	content, mt, err := be.GetManifest(repo, reference)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
@@ -261,7 +261,7 @@ func (h *Handler) getManifest(c *gin.Context, be registry.Backend, repo, referen
 func (h *Handler) headManifest(c *gin.Context, be registry.Backend, repo, reference string) {
 	content, mt, err := be.GetManifest(repo, reference)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
@@ -333,7 +333,7 @@ func (h *Handler) putManifest(c *gin.Context, be registry.Backend, repo, referen
 
 func (h *Handler) deleteManifest(c *gin.Context, be registry.Backend, repo, reference string) {
 	if err := be.DeleteManifest(repo, reference); err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("MANIFEST_UNKNOWN", "manifest not found"))
 			return
 		}
@@ -372,7 +372,7 @@ func (h *Handler) blobOp(c *gin.Context, be registry.Backend, repoSegs []string,
 func (h *Handler) getBlob(c *gin.Context, be registry.Backend, repo string, d digest.Digest) {
 	rc, size, err := be.GetBlob(repo, d)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("BLOB_UNKNOWN", "blob not found"))
 			return
 		}
@@ -393,7 +393,7 @@ func (h *Handler) getBlob(c *gin.Context, be registry.Backend, repo string, d di
 func (h *Handler) headBlob(c *gin.Context, be registry.Backend, repo string, d digest.Digest) {
 	size, err := be.StatBlob(repo, d)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("BLOB_UNKNOWN", "blob not found"))
 			return
 		}
@@ -408,7 +408,7 @@ func (h *Handler) headBlob(c *gin.Context, be registry.Backend, repo string, d d
 
 func (h *Handler) deleteBlob(c *gin.Context, be registry.Backend, d digest.Digest) {
 	if err := be.DeleteBlob(d); err != nil {
-		if err == storage.ErrNotFound {
+		if errors.Is(err, storage.ErrNotFound) {
 			c.JSON(http.StatusNotFound, errorBody("BLOB_UNKNOWN", "blob not found"))
 			return
 		}

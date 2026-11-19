@@ -45,7 +45,7 @@ func (c *cacheBackend) GetBlob(repo string, d digest.Digest) (io.ReadCloser, int
 	}
 	urc, usz, uerr := up.GetBlobReader(urepo, d)
 	if uerr != nil {
-		return nil, 0, uerr
+		return nil, 0, notHere(repo, d.String(), uerr)
 	}
 	tmp, terr := os.CreateTemp("", "cacheblob-")
 	if terr != nil {
@@ -81,7 +81,23 @@ func (c *cacheBackend) StatBlob(repo string, d digest.Digest) (int64, error) {
 	if rerr != nil {
 		return 0, rerr
 	}
-	return up.StatBlob(urepo, d)
+	sz, uerr := up.StatBlob(urepo, d)
+	if uerr != nil {
+		return 0, notHere(repo, d.String(), uerr)
+	}
+	return sz, nil
+}
+
+// notHere is what a cache answers when it does not hold content and cannot get
+// it from the origin: not found. A mirror client (containerd) then asks the
+// origin itself, with its own credentials (a private image the cache has no
+// key for, a node with imagePullSecrets); any other error would stop the pull.
+// The reason is logged.
+func notHere(repo, ref string, cause error) error {
+	if !errors.Is(cause, storage.ErrNotFound) {
+		log.Printf("cache: %s %s: not held and the origin did not provide it (%v)", repo, ref, cause)
+	}
+	return storage.ErrNotFound
 }
 
 // GetManifest serves a manifest. A digest names immutable content: the local
@@ -127,7 +143,7 @@ func (c *cacheBackend) GetManifest(repo, reference string) ([]byte, string, erro
 			log.Printf("cache: %s:%s: fetching the new manifest failed (%v), serving the cached copy", repo, reference, uerr)
 			return content, mt, nil
 		}
-		return nil, "", uerr
+		return nil, "", notHere(repo, reference, uerr)
 	}
 	if verr := verifyManifestDigest(reference, uc); verr != nil {
 		return nil, "", verr
