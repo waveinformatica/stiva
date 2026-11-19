@@ -101,7 +101,7 @@ type PackageVulnerabilities struct {
 // multi-platform tag records the index digest, so both are exported.
 type ScanSummary struct {
 	ScanTarget
-	Platform string
+	Platform            string
 	VulnerabilityCounts map[string]int
 	SecretCounts        map[string]int
 	ScannedAt           time.Time
@@ -121,12 +121,25 @@ type ImageVulnerability struct {
 	PackageVulnerability
 }
 
+// ScanFailure records that an analyzer could not scan an image.
+type ScanFailure struct {
+	ScanTarget
+	Analyzer string    `json:"analyzer"`
+	Error    string    `json:"error"`
+	FailedAt time.Time `json:"failed_at"`
+}
+
 // ScanStore persists image scan results (docs/scanning.md).
 type ScanStore interface {
 	// PendingScans lists the image manifests of the given registries that have
 	// no scan, or whose full scan was made by another analyzer, newest first:
-	// what was just pushed or pulled is what runs.
-	PendingScans(registries []string, analyzer string, limit int) ([]ScanTarget, error)
+	// what was just pushed or pulled is what runs. An image this analyzer
+	// failed on is left out until retryAfter has passed since the failure.
+	PendingScans(registries []string, analyzer string, retryAfter time.Duration, limit int) ([]ScanTarget, error)
+	// RecordScanFailure records (or renews) a failed full scan.
+	RecordScanFailure(f ScanFailure) error
+	// ScanFailures lists the recorded failures of the given registries.
+	ScanFailures(registries []string) ([]ScanFailure, error)
 	GetImageScan(t ScanTarget) (*ImageScan, error)
 	// PutFullScan writes the result of a full scan, replacing any previous one
 	// of the same image, in one transaction.
@@ -144,17 +157,20 @@ type ScanStore interface {
 	ImageVulnerabilities(t ScanTarget) ([]ImageVulnerability, error)
 }
 
-func (m *PostgresMetadataStore) PendingScans(registries []string, analyzer string, limit int) ([]ScanTarget, error) {
+func (m *PostgresMetadataStore) PendingScans(registries []string, analyzer string, retryAfter time.Duration, limit int) ([]ScanTarget, error) {
 	rows, err := m.pool.Query(context.Background(),
 		`SELECT m.registry, m.repo, m.digest
 		   FROM manifests m
 		   LEFT JOIN image_scans s
 		     ON s.registry = m.registry AND s.repo = m.repo AND s.digest = m.digest
+		   LEFT JOIN image_scan_failures f
+		     ON f.registry = m.registry AND f.repo = m.repo AND f.digest = m.digest
 		  WHERE m.image AND m.registry = ANY($1)
 		    AND (s.digest IS NULL OR s.analyzer <> $2)
+		    AND (f.digest IS NULL OR f.analyzer <> $2 OR f.failed_at < $4)
 		  ORDER BY m.created_at DESC, m.registry, m.repo, m.digest
 		  LIMIT $3`,
-		registries, analyzer, limit)
+		registries, analyzer, limit, time.Now().Add(-retryAfter).UnixNano())
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +184,39 @@ func (m *PostgresMetadataStore) PendingScans(registries []string, analyzer strin
 		}
 		t.Digest = digest.Digest(d)
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (m *PostgresMetadataStore) RecordScanFailure(f ScanFailure) error {
+	_, err := m.pool.Exec(context.Background(),
+		`INSERT INTO image_scan_failures(registry, repo, digest, analyzer, error, failed_at)
+		 VALUES($1,$2,$3,$4,$5,$6)
+		 ON CONFLICT (registry, repo, digest) DO UPDATE SET
+		        analyzer = EXCLUDED.analyzer, error = EXCLUDED.error, failed_at = EXCLUDED.failed_at`,
+		f.Registry, f.Repo, f.Digest.String(), f.Analyzer, f.Error, f.FailedAt.UnixNano())
+	return err
+}
+
+func (m *PostgresMetadataStore) ScanFailures(registries []string) ([]ScanFailure, error) {
+	rows, err := m.pool.Query(context.Background(),
+		`SELECT registry, repo, digest, analyzer, error, failed_at FROM image_scan_failures
+		  WHERE registry = ANY($1) ORDER BY registry, repo, digest`, registries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ScanFailure{}
+	for rows.Next() {
+		var f ScanFailure
+		var d string
+		var at int64
+		if err := rows.Scan(&f.Registry, &f.Repo, &d, &f.Analyzer, &f.Error, &at); err != nil {
+			return nil, err
+		}
+		f.Digest = digest.Digest(d)
+		f.FailedAt = time.Unix(0, at).UTC()
+		out = append(out, f)
 	}
 	return out, rows.Err()
 }
@@ -243,6 +292,8 @@ func (m *PostgresMetadataStore) PutFullScan(s FullScan) error {
 		replaceVulnerabilities(b, p.Key, s.Database, s.Options, s.ScannedAt, p.Vulnerabilities)
 	}
 	b.Queue(`DELETE FROM image_packages WHERE registry = $1 AND repo = $2 AND digest = $3`,
+		s.Registry, s.Repo, s.Digest.String())
+	b.Queue(`DELETE FROM image_scan_failures WHERE registry = $1 AND repo = $2 AND digest = $3`,
 		s.Registry, s.Repo, s.Digest.String())
 	for _, o := range s.Occurrences {
 		b.Queue(`INSERT INTO image_packages(registry, repo, digest, target, package_key, occurrences)

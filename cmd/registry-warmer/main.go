@@ -145,11 +145,18 @@ func (w *warmer) running(ctx context.Context) ([]image, error) {
 	seen := map[string]bool{}
 	var out []image
 	for _, p := range pods.Items {
+		// The name comes from the spec, what the pod asks for: the status may
+		// report a bare image ID instead. The digest comes from the status,
+		// what the node resolved.
+		names := map[string]string{}
+		for _, c := range append(append([]corev1.Container{}, p.Spec.InitContainers...), p.Spec.Containers...) {
+			names[c.Name] = c.Image
+		}
 		statuses := append(append([]corev1.ContainerStatus{}, p.Status.InitContainerStatuses...), p.Status.ContainerStatuses...)
 		for _, st := range statuses {
-			im, ok, err := w.imageOf(st)
+			im, ok, err := w.imageOf(names[st.Name], st.ImageID)
 			if err != nil {
-				log.Printf("%s/%s %s: %v", p.Namespace, p.Name, st.Image, err)
+				log.Printf("%s/%s %s: %v", p.Namespace, p.Name, names[st.Name], err)
 				continue
 			}
 			if ok && !seen[im.String()] {
@@ -161,18 +168,19 @@ func (w *warmer) running(ctx context.Context) ([]image, error) {
 	return out, nil
 }
 
-// imageOf reads a container status. Not an image to warm: no resolved digest
-// yet, an image named by its ID only, or an excluded registry.
-func (w *warmer) imageOf(st corev1.ContainerStatus) (image, bool, error) {
-	i := strings.LastIndex(st.ImageID, "@")
-	if i < 0 || strings.HasPrefix(st.Image, "sha256:") {
+// imageOf reads a container's image: the name its spec gives, the digest its
+// status says the node resolved. Not an image to warm: no resolved digest
+// yet, a spec naming an image by its ID only, or an excluded registry.
+func (w *warmer) imageOf(name, imageID string) (image, bool, error) {
+	i := strings.LastIndex(imageID, "@")
+	if i < 0 || name == "" || strings.HasPrefix(name, "sha256:") {
 		return image{}, false, nil
 	}
-	d, err := digest.Parse(st.ImageID[i+1:])
+	d, err := digest.Parse(imageID[i+1:])
 	if err != nil {
 		return image{}, false, err
 	}
-	repo, ref, err := registry.NormalizeImage(st.Image)
+	repo, ref, err := registry.NormalizeImage(name)
 	if err != nil {
 		return image{}, false, err
 	}

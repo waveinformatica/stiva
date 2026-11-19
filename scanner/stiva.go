@@ -155,6 +155,21 @@ func (s *stiva) putResults(ctx context.Context, t target, doc results) error {
 	return expect(resp, http.StatusNoContent)
 }
 
+// putFailure records that the image could not be scanned; the registry offers
+// it again after a day, or to another analyzer.
+func (s *stiva) putFailure(ctx context.Context, t target, analyzer string, cause error) error {
+	body, err := json.Marshal(map[string]string{"analyzer": analyzer, "error": cause.Error()})
+	if err != nil {
+		return err
+	}
+	resp, err := s.do(ctx, http.MethodPut, "/api/v1/scan/failures", t.query(), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return expect(resp, http.StatusNoContent)
+}
+
 // content fetches a manifest or a blob of an image through the scan API, which
 // addresses registries by name rather than by the host clients use.
 func (s *stiva) content(ctx context.Context, kind string, t target) (*http.Response, error) {

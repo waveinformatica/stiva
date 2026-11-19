@@ -149,6 +149,14 @@ For images never scanned, or scanned by another analyser version.
 Secrets are part of the layers, which never change for a digest, so they are
 found by the full scan only.
 
+When the analyser cannot scan an image (a file it cannot read, a blob the
+registry does not hold), the scanner records it with `PUT
+/api/v1/scan/failures?registry=&repo=&digest=` (`analyzer`, `error`). The
+image is pending again a day later, or at once for another analyser; a
+successful scan removes the record. Failures are exported as
+`stiva_image_scan_failure_timestamp_seconds`, and a run fails only when it
+could not record one.
+
 ### Vulnerability refresh (`-mode vulnerabilities`, daily)
 
 New vulnerabilities are published every day for packages that do not change.
@@ -241,6 +249,7 @@ stiva_image_vulnerabilities{registry, repository, image_digest, platform, severi
 stiva_image_exposedsecrets{registry, repository, image_digest, platform, severity}        count
 stiva_image_scan_timestamp_seconds{registry, repository, image_digest, platform}           full scan
 stiva_image_vulnerabilities_timestamp_seconds{registry, repository, image_digest, platform} oldest package match
+stiva_image_scan_failure_timestamp_seconds{registry, repository, image_digest, analyzer} last failed scan
 ```
 
 `image_digest` is a digest a client can pull the image by. A scanned image is

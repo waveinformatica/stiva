@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"testing"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 func TestImageOf(t *testing.T) {
@@ -27,7 +25,7 @@ func TestImageOf(t *testing.T) {
 		{"sha256:" + d[7:], "docker.io/library/nginx@" + d, false, "", ""},
 	}
 	for _, c := range cases {
-		im, ok, err := w.imageOf(corev1.ContainerStatus{Image: c.image, ImageID: c.imageID})
+		im, ok, err := w.imageOf(c.image, c.imageID)
 		if err != nil {
 			t.Errorf("%s: %v", c.image, err)
 			continue

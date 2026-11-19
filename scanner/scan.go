@@ -19,9 +19,9 @@ type scanner struct {
 	pageSize int
 }
 
-// full scans every pending image. An image that fails is reported and skipped
-// for the rest of the run (it stays pending for the next one); the run then
-// exits with an error so the CronJob shows the failure.
+// full scans every pending image. An image that fails is recorded in the
+// registry (visible in its metrics, offered again after a day); the run exits
+// with an error only when a failure could not be recorded.
 func (s *scanner) full(ctx context.Context) error {
 	analyzer, err := analyzerVersion()
 	if err != nil {
@@ -34,7 +34,7 @@ func (s *scanner) full(ctx context.Context) error {
 	defer p.close(context.Background())
 
 	failed := map[target]bool{}
-	scanned := 0
+	scanned, recorded := 0, 0
 	for {
 		// Failed images stay pending and come back first: ask for enough to
 		// get past them.
@@ -59,16 +59,21 @@ func (s *scanner) full(ctx context.Context) error {
 			if err := s.scanImage(ctx, p, analyzer, t); err != nil {
 				logger.Printf("FAILED %s: %v", t, err)
 				failed[t] = true
+				if rerr := s.stiva.putFailure(ctx, t, analyzer, err); rerr != nil {
+					logger.Printf("recording the failure of %s: %v", t, rerr)
+					continue
+				}
+				recorded++
 				continue
 			}
 			scanned++
 			logger.Printf("scanned %s in %s", t, time.Since(start).Round(time.Second))
 		}
 	}
-	logger.Printf("full scan: %d images scanned, %d failed (%s, database v%d of %s)",
-		scanned, len(failed), analyzer, s.db.Version, s.db.UpdatedAt.Format(time.RFC3339))
-	if len(failed) > 0 {
-		return fmt.Errorf("%d images could not be scanned", len(failed))
+	logger.Printf("full scan: %d images scanned, %d failed (%d recorded in the registry) (%s, database v%d of %s)",
+		scanned, len(failed), recorded, analyzer, s.db.Version, s.db.UpdatedAt.Format(time.RFC3339))
+	if unrecorded := len(failed) - recorded; unrecorded > 0 {
+		return fmt.Errorf("%d failed scans could not be recorded", unrecorded)
 	}
 	return nil
 }

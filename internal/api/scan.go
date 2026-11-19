@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +31,11 @@ const (
 	annotationScanAnalyzer = "dev.stiva.scan.analyzer"
 
 	maxScanResultsBytes = 64 << 20
-	maxScanPageSize     = 500
+	// scanFailureRetry is how long an image the analyzer failed on waits
+	// before it is pending again: a failure is usually the image's (a file
+	// the analyzer cannot read, a blob missing), not a passing condition.
+	scanFailureRetry = 24 * time.Hour
+	maxScanPageSize  = 500
 )
 
 // Severities, in the order metrics list them. The spelling is trivy-operator's,
@@ -66,6 +71,7 @@ func (h *Handler) registerScan(v1 gin.IRouter) {
 	s.GET("/sbom", h.scanSBOM)
 	s.GET("/vulnerabilities", h.scanImageVulnerabilities)
 	s.PUT("/results", h.scanPutResults)
+	s.PUT("/failures", h.scanPutFailure)
 	s.GET("/packages", h.scanPackages)
 	s.PUT("/packages/vulnerabilities", h.scanPutPackageVulnerabilities)
 	s.POST("/packages/prune", h.scanPrunePackages)
@@ -130,7 +136,7 @@ func (h *Handler) scanPending(c *gin.Context) {
 		return
 	}
 	regs := h.scanRegistries(c, authz.RegistryRead, authz.RegistryScan)
-	targets, err := h.scans.PendingScans(regs, analyzer, limit)
+	targets, err := h.scans.PendingScans(regs, analyzer, scanFailureRetry, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -541,6 +547,47 @@ func (h *Handler) scanPutResults(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// scanFailureBody is the body of PUT /api/v1/scan/failures.
+type scanFailureBody struct {
+	Analyzer string `json:"analyzer"`
+	Error    string `json:"error"`
+}
+
+// maxScanErrorBytes bounds the stored error text.
+const maxScanErrorBytes = 4096
+
+// scanPutFailure handles PUT /api/v1/scan/failures?registry=&repo=&digest=:
+// the analyzer could not scan the image. The image is pending again after
+// scanFailureRetry, or for another analyzer.
+func (h *Handler) scanPutFailure(c *gin.Context) {
+	if !h.scansReady(c) {
+		return
+	}
+	_, t, ok := h.scanTarget(c, authz.RegistryScan)
+	if !ok {
+		return
+	}
+	var b scanFailureBody
+	if !decodeStrict(c, &b) {
+		return
+	}
+	if b.Analyzer == "" || b.Error == "" {
+		return400(c, "analyzer and error are required")
+		return
+	}
+	if len(b.Error) > maxScanErrorBytes {
+		// Cut on a byte boundary, then drop a rune split by the cut: the
+		// column holds valid UTF-8.
+		b.Error = strings.ToValidUTF8(b.Error[:maxScanErrorBytes], "")
+	}
+	err := h.scans.RecordScanFailure(storage.ScanFailure{ScanTarget: t, Analyzer: b.Analyzer, Error: b.Error, FailedAt: time.Now().UTC()})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // scanImageVulnerabilities handles GET /api/v1/scan/vulnerabilities?registry=&repo=&digest=.
 func (h *Handler) scanImageVulnerabilities(c *gin.Context) {
 	if !h.scansReady(c) {
@@ -767,8 +814,14 @@ func (h *Handler) metrics(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	fails, err := h.scans.ScanFailures(regs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	var b bytes.Buffer
 	writeScanMetrics(&b, sums)
+	writeScanFailureMetrics(&b, fails)
 	c.Data(http.StatusOK, "text/plain; version=0.0.4; charset=utf-8", b.Bytes())
 }
 
@@ -802,6 +855,15 @@ func writeScanMetrics(w io.Writer, sums []storage.ScanSummary) {
 		func(s storage.ScanSummary) time.Time { return s.ScannedAt })
 	gauge("stiva_image_vulnerabilities_timestamp_seconds", "Oldest vulnerability match among an image's packages.",
 		func(s storage.ScanSummary) time.Time { return s.VulnerabilitiesScannedAt })
+}
+
+func writeScanFailureMetrics(w io.Writer, fails []storage.ScanFailure) {
+	name := "stiva_image_scan_failure_timestamp_seconds"
+	fmt.Fprintf(w, "# HELP %s Time of the last failed full scan of an image (retried daily).\n# TYPE %s gauge\n", name, name)
+	for _, f := range fails {
+		fmt.Fprintf(w, "%s{registry=\"%s\",repository=\"%s\",image_digest=\"%s\",analyzer=\"%s\"} %d\n", name,
+			promEscape(f.Registry), promEscape(f.Repo), promEscape(f.Digest.String()), promEscape(f.Analyzer), f.FailedAt.Unix())
+	}
 }
 
 // promEscape escapes a label value for the Prometheus text format.
