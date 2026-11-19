@@ -22,7 +22,8 @@ import {
   Tree,
   ActionIcon,
 } from "./ui";
-import { api } from "../lib/api";
+import { api, type ImageFindings } from "../lib/api";
+import { ImageFindingsPanel, SeverityCounts } from "./Findings";
 import { IconBox, IconCopy, IconFolder, IconRefresh, IconSearch, IconTag } from "./icons";
 
 export type Reg = {
@@ -167,6 +168,25 @@ function CopyAction({ value, label }: { value: string; label?: string }) {
 
 export type FocusRepo = { repo: string; n: number };
 
+// The vulnerability counts of one platform image of an index.
+function ChildFindings({ registry, repo, digest }: { registry: string; repo: string; digest: string }) {
+  const { t } = useTranslation();
+  const [f, setF] = useState<ImageFindings | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    api
+      .findingsImage(registry, repo, digest)
+      .then((r) => live && setF(r))
+      .catch(() => live && setF(null));
+    return () => {
+      live = false;
+    };
+  }, [registry, repo, digest]);
+  if (f === undefined) return <Text size="xs" c="dimmed">…</Text>;
+  if (f === null || !f.scanned) return <Text size="xs" c="dimmed">{t("findings.notScannedShort")}</Text>;
+  return <SeverityCounts counts={f.vulnerability_counts} />;
+}
+
 export default function RepoBrowser({
   registry,
   endpoint,
@@ -191,6 +211,7 @@ export default function RepoBrowser({
   const [loading, setLoading] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [showDf, setShowDf] = useState(false);
+  const [showFindings, setShowFindings] = useState(true);
   const [dockerfile, setDockerfile] = useState<{ content: string; source: string } | null>(null);
   const [dfLoading, setDfLoading] = useState(false);
   // Breadcrumb trail from the tag down to the manifest on screen. Empty
@@ -746,6 +767,11 @@ export default function RepoBrowser({
                         render: (m: any) => <Text size="xs">{childSizeText(m.digest)}</Text>,
                       },
                       {
+                        header: t("findings.vulnerabilitiesLabel"),
+                        width: 170,
+                        render: (m: any) => <ChildFindings registry={registry} repo={repo} digest={m.digest} />,
+                      },
+                      {
                         header: t("registries.digestHeader"),
                         render: (m: any) => (
                           <Group gap="xs" wrap="nowrap">
@@ -765,6 +791,22 @@ export default function RepoBrowser({
                       },
                     ]}
                   />
+                )}
+
+                {layers.length > 0 && (
+                  <Card padding="sm" mt="sm" withBorder>
+                    <Group justify="space-between" mb={showFindings ? "xs" : 0}>
+                      <Text size="sm" fw={600}>
+                        {t("findings.imageSecurity")}
+                      </Text>
+                      <Button size="compact-xs" variant="subtle" onClick={() => setShowFindings(!showFindings)}>
+                        {showFindings ? t("findings.hide") : t("findings.show")}
+                      </Button>
+                    </Group>
+                    {showFindings && (
+                      <ImageFindingsPanel target={{ registry, repo, digest: manifest.digest }} compact />
+                    )}
+                  </Card>
                 )}
 
                 <Group gap="xs" mt="xs">

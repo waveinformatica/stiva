@@ -171,6 +171,25 @@ export const api = {
   // else reconstructed from the image config history.
   dockerfile: (registry: string, repo: string, ref: string) =>
     req("GET", `/api/v1/dockerfile?registry=${enc(registry)}&repo=${enc(repo)}&ref=${enc(ref)}`),
+
+  // Scan findings (docs/scanning.md): vulnerability sets of the running
+  // images, packages, vulnerabilities and the findings of one image.
+  vulnerabilitySets: (severity: string) =>
+    req("GET", `/api/v1/scan/sets?severity=${enc(severity)}`) as Promise<{ sets: VulnerabilitySet[] }>,
+  vulnerabilitySet: (set: string, severity: string) =>
+    req("GET", `/api/v1/scan/sets/${enc(set)}?severity=${enc(severity)}`) as Promise<VulnerabilitySetDetail>,
+  findingsPackages: (q: string) =>
+    req("GET", `/api/v1/findings/packages?q=${enc(q)}`) as Promise<{ packages: PackageSummary[] }>,
+  findingsPackage: (key: string) =>
+    req("GET", `/api/v1/findings/packages/${enc(key)}`) as Promise<PackageDetail>,
+  findingsVulnerabilities: (q: string, severity: string) =>
+    req("GET", `/api/v1/findings/vulnerabilities?q=${enc(q)}&severity=${enc(severity)}`) as Promise<{
+      vulnerabilities: VulnerabilitySummary[];
+    }>,
+  findingsVulnerability: (id: string) =>
+    req("GET", `/api/v1/findings/vulnerabilities/${enc(id)}`) as Promise<VulnerabilityDetail>,
+  findingsImage: (registry: string, repo: string, digest: string) =>
+    req("GET", `/api/v1/findings/image?registry=${enc(registry)}&repo=${enc(repo)}&digest=${enc(digest)}`) as Promise<ImageFindings>,
   stats: (registry: string) =>
     req("GET", `/api/v1/stats?registry=${enc(registry)}`),
 
@@ -299,4 +318,141 @@ export async function fetchImageUrl(slug: string, id: number): Promise<string> {
   const res = await fetch(`/api/v1/catalog/${enc(slug)}/screenshots/${id}`, { headers });
   if (!res.ok) throw new ApiError(res.statusText || "image unavailable", res.status);
   return URL.createObjectURL(await res.blob());
+}
+
+/** Download the CycloneDX SBOM of a scanned image. */
+export async function downloadSBOM(registry: string, repo: string, digest: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(
+    `/api/v1/scan/sbom?registry=${enc(registry)}&repo=${enc(repo)}&digest=${enc(digest)}`,
+    { headers },
+  );
+  if (!res.ok) throw new ApiError(res.statusText || "download failed", res.status);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${repo.split("/").pop() || "image"}-${digest.replace("sha256:", "").slice(0, 12)}.cdx.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+export type Severity = "Critical" | "High" | "Medium" | "Low" | "Unknown";
+
+export interface Placement {
+  node: string;
+  namespace: string;
+  pod: string;
+  container: string;
+  image: string;
+  digest: string;
+  platform: string;
+}
+
+export interface ScanTarget {
+  registry: string;
+  repo: string;
+  digest: string;
+}
+
+export interface FindingImage extends ScanTarget {
+  tags: string[];
+  placements: Placement[];
+}
+
+export interface PackageVulnerability {
+  id: string;
+  severity: Severity;
+  fixed: string;
+  title: string;
+}
+
+export interface VulnerabilitySet {
+  set: string;
+  severity: Severity;
+  packages: string[];
+  vulnerabilities: number;
+  images: number;
+  containers: number;
+  namespaces: string[];
+}
+
+export interface VulnerabilitySetDetail extends VulnerabilitySet {
+  detail: { purl: string; name: string; version: string; vulnerabilities: PackageVulnerability[] }[];
+  images_of: (ScanTarget & { placements: Placement[] })[];
+}
+
+export interface PackageSummary {
+  key: string;
+  name: string;
+  version: string;
+  purl: string;
+  type: string;
+  vulnerabilities: Record<string, number>;
+  images: number;
+  containers: number;
+}
+
+export interface PackageDetail extends PackageSummary {
+  context: Record<string, unknown>;
+  matched: PackageVulnerability[];
+  matched_at: string;
+  database_version: number;
+  database_updated_at: string;
+  images_of: FindingImage[];
+  image_limit: number;
+}
+
+export interface VulnerabilitySummary {
+  id: string;
+  severity: Severity;
+  title: string;
+  packages: number;
+  images: number;
+  containers: number;
+}
+
+export interface VulnerabilityDetail {
+  id: string;
+  severity: Severity;
+  title: string;
+  packages: { key: string; name: string; version: string; purl: string; type: string; fixed: string }[];
+  image_count: number;
+  images_of: FindingImage[];
+  image_limit: number;
+}
+
+export interface ImagePackage {
+  key: string;
+  name: string;
+  version: string;
+  purl: string;
+  type: string;
+  targets: string[];
+  vulnerabilities: PackageVulnerability[];
+}
+
+export interface ExposedSecret {
+  rule_id: string;
+  category: string;
+  severity: Severity;
+  title: string;
+  target: string;
+  line: number;
+}
+
+export interface ImageFindings extends ScanTarget {
+  scanned: boolean;
+  analyzer?: string;
+  scanned_at?: string;
+  sbom_manifest?: string;
+  vulnerability_counts: Record<string, number>;
+  secret_counts: Record<string, number>;
+  packages: ImagePackage[];
+  secrets: ExposedSecret[];
+  placements: Placement[];
+  failure?: { analyzer: string; error: string; failed_at: string };
 }

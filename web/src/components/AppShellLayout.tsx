@@ -18,6 +18,7 @@ export type View =
   | "catalog"
   | "catalogAdmin"
   | "explorer"
+  | "vulnerabilities"
   | "apikeys"
   | "users"
   | "serviceAccounts"
@@ -98,6 +99,7 @@ export default function AppShellLayout({
         </Text>
         {link("catalog", t("nav.catalog"), <IconStore size={16} />)}
         {link("explorer", t("nav.explorer"), <IconSearch size={16} />)}
+        {link("vulnerabilities", t("nav.vulnerabilities"), <IconShield size={16} />)}
         {!user.anonymous && link("apikeys", t("nav.apikeys"), <IconKey size={16} />)}
 
         {user.admin && (

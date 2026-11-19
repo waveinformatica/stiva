@@ -3,6 +3,7 @@ import { Loader } from "@mantine/core";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Explorer from "./pages/Explorer";
+import { ImagePage, PackagePage, SetPage, VulnerabilitiesHome, VulnerabilityPage } from "./pages/Vulnerabilities";
 import Catalog from "./pages/Catalog";
 import CatalogApp from "./pages/CatalogApp";
 import CatalogAdmin from "./pages/admin/CatalogAdmin";
@@ -151,6 +152,11 @@ function Shell({ user, onLogout }: { user: ShellUser; onLogout: () => void }) {
           <Route path="/catalog/:slug" element={<CatalogApp />} />
           <Route path="/admin/catalog" element={<CatalogAdmin />} />
           <Route path="/explorer" element={<Explorer />} />
+          <Route path="/vulnerabilities" element={<VulnerabilitiesHome />} />
+          <Route path="/vulnerabilities/sets/:set" element={<SetPage />} />
+          <Route path="/vulnerabilities/cve/:id" element={<VulnerabilityPage />} />
+          <Route path="/vulnerabilities/packages/:key" element={<PackagePage />} />
+          <Route path="/vulnerabilities/image" element={<ImagePage />} />
           <Route path="/apikeys" element={<ApiKeys anonymous={user.anonymous} />} />
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/service-accounts" element={<ServiceAccounts />} />

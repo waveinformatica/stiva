@@ -9,6 +9,7 @@ export const VIEW_PATHS: Record<View, string> = {
   catalog: "/catalog",
   catalogAdmin: "/admin/catalog",
   explorer: "/explorer",
+  vulnerabilities: "/vulnerabilities",
   apikeys: "/apikeys",
   users: "/admin/users",
   serviceAccounts: "/admin/service-accounts",
@@ -37,5 +38,7 @@ export function viewForPath(pathname: string): View | null {
   const clean = pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
   // The home page is the catalog, and so is every application page below it.
   if (clean === "/" || clean.startsWith("/catalog/")) return "catalog";
+  // The findings pages: sets, vulnerabilities, packages and images.
+  if (clean.startsWith("/vulnerabilities/")) return "vulnerabilities";
   return PATH_VIEWS[clean] ?? null;
 }

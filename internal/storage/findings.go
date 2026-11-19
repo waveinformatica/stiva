@@ -65,6 +65,8 @@ type FindingsStore interface {
 	VulnerabilitySets(registries, severities []string, freshAfter time.Duration) ([]VulnerabilitySet, error)
 	// GetVulnerabilitySet returns one set, ErrNotFound when nothing runs it.
 	GetVulnerabilitySet(set, severity string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error)
+	// What the interface browses (explore.go).
+	ExploreStore
 }
 
 func (m *PostgresMetadataStore) ReplacePlacements(node string, ps []Placement, at time.Time) error {
@@ -98,15 +100,18 @@ func (m *PostgresMetadataStore) ReplacePlacements(node string, ps []Placement, a
 //     it is an index (in every registry and repository holding it).
 //   - image_sets: per scanned image and severity, the md5 of the sorted
 //     (package key, vulnerability) pairs: the set.
-const setsCTE = `
-WITH running AS (
-	SELECT * FROM running_placements WHERE seen_at >= $3
+//
+// resolvedCTE defines running and resolved (above), with the registries and
+// the freshness bound as the given query parameters.
+func resolvedCTE(registries, fresh string) string {
+	return `running AS (
+	SELECT * FROM running_placements WHERE seen_at >= ` + fresh + `
 ),
-resolved AS (
+resolved AS MATERIALIZED (
 	SELECT r.node, r.namespace, r.pod, r.container, r.image, r.digest AS pulled, r.platform,
 	       m.registry, m.repo, m.digest
 	  FROM running r JOIN manifests m ON m.digest = r.digest AND m.image
-	 WHERE m.registry = ANY($1)
+	 WHERE m.registry = ANY(` + registries + `)
 	UNION
 	SELECT r.node, r.namespace, r.pod, r.container, r.image, r.digest, r.platform,
 	       m.registry, m.repo, e->>'digest'
@@ -115,9 +120,13 @@ resolved AS (
 	       AND m.media_type IN ('application/vnd.oci.image.index.v1+json',
 	                            'application/vnd.docker.distribution.manifest.list.v2+json')
 	 CROSS JOIN LATERAL jsonb_array_elements(convert_from(m.content, 'UTF8')::jsonb->'manifests') e
-	 WHERE m.registry = ANY($1)
+	 WHERE m.registry = ANY(` + registries + `)
 	   AND concat_ws('/', e->'platform'->>'os', e->'platform'->>'architecture') = r.platform
-),
+)`
+}
+
+var setsCTE = `
+WITH ` + resolvedCTE("$1", "$3") + `,
 image_sets AS (
 	SELECT i.registry, i.repo, i.digest, v.severity,
 	       md5(string_agg(DISTINCT i.package_key || ' ' || v.vulnerability_id, ',' ORDER BY i.package_key || ' ' || v.vulnerability_id)) AS set

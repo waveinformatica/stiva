@@ -253,6 +253,9 @@ func main() {
 	}
 	// An application page: /catalog/<slug>.
 	r.GET("/catalog/:slug", func(c *gin.Context) { serveWebUIFile(c, webDir) })
+	// The findings pages: /vulnerabilities/sets/<set>, /vulnerabilities/cve/<id>,
+	// /vulnerabilities/packages/<key>, /vulnerabilities/image.
+	r.GET("/vulnerabilities/*page", func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	for _, p := range uiStaticPaths {
 		r.GET(p, func(c *gin.Context) { serveWebUIFile(c, webDir) })
 	}
@@ -357,6 +360,7 @@ func lastColon(s string) int {
 var uiPagePaths = []string{
 	"/",
 	"/explorer",
+	"/vulnerabilities",
 	"/apikeys",
 	"/admin/users",
 	"/admin/service-accounts",

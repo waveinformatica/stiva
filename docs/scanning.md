@@ -263,6 +263,39 @@ alerting and of tickets.
 
 All three cover the registries the caller can read.
 
+Alerts are raised per set, not per image: `StivaCriticalVulnerabilitySet`
+(severity critical) and `StivaHighVulnerabilitySet` (severity warning) on
+`max by (set, packages, vulnerabilities) (stiva_vulnerability_set{severity=...}) > 0`,
+with the set's page in the `stiva_url` annotation. One alert, and so one
+ticket, is one fix: the same packages with the same vulnerabilities, wherever
+they run. Kosmos (alt-infra) writes the ticket's description from
+`GET /api/v1/scan/sets/<set>`, as the declared service account
+`kosmos-alt-infra`.
+
+### Browsing findings
+
+The interface (`/vulnerabilities`) reads, always in the registries the caller
+can read and with the running containers counted from the placements:
+
+- `GET /api/v1/findings/packages?q=` — packages whose name or purl contains
+  `q`, with their vulnerabilities by severity, images and running containers;
+- `GET /api/v1/findings/packages/<key>` — one package, its vulnerabilities
+  and the images containing it (200 at most, the running ones first);
+- `GET /api/v1/findings/vulnerabilities?q=&severity=` — vulnerabilities by
+  identifier or title, or all of one severity, the most widely running first;
+- `GET /api/v1/findings/vulnerabilities/<id>` — one vulnerability, the
+  packages carrying it with the fixed version and the images containing them;
+- `GET /api/v1/findings/image?registry=&repo=&digest=` — one image manifest:
+  its packages (where they sit, their vulnerabilities), its secrets (rule,
+  file and line, never the value), where it runs, and why its scan failed if
+  it did. The SBOM document is `GET /api/v1/scan/sbom` with the same
+  parameters.
+
+The pages are the running sets (Critical, High), the vulnerability and
+package searches, a page per set, vulnerability, package and image; the
+explorer shows the findings of the image it displays, and the counts of each
+platform of an index.
+
 ## 6. Metrics and alerts
 
 `GET /metrics` (Prometheus text format) exposes, for the registries the caller
