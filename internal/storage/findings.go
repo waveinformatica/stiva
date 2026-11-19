@@ -223,10 +223,10 @@ SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, p
 		`SELECT p.purl, COALESCE(p.package->>'Name', ''), COALESCE(p.package->>'Version', ''),
 		        json_agg(json_build_object('id', v.vulnerability_id, 'severity', v.severity, 'fixed', v.fixed, 'title', v.title)
 		                 ORDER BY v.vulnerability_id)
-		   FROM image_packages i
+		   FROM (SELECT DISTINCT package_key FROM image_packages
+		          WHERE registry = $1 AND repo = $2 AND digest = $3) i
 		   JOIN scan_packages p ON p.key = i.package_key
 		   JOIN package_vulnerabilities v ON v.package_key = i.package_key AND v.severity = $4
-		  WHERE i.registry = $1 AND i.repo = $2 AND i.digest = $3
 		  GROUP BY p.key, p.purl, p.package->>'Name', p.package->>'Version'
 		  ORDER BY 2, 3`,
 		first.Registry, first.Repo, first.Digest.String(), severity)

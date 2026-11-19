@@ -49,6 +49,12 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
+  # The agent serves nothing: update every node at once, so a node that is
+  # down (its pod stuck) does not hold the others back.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 100%
   template:
     metadata:
       labels:
