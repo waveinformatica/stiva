@@ -45,9 +45,10 @@ metadata:
   name: registry-warmer
   namespace: registry
 stringData:
-  # An admin token for the cache registry (REGISTRY_WARMER_TOKEN). Create one via
-  # the UI (Service Accounts) or API, then fill it in (or manage the secret out of band).
-  token: "REPLACE_WITH_ADMIN_TOKEN"
+  # The API key of an account with the "warmer" role (registry:warm) on the cache
+  # registry (REGISTRY_WARMER_TOKEN). Create it from the UI (Service Accounts),
+  # then fill it in (or manage the secret out of band).
+  token: "REPLACE_WITH_WARMER_KEY"
 ---
 apiVersion: apps/v1
 kind: Deployment

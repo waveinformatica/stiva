@@ -91,10 +91,15 @@ config:
 - The `cache` repository type (Kubernetes pull-through image cache) is part of
   the product. This chart optionally deploys the two helpers that make it
   transparent (both default `enabled: false`):
-  - `cacheMirror` — a DaemonSet that rewires containerd on every node to use the
-    registry as a mirror for **all** registries (`"*"` endpoint). Best-effort for
-    systemd-managed containerd; adapt `cacheMirror.containerdConfDir` /
-    `cacheMirror.restartCommand` to your distribution.
+  - `cacheMirror` — a DaemonSet that makes every node pull through the cache
+    registry: it writes containerd's default host configuration
+    (`/etc/containerd/certs.d/_default/hosts.toml`, needs `config_path`) with
+    the cache as mirror, so registries without a directory of their own go
+    through the cache and directly when it does not answer. Nothing is
+    restarted, and stopping the pod removes the file. The cache registry
+    listens on `cacheMirror.port` (set `port` on its definition); the nodes
+    authenticate as the declared service account `stiva-nodes` (reader on the
+    cache only). `cacheMirror.nodeSelector` limits it to some nodes.
   - `warmer` — a Deployment that watches cluster workloads and pre-pulls the
     referenced images into the `cache` registry (POST `/api/v1/registries/cache/warm`).
     It authenticates as the declared service account `stiva-warmer` (role

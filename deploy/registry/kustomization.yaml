@@ -8,5 +8,4 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
-  - cache-mirror.yaml
   - warmer.yaml

@@ -374,6 +374,22 @@ func NormalizeImage(image string) (repo, ref string, err error) {
 	return repo, ref, nil
 }
 
+// NamespacedRepo is the cache repository of an image a containerd mirror
+// request names by its origin registry (the "ns" query parameter) and its
+// repository on that registry: the same name NormalizeImage gives
+// "<ns>/<repo>", so an image pulled through the mirror and one warmed are one
+// entry of the cache.
+func NamespacedRepo(ns, repo string) (string, error) {
+	if !isRegistryHost(ns) || strings.Contains(ns, "/") {
+		return "", fmt.Errorf("ns %q is not a registry host", ns)
+	}
+	if repo == "" {
+		return "", fmt.Errorf("empty repository")
+	}
+	out, _, err := NormalizeImage(ns + "/" + repo)
+	return out, err
+}
+
 func isRegistryHost(seg string) bool {
 	if seg == "" {
 		return false

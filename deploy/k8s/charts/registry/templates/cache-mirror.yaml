@@ -1,25 +1,21 @@
 {{- if .Values.cacheMirror.enabled }}
 {{- $fullname := include "registry.fullname" . }}
-{{- $name := printf "%s-mirror" $fullname }}
-{{- $endpoint := printf "http://%s:%s" $fullname (toString .Values.service.port) }}
-{{- $restart := .Values.cacheMirror.restartCommand | join " " }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ $name }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "registry.labels" . | nindent 4 }}
-data:
-  registry-mirror.toml: |
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."*"]
-      endpoint = ["{{ $endpoint }}"]
----
+{{- $m := .Values.cacheMirror }}
+{{- /* Kubernetes injects <SERVICE>_SERVICE_HOST into pods of the namespace: the
+     node reaches the registry at the Service's cluster IP, since the host's
+     resolver does not know cluster names. */}}
+{{- $hostVar := printf "%s_SERVICE_HOST" ($fullname | upper | replace "-" "_") }}
+# Makes every node pull through the cache registry: containerd's default host
+# configuration (/etc/containerd/certs.d/_default/hosts.toml) lists the cache as
+# a mirror for every registry without a directory of its own. containerd reads
+# that directory at every pull, so nothing is restarted; when the cache does not
+# answer, containerd pulls from the registry itself. The nodes authenticate as
+# the declared service account stiva-nodes (reader on the cache only). Removing
+# the pod (cacheMirror.enabled=false) removes the file.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ $name }}
+  name: {{ $fullname }}-cache-mirror
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "registry.labels" . | nindent 4 }}
@@ -27,42 +23,78 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/name: {{ $fullname }}-cache-mirror
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/name: {{ $fullname }}-cache-mirror
+        app.kubernetes.io/component: cache-mirror
     spec:
-      hostPID: true
+      {{- with $m.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Every node pulls images, control plane and tainted nodes included.
+      tolerations:
+        - operator: Exists
+      terminationGracePeriodSeconds: 10
       containers:
         - name: mirror
-          image: {{ .Values.cacheMirror.image }}
+          image: {{ $m.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MIRROR_PORT
+              value: {{ $m.port | quote }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              set -e
-              CONF_DIR=/host{{ $.Values.cacheMirror.containerdConfDir }}
-              mkdir -p "$CONF_DIR"
-              cp /etc/registry-mirror/registry-mirror.toml "$CONF_DIR/registry-mirror.toml"
-              echo "wrote containerd mirror drop-in; restarting containerd"
-              nsenter -t 1 -m -- {{ $restart }} || true
-              sleep 3600
-          volumeMounts:
-            - name: host-etc-containerd
-              mountPath: /host/etc/containerd
-            - name: config
-              mountPath: /etc/registry-mirror
+              set -eu
+              dir=/host/certs.d/_default
+              file="$dir/hosts.toml"
+              host="${{ $hostVar }}"
+              mkdir -p "$dir"
+              write() {
+                key=$(cat /key/token)
+                umask 077
+                {
+                  echo '# Written by {{ $fullname }}-cache-mirror: registries without their own directory'
+                  echo '# are pulled through the Stiva cache, then directly if it does not answer.'
+                  echo "[host.\"http://$host:$MIRROR_PORT\"]"
+                  echo '  capabilities = ["pull", "resolve"]'
+                  echo "  [host.\"http://$host:$MIRROR_PORT\".header]"
+                  echo "    Authorization = \"Bearer $key\""
+                } > "$file.new"
+                if ! cmp -s "$file.new" "$file"; then
+                  mv "$file.new" "$file"
+                  echo "wrote $file (mirror http://$host:$MIRROR_PORT)"
+                else
+                  rm -f "$file.new"
+                fi
+              }
+              trap 'rm -f "$file" "$file.new"; echo "removed $file"; exit 0' TERM INT
+              while true; do
+                write
+                sleep 60 &
+                wait $!
+              done
           securityContext:
-            privileged: true
-          {{- with .Values.cacheMirror.resources }}
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: certs-d
+              mountPath: /host/certs.d
+            - name: key
+              mountPath: /key
+              readOnly: true
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- toYaml $m.resources | nindent 12 }}
       volumes:
-        - name: host-etc-containerd
+        - name: certs-d
           hostPath:
-            path: /etc/containerd
-        - name: config
-          configMap:
-            name: {{ $name }}
+            path: {{ $m.containerdCertsDir }}
+            type: DirectoryOrCreate
+        - name: key
+          secret:
+            secretName: {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-nodes") }}
 {{- end }}

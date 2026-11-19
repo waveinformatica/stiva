@@ -126,17 +126,10 @@ curl -u admin:CHANGE_ME -X POST http://registry.registry.svc.cluster.local:5000/
 
 ### Make every node use it as a mirror
 
-`cache-mirror.yaml` ships a DaemonSet that drops a containerd mirror config pointing
-`*` at the cache service and reloads containerd on each node, so **all** image pulls
-(also external ones) are cached automatically:
-
-```bash
-kubectl -n registry apply -f deploy/registry/cache-mirror.yaml
-```
-
-(Adapt the hostPath and restart command if your distribution keeps containerd config
-elsewhere or uses a different runtime. Do not run this on nodes you cannot cordon —
-reloading containerd briefly interrupts pulls.)
+The transparent cache for the nodes is set up by the Helm chart
+(`deploy/k8s/charts/registry`, `cacheMirror.*`): it needs the cache registry on
+a port of its own, a declared service account for the nodes and its key on
+every node, which these plain manifests do not provide. See the chart's README.
 
 ### Proactively pre-warm the cache
 

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -139,6 +140,22 @@ func (h *Handler) Dispatch(c *gin.Context) {
 	if !reg.Online {
 		c.JSON(http.StatusServiceUnavailable, errorBody("UNAVAILABLE", "registry is offline"))
 		return
+	}
+	// A containerd mirror request names the origin registry in "ns" and
+	// leaves it out of the path. Only a cache registry has origins: it maps
+	// the request onto the repository the image has in the cache. Before
+	// access control, which then sees the real repository.
+	if ns := c.Query("ns"); ns != "" {
+		if registry.Type(reg.Type) != registry.TypeCache {
+			c.JSON(http.StatusBadRequest, errorBody("UNSUPPORTED", "ns is only meaningful on a cache registry"))
+			return
+		}
+		mapped, err := namespacedPath(ns, path)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorBody("NAME_INVALID", err.Error()))
+			return
+		}
+		path = mapped
 	}
 	// Per-repository access control. The repository is extracted here so a grant
 	// scoped to a path ("docker:kosmos/**") narrows to it; passing only the
@@ -542,8 +559,22 @@ func (h *Handler) tagsList(c *gin.Context, be registry.Backend, repoSegs []strin
 // repoFromPath extracts the repository name from an OCI path. Names contain
 // slashes and have no fixed depth, so the split is on the operation that
 // follows them rather than on a segment count.
+// namespacedPath rewrites "<repo>/<op>..." of a mirror request for origin ns
+// into "<cache repo>/<op>...".
+func namespacedPath(ns, path string) (string, error) {
+	repo := repoFromPath(path)
+	if repo == "" {
+		return "", fmt.Errorf("no repository in %q", path)
+	}
+	mapped, err := registry.NamespacedRepo(ns, repo)
+	if err != nil {
+		return "", err
+	}
+	return mapped + path[len(repo):], nil
+}
+
 func repoFromPath(path string) string {
-	for _, sep := range []string{"/manifests/", "/blobs/", "/tags/"} {
+	for _, sep := range []string{"/manifests/", "/blobs/", "/tags/", "/referrers/"} {
 		if i := strings.LastIndex(path, sep); i > 0 {
 			return path[:i]
 		}

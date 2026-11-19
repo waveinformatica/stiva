@@ -153,17 +153,29 @@ affinity: {}
 #                   nodes request them (air-gap readiness / outage absorption).
 # ---------------------------------------------------------------------------
 
-# Node-side containerd mirror (DaemonSet). Best-effort for systemd-managed
-# containerd; adapt containerdConfDir / restartCommand to your distribution.
+# Transparent pull-through cache for the nodes (DaemonSet): containerd's
+# default host configuration (<containerdCertsDir>/_default/hosts.toml) makes
+# every registry without its own directory pull through the cache registry,
+# then directly when the cache does not answer. Requires containerd with
+# config_path = containerdCertsDir. The cache registry must listen on its own
+# port, cacheMirror.port (set "port" on its definition): containerd addresses a
+# mirror by host and port only, and names the origin in the "ns" parameter.
+# The nodes authenticate as the declared service account stiva-nodes (role
+# reader on cacheMirror.registry), key in the Secret <release>-stiva-nodes.
 cacheMirror:
   enabled: false
+  registry: cache
+  port: 5001
   image: busybox:1.36
-  containerdConfDir: /etc/containerd/conf.d
-  restartCommand:
-    - systemctl
-    - restart
-    - containerd
-  resources: {}
+  containerdCertsDir: /etc/containerd/certs.d
+  # Restrict to some nodes, e.g. to try one first: {kubernetes.io/hostname: k03}
+  nodeSelector: {}
+  resources:
+    requests:
+      cpu: 5m
+      memory: 8Mi
+    limits:
+      memory: 32Mi
 
 # Pre-warm controller (Deployment). It authenticates as the declared service
 # account stiva-warmer (role warmer: registry:warm on warmer.registry), whose

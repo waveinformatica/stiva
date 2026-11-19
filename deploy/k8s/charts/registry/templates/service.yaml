@@ -12,5 +12,12 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
+    {{- if .Values.cacheMirror.enabled }}
+    # The cache registry's own listener, the nodes' mirror.
+    - name: cache
+      port: {{ .Values.cacheMirror.port }}
+      targetPort: {{ .Values.cacheMirror.port }}
+      protocol: TCP
+    {{- end }}
   selector:
     {{- include "registry.selectorLabels" . | nindent 4 }}
