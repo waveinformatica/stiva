@@ -153,19 +153,24 @@ affinity: {}
 #                   nodes request them (air-gap readiness / outage absorption).
 # ---------------------------------------------------------------------------
 
-# Transparent pull-through cache for the nodes (DaemonSet): containerd's
-# default host configuration (<containerdCertsDir>/_default/hosts.toml) makes
-# every registry without its own directory pull through the cache registry,
-# then directly when the cache does not answer. Requires containerd with
-# config_path = containerdCertsDir. The cache registry must listen on its own
-# port, cacheMirror.port (set "port" on its definition): containerd addresses a
-# mirror by host and port only, and names the origin in the "ns" parameter.
-# The nodes authenticate as the declared service account stiva-nodes (role
-# reader on cacheMirror.registry), key in the Secret <release>-stiva-nodes.
-cacheMirror:
-  enabled: false
+# The cache registry (type "cache") the node-side components work with. It
+# must listen on a port of its own (set "port" on its definition to
+# cache.port): containerd addresses a mirror by host and port only, and the
+# warm agent pushes to it there. The Service exposes that port when either
+# component is enabled.
+cache:
   registry: cache
   port: 5001
+
+# Transparent pull-through cache for the nodes (DaemonSet): containerd's
+# default host configuration (<containerdCertsDir>/_default/hosts.toml) makes
+# every registry without its own directory pull through the cache, then
+# directly when the cache does not answer. Requires containerd with
+# config_path = containerdCertsDir. The nodes authenticate as the declared
+# service account stiva-nodes (reader on the cache), key in the Secret
+# <release>-stiva-nodes.
+cacheMirror:
+  enabled: false
   image: busybox:1.36
   containerdCertsDir: /etc/containerd/certs.d
   # Restrict to some nodes, e.g. to try one first: {kubernetes.io/hostname: k03}
@@ -177,20 +182,22 @@ cacheMirror:
     limits:
       memory: 32Mi
 
-# Pre-warm controller (Deployment). It authenticates as the declared service
-# account stiva-warmer (role warmer: registry:warm on warmer.registry), whose
-# key the chart generates in the Secret <release>-stiva-warmer and mounts both
-# here and into the registry.
+# Pre-warm agent (DaemonSet): on every node it copies into the cache the images
+# that node is running, reading them from containerd's content store, so their
+# origin is never asked. It authenticates as the declared service account
+# stiva-warmer (role warmer: registry:warm on the cache), key in the Secret
+# <release>-stiva-warmer. Images of the registries in excludeRegistries (this
+# registry's own hosts) are not copied.
 warmer:
   enabled: false
-  # Defaults to http://<release>-registry:<service.port> when empty.
-  cacheUrl: ""
-  registry: cache
+  excludeRegistries: []
+  containerdContentDir: /var/lib/containerd/io.containerd.content.v1.content
   interval: 10m
+  nodeSelector: {}
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 20m
+      memory: 32Mi
     limits:
       cpu: "1"
       memory: 256Mi

@@ -70,10 +70,10 @@ component that authenticates with it.
 {{- $accounts = append $accounts (dict "name" "stiva-scanner" "role" "scanner" "scope" "*") -}}
 {{- end -}}
 {{- if .Values.warmer.enabled -}}
-{{- $accounts = append $accounts (dict "name" "stiva-warmer" "role" "warmer" "scope" (printf "oci:%s" .Values.warmer.registry)) -}}
+{{- $accounts = append $accounts (dict "name" "stiva-warmer" "role" "warmer" "scope" (printf "oci:%s" .Values.cache.registry)) -}}
 {{- end -}}
 {{- if .Values.cacheMirror.enabled -}}
-{{- $accounts = append $accounts (dict "name" "stiva-nodes" "role" "reader" "scope" (printf "oci:%s" .Values.cacheMirror.registry)) -}}
+{{- $accounts = append $accounts (dict "name" "stiva-nodes" "role" "reader" "scope" (printf "oci:%s" .Values.cache.registry)) -}}
 {{- end -}}
 {{- toJson $accounts -}}
 {{- end }}

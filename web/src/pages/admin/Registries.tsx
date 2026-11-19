@@ -295,25 +295,6 @@ export default function Registries() {
             header: "",
             render: (r) => (
               <Group gap={4} justify="flex-end">
-                {r.type === "cache" && (
-                  <Button
-                    size="compact-xs"
-                    variant="light"
-                    color="cyan"
-                    onClick={() => {
-                      const img = window.prompt(t("registries.warmPrompt"));
-                      if (!img) return;
-                      const platforms = (window.prompt(t("registries.warmPlatformsPrompt")) ?? "")
-                        .split(",")
-                        .map((p) => p.trim())
-                        .filter((p) => p !== "");
-                      if (platforms.length === 0) return;
-                      api.adminWarmRegistry(r.name, img, platforms).then(load).catch((e) => setErr(e.message));
-                    }}
-                  >
-                    Warm
-                  </Button>
-                )}
                 {(r.type === "hosted" || (r.format !== "oci" && (r.type === "proxy" || r.type === "cache"))) && (
                   <Button size="compact-xs" variant="light" color="gray" onClick={() => setCleanupTarget({ name: r.name, format: r.format })}>
                     {t("cleanup.button")}

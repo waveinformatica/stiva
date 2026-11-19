@@ -133,23 +133,10 @@ every node, which these plain manifests do not provide. See the chart's README.
 
 ### Proactively pre-warm the cache
 
-`warmer.yaml` deploys the pre-warm controller. It watches Pods/Deployments/DaemonSets/
-StatefulSets/ReplicaSets/Jobs/CronJobs cluster-wide and calls the warm endpoint for
-each referenced image, so images are cached before nodes pull them (useful for
-air-gapped readiness or to absorb registry outages):
-
-```bash
-# fill the admin token, then:
-kubectl -n registry apply -f deploy/registry/warmer.yaml
-```
-
-The warmer honors `REGISTRY_WARMER_*` env vars (cache URL, registry name, token,
-interval). The same binary can also run locally against a kubeconfig:
-
-```bash
-./registry-warmer -kubeconfig ~/.kube/config \
-  -cache-url http://localhost:8080 -registry cache -token "$TOKEN" -interval 10m
-```
+The pre-warm agent runs on every node and copies into the cache the images
+that node is running, from containerd's content store. It is deployed by the
+Helm chart (`warmer.*`), which also declares its service account and exposes
+the cache registry's own port; see the chart's README.
 
 ## 6. Artifact formats (helm / maven / npm)
 

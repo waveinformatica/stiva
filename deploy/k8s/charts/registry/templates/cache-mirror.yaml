@@ -44,7 +44,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: MIRROR_PORT
-              value: {{ $m.port | quote }}
+              value: {{ .Values.cache.port | quote }}
           command: ["/bin/sh", "-c"]
           args:
             - |

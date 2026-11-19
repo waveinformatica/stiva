@@ -160,17 +160,26 @@ func (h *Handler) Dispatch(c *gin.Context) {
 	// Per-repository access control. The repository is extracted here so a grant
 	// scoped to a path ("docker:kosmos/**") narrows to it; passing only the
 	// registry would silently widen every such grant to the whole registry.
-	if !h.allowRepo(c, reg, repoFromPath(path), isWriteMethod(c.Request.Method)) {
+	// A cache registry is written only by warm pushes (the pre-warm agent
+	// copying what the nodes hold), which need registry:warm, not
+	// registry:write; nobody deletes from it.
+	if registry.Type(reg.Type) == registry.TypeCache && isWriteMethod(c.Request.Method) {
+		if c.Request.Method == http.MethodDelete {
+			c.JSON(http.StatusMethodNotAllowed, errorBody("DENIED", "cache registry content cannot be deleted"))
+			return
+		}
+		if h.authz == nil || !h.authz.Allows(principal(h.currentUser(c)), authz.RegistryWarm, reg.Format, reg.Name, repoFromPath(path)) {
+			h.denyAccess(c, "pushing to a cache registry needs "+string(authz.RegistryWarm))
+			return
+		}
+	} else if !h.allowRepo(c, reg, repoFromPath(path), isWriteMethod(c.Request.Method)) {
 		h.denyAccess(c, "access denied to registry "+reg.Name)
 		return
 	}
-	// Cache registries are read-only; proxy registries may refuse writes unless
-	// write-through is enabled. Both reject anonymous writes earlier in Dispatch.
+	// Proxy registries may refuse writes unless write-through is enabled.
+	// Anonymous writes were rejected earlier in Dispatch.
 	if isWriteMethod(c.Request.Method) {
 		switch registry.Type(reg.Type) {
-		case registry.TypeCache:
-			c.JSON(http.StatusMethodNotAllowed, errorBody("DENIED", "cache registry is read-only"))
-			return
 		case registry.TypeProxy:
 			if !reg.ProxyAllowWrite {
 				c.JSON(http.StatusForbidden, errorBody("DENIED", "proxy registry does not allow writes"))
@@ -295,6 +304,10 @@ func (h *Handler) putManifest(c *gin.Context, be registry.Backend, repo, referen
 	}
 
 	d, err := be.PutManifest(repo, reference, mediaType, body)
+	if errors.Is(err, registry.ErrTagConflict) {
+		c.JSON(http.StatusConflict, errorBody("TAG_INVALID", err.Error()))
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
 		return
@@ -441,6 +454,27 @@ func (h *Handler) uploadStart(c *gin.Context, be registry.Backend, repoSegs []st
 			c.Header("Location", loc)
 			c.Status(http.StatusCreated)
 			return
+		}
+		// Cross-repository mount (OCI Distribution): the client asks whether
+		// the registry already holds the blob before uploading it. Answered
+		// from this registry's own store only, never from an upstream: a
+		// blob a proxy or a cache could fetch is not a blob it has.
+		if mountStr := c.Query("mount"); mountStr != "" {
+			d, err := digest.Parse(mountStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, errorBody("DIGEST_INVALID", "invalid mount digest"))
+				return
+			}
+			if _, err := h.mgr.StoreFor(c.GetString("registry")).StatBlob(repo, d); err == nil {
+				c.Header("Docker-Content-Digest", d.String())
+				c.Header("Location", h.location(c, repo, "blobs/"+d.String()))
+				c.Status(http.StatusCreated)
+				return
+			} else if !errors.Is(err, storage.ErrNotFound) {
+				c.JSON(http.StatusInternalServerError, errorBody("INTERNAL_ERROR", err.Error()))
+				return
+			}
+			// Not here: an upload session, as the spec requires.
 		}
 		// Chunked upload: start a session.
 		u, err := be.NewUpload(repo)

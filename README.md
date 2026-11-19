@@ -85,7 +85,8 @@ released as open source so that anyone running Kubernetes can benefit from it.
   and no account is created by hand.
 - **OCI 1.1 Referrers API**: `GET /v2/<repo>/referrers/<digest>`, subjects
   recorded at push, referrers deleted with their subject.
-- Single static binary (+ companion `registry-warmer` for cache pre-warming),
+- Single static binary (+ companion `registry-warmer`, the node agent that copies
+  running images into the cache),
   distroless container image, Apache-2.0 licensed.
 
 ## Quick start

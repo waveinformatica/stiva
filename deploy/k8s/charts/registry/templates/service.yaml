@@ -12,11 +12,11 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
-    {{- if .Values.cacheMirror.enabled }}
-    # The cache registry's own listener, the nodes' mirror.
+    {{- if or .Values.cacheMirror.enabled .Values.warmer.enabled }}
+    # The cache registry's own listener: the nodes' mirror, the warm pushes.
     - name: cache
-      port: {{ .Values.cacheMirror.port }}
-      targetPort: {{ .Values.cacheMirror.port }}
+      port: {{ .Values.cache.port }}
+      targetPort: {{ .Values.cache.port }}
       protocol: TCP
     {{- end }}
   selector:

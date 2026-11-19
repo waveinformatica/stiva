@@ -356,8 +356,6 @@
     "typeHeader": "Typ",
     "typeLabel": "Typ",
     "upstreamsLabel": "Upstreams (einer pro Zeile: host=url [user pass])",
-    "warmPrompt": "Image in diesen Cache vorwärmen (z. B. gcr.io/x/y:v1):",
-    "warmPlatformsPrompt": "Plattformen, kommagetrennt (z. B. linux/amd64,linux/arm64):",
     "writeMemberLabel": "Schreibmitglied (Standardziel für Pushes)"
   },
   "roles": {

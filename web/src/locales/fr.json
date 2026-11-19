@@ -356,8 +356,6 @@
     "typeHeader": "Type",
     "typeLabel": "Type",
     "upstreamsLabel": "Amonts (un par ligne : hôte=url [user pass])",
-    "warmPrompt": "Préchauffer une image dans ce cache (p. ex. gcr.io/x/y:v1) :",
-    "warmPlatformsPrompt": "Plateformes à récupérer, séparées par des virgules (p. ex. linux/amd64,linux/arm64) :",
     "writeMemberLabel": "Membre d'écriture (cible par défaut des pushes)"
   },
   "roles": {

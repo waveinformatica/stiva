@@ -356,8 +356,6 @@
     "typeHeader": "Type",
     "typeLabel": "Type",
     "upstreamsLabel": "Upstreams (one per line: host=url [user pass])",
-    "warmPrompt": "Warm image into this cache (e.g. gcr.io/x/y:v1):",
-    "warmPlatformsPrompt": "Platforms to pull, comma-separated (e.g. linux/amd64,linux/arm64):",
     "writeMemberLabel": "Write member (default target for pushes)"
   },
   "roles": {

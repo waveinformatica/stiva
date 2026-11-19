@@ -46,7 +46,6 @@ func (h *Handler) RegisterUI(r gin.IRouter) {
 	v1.DELETE("/account/keys/:key", h.accountRevokeKey)
 	v1.GET("/roles", h.uiRolesList)
 	h.registerScan(v1)
-	v1.POST("/registries/:name/warm", h.warmRegistry)
 
 	admin := v1.Group("/admin")
 	admin.Use(h.requireAdmin)

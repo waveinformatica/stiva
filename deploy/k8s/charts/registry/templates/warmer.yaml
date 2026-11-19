@@ -1,88 +1,109 @@
 {{- if .Values.warmer.enabled }}
 {{- $fullname := include "registry.fullname" . }}
-{{- $sa := printf "%s-warmer" $fullname }}
+{{- $name := printf "%s-warmer" $fullname }}
+{{- $w := .Values.warmer }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $sa }}
+  name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "registry.labels" . | nindent 4 }}
 ---
+# The agent lists the pods of its own node, nothing else.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ $sa }}
+  name: {{ $name }}
   labels:
     {{- include "registry.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "watch"]
-  # The platforms to warm are those of the nodes.
-  - apiGroups: [""]
-    resources: ["nodes"]
     verbs: ["list"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ $sa }}
+  name: {{ $name }}
   labels:
     {{- include "registry.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ $sa }}
+  name: {{ $name }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $sa }}
+    name: {{ $name }}
     namespace: {{ .Release.Namespace }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: {{ $sa }}
+  name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "registry.labels" . | nindent 4 }}
     app.kubernetes.io/component: warmer
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ $sa }}
+      app.kubernetes.io/name: {{ $name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $sa }}
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/component: warmer
     spec:
-      serviceAccountName: {{ $sa }}
-      securityContext:
-        {{- toYaml .Values.securityContext | nindent 8 }}
+      serviceAccountName: {{ $name }}
+      {{- with $w.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Every node runs images worth caching, tainted nodes included.
+      tolerations:
+        - operator: Exists
       containers:
         - name: warmer
           image: {{ include "registry.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/app/registry-warmer"]
+          args:
+            - -interval={{ $w.interval }}
           env:
             - name: REGISTRY_WARMER_CACHE_URL
-              value: {{ default (printf "http://%s:%s" $fullname (toString $.Values.service.port)) .Values.warmer.cacheUrl | quote }}
-            - name: REGISTRY_WARMER_NAME
-              value: {{ .Values.warmer.registry | quote }}
+              value: {{ printf "http://%s:%v" $fullname .Values.cache.port | quote }}
+            - name: REGISTRY_WARMER_NODE
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: REGISTRY_WARMER_CONTENT_DIR
+              value: /containerd/content
+            - name: REGISTRY_WARMER_EXCLUDE
+              value: {{ join "," $w.excludeRegistries | quote }}
             - name: REGISTRY_WARMER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "registry.serviceAccountSecret" (dict "root" . "name" "stiva-warmer") }}
                   key: token
-            - name: REGISTRY_WARMER_INTERVAL
-              value: {{ .Values.warmer.interval | quote }}
+          # The content store is world-readable below its own directory
+          # (blobs 0444): no privilege is needed to read it.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: content
+              mountPath: /containerd/content
+              readOnly: true
           resources:
-            {{- toYaml .Values.warmer.resources | nindent 12 }}
+            {{- toYaml $w.resources | nindent 12 }}
+      volumes:
+        - name: content
+          hostPath:
+            path: {{ $w.containerdContentDir }}
+            type: Directory
 {{- end }}

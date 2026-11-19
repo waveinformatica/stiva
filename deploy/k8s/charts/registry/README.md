@@ -100,14 +100,19 @@ config:
     listens on `cacheMirror.port` (set `port` on its definition); the nodes
     authenticate as the declared service account `stiva-nodes` (reader on the
     cache only). `cacheMirror.nodeSelector` limits it to some nodes.
-  - `warmer` — a Deployment that watches cluster workloads and pre-pulls the
-    referenced images into the `cache` registry (POST `/api/v1/registries/cache/warm`).
-    It authenticates as the declared service account `stiva-warmer` (role
-    `warmer`, i.e. `registry:warm` on the cache registry): the chart generates
-    its key in the Secret `<release>-stiva-warmer` and mounts it into both the
-    registry and the warmer. It is granted a
-    cluster-scoped `ClusterRole` to list/watch Pods/Deployments/StatefulSets/
-    ReplicaSets/DaemonSets/Jobs/CronJobs.
+  - `warmer` — a DaemonSet: on every node it copies into the cache the images
+    that node is running, read from containerd's content store (read-only,
+    unprivileged), with the OCI push protocol. Their origin is never asked:
+    no pull limit, no credentials for private registries, and the cache gets
+    exactly the digests and the platform the cluster runs. Tags are pushed
+    only when the cache does not hold them for another digest (the cache's
+    tags follow the origin). `warmer.excludeRegistries` lists the registries
+    not to copy (this registry's own hosts). It authenticates as the declared
+    service account `stiva-warmer` (role `warmer`, i.e. `registry:warm` on the
+    cache); its ClusterRole only lists pods.
+
+  Both use `cache.registry` and `cache.port`: the cache registry must listen
+  on that port (set `port` on its definition).
 
   Enable example:
   ```bash

@@ -1,85 +1,27 @@
 package registry
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
-	"strings"
 
 	"registry/internal/digest"
 	"registry/internal/storage"
 )
 
-// Warmer is implemented by backends that can proactively pull content into their
-// local store. A cache registry uses it to pre-warm images discovered in a
-// Kubernetes cluster (see the pre-warm controller). It is intentionally not part
-// of the core Backend interface: hosted/proxy/group registries are not warmers.
-type Warmer interface {
-	// WarmImage pulls an image into the store. Of a multi-platform index it
-	// stores the index and the images of the given platforms only: the others
-	// stay pullable on demand, like anything else in a pull-through cache.
-	WarmImage(ctx context.Context, repo, reference string, platforms []Platform) error
-}
-
-// Platform is an OS/architecture[/variant] an image is built for.
-type Platform struct {
-	OS           string `json:"os"`
-	Architecture string `json:"architecture"`
-	Variant      string `json:"variant,omitempty"`
-}
-
-func (p Platform) String() string {
-	s := p.OS + "/" + p.Architecture
-	if p.Variant != "" {
-		s += "/" + p.Variant
-	}
-	return s
-}
-
-// ParsePlatform reads "os/architecture" or "os/architecture/variant".
-func ParsePlatform(s string) (Platform, error) {
-	parts := strings.Split(s, "/")
-	if len(parts) < 2 || len(parts) > 3 {
-		return Platform{}, fmt.Errorf("platform %q: expected os/architecture[/variant]", s)
-	}
-	for _, p := range parts {
-		if p == "" {
-			return Platform{}, fmt.Errorf("platform %q: empty part", s)
-		}
-	}
-	p := Platform{OS: parts[0], Architecture: parts[1]}
-	if len(parts) == 3 {
-		p.Variant = parts[2]
-	}
-	return p, nil
-}
-
-// matches reports whether an index entry is an image for one of the
-// platforms. The variant is compared only when the request names one
-// ("linux/arm64" takes arm64/v8 too). Entries without a platform (build
-// attestations) match nothing.
-func matchesPlatform(entry *Platform, want []Platform) bool {
-	if entry == nil {
-		return false
-	}
-	for _, w := range want {
-		if entry.OS == w.OS && entry.Architecture == w.Architecture && (w.Variant == "" || entry.Variant == w.Variant) {
-			return true
-		}
-	}
-	return false
-}
-
-var errCacheReadOnly = fmt.Errorf("cache registry is read-only")
+// ErrTagConflict is returned when a warm push names a tag the cache already
+// holds for another digest: the cache's tags follow the origin (see
+// GetManifest), a node's copy of a tag may be older and never moves them.
+var ErrTagConflict = errors.New("tag already points to another manifest")
 
 // cacheBackend is a transparent multi-upstream pull-through cache. Every read is
 // served from the local store and, on a miss, fetched from the upstream that the
 // repo path resolves to (host-less repos => Docker Hub, anything with a registry
-// host segment => that host). Writes are rejected: a cache is populated by pulls
-// and by WarmImage, never by client pushes.
+// host segment => that host). It is populated by pulls and by warm pushes: the
+// pre-warm agent pushes the images the nodes already hold (the API allows that
+// only to registry:warm). Clients cannot delete.
 type cacheBackend struct {
 	*storage.Store
 	resolve func(repo string) (*Upstream, string, error)
@@ -142,26 +84,57 @@ func (c *cacheBackend) StatBlob(repo string, d digest.Digest) (int64, error) {
 	return up.StatBlob(urepo, d)
 }
 
+// GetManifest serves a manifest. A digest names immutable content: the local
+// copy is the answer. A tag is the origin's to move: when the cache holds it,
+// the origin is asked for the tag's current digest with a HEAD (Docker Hub does
+// not count those against the pull limit); the same digest serves the local
+// copy, a new one is fetched. When the origin cannot answer, a cache serves
+// what it holds: that is what a cache is for, and the reason is logged.
 func (c *cacheBackend) GetManifest(repo, reference string) ([]byte, string, error) {
 	content, mt, err := c.Store.GetManifest(repo, reference)
-	if err == nil {
-		return content, mt, nil
-	}
-	if !errors.Is(err, storage.ErrNotFound) {
+	cached := err == nil
+	if err != nil && !errors.Is(err, storage.ErrNotFound) {
 		return nil, "", err
+	}
+	if _, derr := digest.Parse(reference); derr == nil && cached {
+		return content, mt, nil
 	}
 	up, urepo, rerr := c.resolve(repo)
 	if rerr != nil {
 		return nil, "", rerr
 	}
+	if cached {
+		current, herr := up.HeadManifest(urepo, reference)
+		if herr != nil {
+			log.Printf("cache: %s:%s: origin did not answer (%v), serving the cached copy", repo, reference, herr)
+			return content, mt, nil
+		}
+		if current == digest.FromBytes(content) {
+			return content, mt, nil
+		}
+		// The tag moved at the origin. The new manifest may already be here
+		// (pulled by digest, or pushed by a node).
+		if nc, nmt, nerr := c.Store.GetManifest(repo, current.String()); nerr == nil {
+			if _, perr := c.Store.PutManifest(repo, reference, nmt, nc); perr != nil {
+				return nil, "", perr
+			}
+			return nc, nmt, nil
+		}
+	}
 	uc, umt, uerr := up.GetManifest(urepo, reference)
 	if uerr != nil {
+		if cached {
+			log.Printf("cache: %s:%s: fetching the new manifest failed (%v), serving the cached copy", repo, reference, uerr)
+			return content, mt, nil
+		}
 		return nil, "", uerr
 	}
 	if verr := verifyManifestDigest(reference, uc); verr != nil {
 		return nil, "", verr
 	}
-	_, _ = c.Store.PutManifest(repo, reference, umt, uc)
+	if _, perr := c.Store.PutManifest(repo, reference, umt, uc); perr != nil {
+		return nil, "", perr
+	}
 	return uc, umt, nil
 }
 
@@ -173,110 +146,30 @@ func (c *cacheBackend) ListTags(repo string) ([]string, error) {
 	return up.ListTags(urepo)
 }
 
-// ---- read-only writes ----
+// ---- warm pushes ----
+// The API lets only registry:warm write here (the pre-warm agent pushing what
+// the nodes hold); digests are verified by the store like any push.
 
 func (c *cacheBackend) PutBlob(repo string, d digest.Digest, r io.Reader) error {
-	return errCacheReadOnly
+	return c.Store.PutBlob(repo, d, r)
 }
+
+// PutManifest stores a pushed manifest. By digest, always; by tag, only a tag
+// the cache does not hold yet, or one already pointing at this manifest.
 func (c *cacheBackend) PutManifest(repo, reference, mediaType string, content []byte) (digest.Digest, error) {
-	return "", errCacheReadOnly
-}
-func (c *cacheBackend) DeleteManifest(repo, reference string) error { return errCacheReadOnly }
-func (c *cacheBackend) DeleteBlob(d digest.Digest) error            { return errCacheReadOnly }
-func (c *cacheBackend) NewUpload(repo string) (*storage.Upload, error) {
-	return nil, errCacheReadOnly
-}
-func (c *cacheBackend) GetUpload(id string) (*storage.Upload, error) { return nil, errCacheReadOnly }
-func (c *cacheBackend) AppendUpload(u *storage.Upload, r io.Reader) (int64, error) {
-	return 0, errCacheReadOnly
-}
-func (c *cacheBackend) UploadOffset(u *storage.Upload) (int64, error) { return 0, errCacheReadOnly }
-func (c *cacheBackend) CommitUpload(u *storage.Upload, d digest.Digest) error {
-	return errCacheReadOnly
-}
-func (c *cacheBackend) CancelUpload(u *storage.Upload) error { return errCacheReadOnly }
-func (c *cacheBackend) LinkManifestBlob(repo string, manifest, blob digest.Digest) error {
-	return nil
-}
-
-// ---- pre-warm ----
-
-// WarmImage pulls a manifest (and, for image manifests, its config + layers;
-// for indexes, every referenced platform manifest recursively) into the local
-// store so a later pull is served entirely from cache.
-func (c *cacheBackend) WarmImage(ctx context.Context, repo, reference string, platforms []Platform) error {
-	if len(platforms) == 0 {
-		return fmt.Errorf("warming %s:%s: no platform given", repo, reference)
-	}
-	return c.warmManifest(ctx, repo, reference, platforms, map[digest.Digest]bool{})
-}
-
-func (c *cacheBackend) warmManifest(ctx context.Context, repo, reference string, platforms []Platform, seen map[digest.Digest]bool) error {
-	up, urepo, err := c.resolve(repo)
-	if err != nil {
-		return err
-	}
-	content, mt, err := up.GetManifest(urepo, reference)
-	if err != nil {
-		return err
-	}
-	if _, serr := c.Store.PutManifest(repo, reference, mt, content); serr != nil {
-		return serr
-	}
-	var m struct {
-		MediaType string `json:"mediaType"`
-		Config    struct {
-			Digest string `json:"digest"`
-		} `json:"config"`
-		Layers []struct {
-			Digest string `json:"digest"`
-		} `json:"layers"`
-		Manifests []struct {
-			Digest   string    `json:"digest"`
-			Platform *Platform `json:"platform"`
-		} `json:"manifests"`
-	}
-	if err := json.Unmarshal(content, &m); err != nil {
-		return err
-	}
-	if strings.Contains(m.MediaType, "manifest.list") || strings.Contains(m.MediaType, "image.index") {
-		for _, child := range m.Manifests {
-			d := digest.Digest(child.Digest)
-			if d == "" || seen[d] || !matchesPlatform(child.Platform, platforms) {
-				continue
-			}
-			seen[d] = true
-			if err := c.warmManifest(ctx, repo, d.String(), platforms, seen); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if m.Config.Digest != "" {
-		if err := c.warmBlob(ctx, repo, digest.Digest(m.Config.Digest)); err != nil {
-			return err
+	if _, err := digest.Parse(reference); err != nil {
+		held, herr := c.Store.ResolveReference(repo, reference)
+		switch {
+		case herr == nil && held != digest.FromBytes(content):
+			return "", fmt.Errorf("%s:%s: %w", repo, reference, ErrTagConflict)
+		case herr != nil && !errors.Is(herr, storage.ErrNotFound):
+			return "", herr
 		}
 	}
-	for _, l := range m.Layers {
-		if err := c.warmBlob(ctx, repo, digest.Digest(l.Digest)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return c.Store.PutManifest(repo, reference, mediaType, content)
 }
 
-func (c *cacheBackend) warmBlob(ctx context.Context, repo string, d digest.Digest) error {
-	if _, err := c.Store.StatBlob(repo, d); err == nil {
-		return nil
-	}
-	up, urepo, err := c.resolve(repo)
-	if err != nil {
-		return err
-	}
-	rc, _, err := up.GetBlobReader(urepo, d)
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
-	return c.Store.PutBlob(repo, d, rc)
-}
+var errCacheNoDelete = fmt.Errorf("cache registry content cannot be deleted by clients")
+
+func (c *cacheBackend) DeleteManifest(repo, reference string) error { return errCacheNoDelete }
+func (c *cacheBackend) DeleteBlob(d digest.Digest) error            { return errCacheNoDelete }

@@ -308,11 +308,12 @@ The Helm chart (`deploy/k8s/charts/registry`, values `scanner.*` and
   upgrading rotates the key;
 - optionally a ServiceMonitor scraping `/metrics` with that same key.
 
-The pre-warm controller (`warmer.enabled`) is declared the same way, as
-`stiva-warmer` with the role `warmer` (`registry:warm` on the cache registry
-only). It warms the platforms of the cluster's nodes: of a multi-platform
-image the cache stores the index and the images of those platforms, so the
-scanner analyses what the cluster can run and nothing else.
+The pre-warm agent (`warmer.enabled`, a DaemonSet) is declared the same way,
+as `stiva-warmer` with the role `warmer` (`registry:warm` on the cache
+registry only). It copies into the cache the images each node is running,
+read from containerd's content store: of a multi-platform image the cache
+gets the index and the platform the node runs, so the scanner analyses what
+the cluster runs and nothing else, and no origin registry is asked.
 
 A full-scan run exits non-zero when an image could not be analysed; that image
 stays pending and is retried by the next run. A refresh run exits non-zero

@@ -350,6 +350,27 @@ func (u *Upstream) GetManifest(repo, reference string) ([]byte, string, error) {
 	return body, resp.Header.Get("Content-Type"), nil
 }
 
+// HeadManifest asks the upstream for the digest a reference currently names,
+// without downloading the manifest (Docker Hub counts GETs, not HEADs, against
+// its pull limit).
+func (u *Upstream) HeadManifest(repo, reference string) (digest.Digest, error) {
+	ctx := context.Background()
+	resp, err := u.do(ctx, http.MethodHead, "/v2/"+repo+"/manifests/"+reference, nil, http.Header{
+		"Accept": {manifestAccept},
+	})
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return "", ErrNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("upstream head manifest: %d", resp.StatusCode)
+	}
+	return digest.Parse(resp.Header.Get("Docker-Content-Digest"))
+}
+
 // ListTags returns the tag list for an upstream repo.
 func (u *Upstream) ListTags(repo string) ([]string, error) {
 	ctx := context.Background()
