@@ -248,29 +248,31 @@ report replaces the node's previous one and counts for 30 minutes. A
 container is resolved onto the image manifest it runs: the digest itself, or
 the entry of the node's platform when the digest is an index.
 
-A **vulnerability set** is, for one image and one severity, the set of its
-(package, vulnerability) pairs, identified by their digest: images built from
-the same base with the same vulnerabilities share it. It is the unit of
-alerting and of tickets.
+A **vulnerability set** is, for one image, the set of its packages (each at
+its version: the package key) that have Critical or High vulnerabilities,
+identified by their digest. Images built from the same base with the same
+vulnerable packages share it. It is the unit of alerting and of tickets: a new
+vulnerability on the same packages does not change it (the daily refresh
+would otherwise close and reopen alerts on every new CVE of a common package);
+updating a package does. Its severity is the highest of its vulnerabilities.
 
-- `GET /api/v1/scan/sets?severity=Critical,High` lists the sets that run, with
-  package names, number of vulnerabilities, images, containers and namespaces;
-- `GET /api/v1/scan/sets/<set>?severity=Critical` gives one set in full: its
-  packages with their vulnerabilities, and its images with where they run;
-- `stiva_vulnerability_set{set, severity, packages, vulnerabilities,
-  namespaces}` (Critical and High) is the number of running images that carry
-  the set.
+- `GET /api/v1/scan/sets` lists the sets that run, with package names, the
+  number of vulnerabilities and their count per severity, images, containers
+  and namespaces;
+- `GET /api/v1/scan/sets/<set>` gives one set in full: its packages with their
+  Critical and High vulnerabilities, and its images with where they run;
+- `stiva_vulnerability_set{set, severity, packages, namespaces}` is the
+  number of running images that carry the set; `severity` is the highest.
 
 All three cover the registries the caller can read.
 
-Alerts are raised per set, not per image: `StivaCriticalVulnerabilitySet`
-(severity critical) and `StivaHighVulnerabilitySet` (severity warning) on
-`max by (set, packages, vulnerabilities) (stiva_vulnerability_set{severity=...}) > 0`,
+One alert per set, `StivaVulnerabilitySet`, with severity critical when the
+set has a Critical vulnerability and warning otherwise:
+`label_replace(... max by (set, packages, severity) (stiva_vulnerability_set) ...)`,
 with the set's page in the `stiva_url` annotation. One alert, and so one
-ticket, is one fix: the same packages with the same vulnerabilities, wherever
-they run. Kosmos (alt-infra) writes the ticket's description from
-`GET /api/v1/scan/sets/<set>`, as the declared service account
-`kosmos-alt-infra`.
+ticket, is one fix: the same vulnerable packages, wherever they run. Kosmos
+(alt-infra) writes the ticket's description from `GET /api/v1/scan/sets/<set>`,
+as the declared service account `kosmos-alt-infra`.
 
 ### Browsing findings
 

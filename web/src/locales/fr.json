@@ -871,8 +871,8 @@
     "tabSecrets": "Secrets ({{count}})",
     "tabPackages": "Paquets ({{count}})",
     "tabRunning": "En exécution ({{count}})",
-    "setsHint": "Un ensemble regroupe les mêmes paquets vulnérables avec les mêmes vulnérabilités, dans une ou plusieurs images en exécution : une alerte et un ticket chacun.",
-    "noSets": "Aucune image en exécution n'a de vulnérabilités de cette gravité.",
+    "setsHint": "Un ensemble regroupe les paquets d'une image ayant des vulnérabilités critiques ou hautes ; les images avec les mêmes paquets le partagent. Une alerte et un ticket chacun, au niveau le plus élevé.",
+    "noSets": "Aucune image en exécution n'a de vulnérabilités critiques ou hautes.",
     "packages": "Paquets",
     "package": "Paquet",
     "version": "Version",
@@ -914,7 +914,7 @@
     "noImages": "Aucune image.",
     "back": "Vulnérabilités",
     "setTitle": "Ensemble de vulnérabilités",
-    "setDescription": "Ensemble {{set}} : les mêmes paquets vulnérables dans chaque image ci-dessous. Corrigez-les une fois (dépendance ou image de base) et l'ensemble disparaît.",
+    "setDescription": "Ensemble {{set}} : les mêmes paquets avec des vulnérabilités critiques ou hautes dans chaque image ci-dessous. Mettez-les à jour une fois (dépendance ou image de base) et l'ensemble disparaît.",
     "setGone": "Aucune image en exécution ne porte plus cet ensemble : il a été corrigé ou les images ont été arrêtées.",
     "packagesAndFixes": "Paquets et versions corrigées",
     "setFixHint": "Mettez à jour chaque paquet vers la version corrigée, ou passez à une image de base qui la contient.",
@@ -953,6 +953,9 @@
     "packagesCount_one": "{{count}} paquet",
     "packagesCount_other": "{{count}} paquets",
     "vulnerabilitiesCount_one": "{{count}} vulnérabilité",
-    "vulnerabilitiesCount_other": "{{count}} vulnérabilités"
+    "vulnerabilitiesCount_other": "{{count}} vulnérabilités",
+    "allSets": "Tous ({{count}})",
+    "withCritical": "Avec critiques ({{count}})",
+    "onlyHigh": "Hautes seulement ({{count}})"
   }
 }

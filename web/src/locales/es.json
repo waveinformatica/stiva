@@ -871,8 +871,8 @@
     "tabSecrets": "Secretos ({{count}})",
     "tabPackages": "Paquetes ({{count}})",
     "tabRunning": "En ejecución ({{count}})",
-    "setsHint": "Un conjunto son los mismos paquetes vulnerables con las mismas vulnerabilidades, en una o más imágenes en ejecución: una alerta y un ticket cada uno.",
-    "noSets": "Ninguna imagen en ejecución tiene vulnerabilidades de esta gravedad.",
+    "setsHint": "Un conjunto son los paquetes de una imagen con vulnerabilidades críticas o altas; las imágenes con los mismos paquetes lo comparten. Una alerta y un ticket cada uno, al nivel más alto.",
+    "noSets": "Ninguna imagen en ejecución tiene vulnerabilidades críticas o altas.",
     "packages": "Paquetes",
     "package": "Paquete",
     "version": "Versión",
@@ -914,7 +914,7 @@
     "noImages": "Sin imágenes.",
     "back": "Vulnerabilidades",
     "setTitle": "Conjunto de vulnerabilidades",
-    "setDescription": "Conjunto {{set}}: los mismos paquetes vulnerables en cada imagen de abajo. Corríjalos una vez (dependencia o imagen base) y el conjunto desaparece.",
+    "setDescription": "Conjunto {{set}}: los mismos paquetes con vulnerabilidades críticas o altas en cada imagen de abajo. Actualícelos una vez (dependencia o imagen base) y el conjunto desaparece.",
     "setGone": "Ninguna imagen en ejecución lleva ya este conjunto: se corrigió o las imágenes se detuvieron.",
     "packagesAndFixes": "Paquetes y versiones corregidas",
     "setFixHint": "Actualice cada paquete a la versión corregida, o pase a una imagen base que la contenga.",
@@ -953,6 +953,9 @@
     "packagesCount_one": "{{count}} paquete",
     "packagesCount_other": "{{count}} paquetes",
     "vulnerabilitiesCount_one": "{{count}} vulnerabilidad",
-    "vulnerabilitiesCount_other": "{{count}} vulnerabilidades"
+    "vulnerabilitiesCount_other": "{{count}} vulnerabilidades",
+    "allSets": "Todos ({{count}})",
+    "withCritical": "Con críticas ({{count}})",
+    "onlyHigh": "Solo altas ({{count}})"
   }
 }

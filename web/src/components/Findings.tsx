@@ -85,8 +85,7 @@ export const imagePath = (t: ScanTarget) =>
   `/vulnerabilities/image?registry=${encodeURIComponent(t.registry)}&repo=${encodeURIComponent(t.repo)}&digest=${encodeURIComponent(t.digest)}`;
 export const packagePath = (key: string) => `/vulnerabilities/packages/${encodeURIComponent(key)}`;
 export const vulnerabilityPath = (id: string) => `/vulnerabilities/cve/${encodeURIComponent(id)}`;
-export const setPath = (set: string, severity: string) =>
-  `/vulnerabilities/sets/${encodeURIComponent(set)}?severity=${encodeURIComponent(severity)}`;
+export const setPath = (set: string) => `/vulnerabilities/sets/${encodeURIComponent(set)}`;
 
 /** Where the advisory of a vulnerability is published, when its identifier says. */
 export function advisoryUrl(id: string): string | null {

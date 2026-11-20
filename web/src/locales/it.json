@@ -871,8 +871,8 @@
     "tabSecrets": "Segreti ({{count}})",
     "tabPackages": "Pacchetti ({{count}})",
     "tabRunning": "In esecuzione ({{count}})",
-    "setsHint": "Un insieme sono gli stessi pacchetti vulnerabili con le stesse vulnerabilità, in una o più immagini in esecuzione: un allarme e un ticket ciascuno.",
-    "noSets": "Nessuna immagine in esecuzione ha vulnerabilità di questa severità.",
+    "setsHint": "Un insieme sono i pacchetti di un'immagine con vulnerabilità critiche o alte; le immagini con gli stessi pacchetti lo condividono. Un allarme e un ticket ciascuno, al livello più alto.",
+    "noSets": "Nessuna immagine in esecuzione ha vulnerabilità critiche o alte.",
     "packages": "Pacchetti",
     "package": "Pacchetto",
     "version": "Versione",
@@ -914,7 +914,7 @@
     "noImages": "Nessuna immagine.",
     "back": "Vulnerabilità",
     "setTitle": "Insieme di vulnerabilità",
-    "setDescription": "Insieme {{set}}: gli stessi pacchetti vulnerabili in ognuna delle immagini qui sotto. Si corregge una volta (dipendenza o immagine di base) e l'insieme sparisce.",
+    "setDescription": "Insieme {{set}}: gli stessi pacchetti con vulnerabilità critiche o alte in ognuna delle immagini qui sotto. Si aggiornano una volta (dipendenza o immagine di base) e l'insieme sparisce.",
     "setGone": "Nessuna immagine in esecuzione porta più questo insieme: è stato corretto o le immagini sono state fermate.",
     "packagesAndFixes": "Pacchetti e versioni corrette",
     "setFixHint": "Aggiorna ogni pacchetto alla versione corretta, o passa a un'immagine di base che la contiene.",
@@ -953,6 +953,9 @@
     "packagesCount_one": "{{count}} pacchetto",
     "packagesCount_other": "{{count}} pacchetti",
     "vulnerabilitiesCount_one": "{{count}} vulnerabilità",
-    "vulnerabilitiesCount_other": "{{count}} vulnerabilità"
+    "vulnerabilitiesCount_other": "{{count}} vulnerabilità",
+    "allSets": "Tutti ({{count}})",
+    "withCritical": "Con critiche ({{count}})",
+    "onlyHigh": "Solo alte ({{count}})"
   }
 }

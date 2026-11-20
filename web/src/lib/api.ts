@@ -174,10 +174,8 @@ export const api = {
 
   // Scan findings (docs/scanning.md): vulnerability sets of the running
   // images, packages, vulnerabilities and the findings of one image.
-  vulnerabilitySets: (severity: string) =>
-    req("GET", `/api/v1/scan/sets?severity=${enc(severity)}`) as Promise<{ sets: VulnerabilitySet[] }>,
-  vulnerabilitySet: (set: string, severity: string) =>
-    req("GET", `/api/v1/scan/sets/${enc(set)}?severity=${enc(severity)}`) as Promise<VulnerabilitySetDetail>,
+  vulnerabilitySets: () => req("GET", `/api/v1/scan/sets`) as Promise<{ sets: VulnerabilitySet[] }>,
+  vulnerabilitySet: (set: string) => req("GET", `/api/v1/scan/sets/${enc(set)}`) as Promise<VulnerabilitySetDetail>,
   findingsPackages: (q: string) =>
     req("GET", `/api/v1/findings/packages?q=${enc(q)}`) as Promise<{ packages: PackageSummary[] }>,
   findingsPackage: (key: string) =>
@@ -375,6 +373,7 @@ export interface VulnerabilitySet {
   severity: Severity;
   packages: string[];
   vulnerabilities: number;
+  counts: Record<string, number>;
   images: number;
   containers: number;
   namespaces: string[];

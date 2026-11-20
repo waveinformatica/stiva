@@ -93,7 +93,7 @@ export function VulnerabilitiesHome() {
           <Tabs.Tab value="packages">{t("findings.tabPackagesSearch")}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="sets">
-          <SetsTab severity={params.get("severity") || "Critical"} onSeverity={(s) => set("severity", s === "Critical" ? "" : s)} />
+          <SetsTab level={params.get("level") || ""} onLevel={(l) => set("level", l)} />
         </Tabs.Panel>
         <Tabs.Panel value="vulnerabilities">
           <VulnerabilitySearch
@@ -115,22 +115,30 @@ export function VulnerabilitiesHome() {
   );
 }
 
-function SetsTab({ severity, onSeverity }: { severity: string; onSeverity: (s: string) => void }) {
+function SetsTab({ level, onLevel }: { level: string; onLevel: (l: string) => void }) {
   const { t } = useTranslation();
-  const { data, err, loading } = useLoad(() => api.vulnerabilitySets(severity), [severity]);
-  const sets: VulnerabilitySet[] = [...(data?.sets || [])].sort(
-    (a, b) => b.containers - a.containers || b.images - a.images || a.set.localeCompare(b.set),
-  );
+  const { data, err, loading } = useLoad(() => api.vulnerabilitySets(), []);
+  const sets: VulnerabilitySet[] = [...(data?.sets || [])]
+    .filter((s) => !level || s.severity === level)
+    .sort(
+      (a, b) =>
+        severityRank(a.severity) - severityRank(b.severity) ||
+        b.containers - a.containers ||
+        b.images - a.images ||
+        a.set.localeCompare(b.set),
+    );
+  const all = data?.sets || [];
   return (
     <Stack gap="sm">
       <Group justify="space-between" wrap="wrap">
         <SegmentedControl
           size="xs"
-          value={severity}
-          onChange={onSeverity}
+          value={level}
+          onChange={onLevel}
           data={[
-            { value: "Critical", label: t("findings.severity.Critical") },
-            { value: "High", label: t("findings.severity.High") },
+            { value: "", label: t("findings.allSets", { count: all.length }) },
+            { value: "Critical", label: t("findings.withCritical", { count: all.filter((s) => s.severity === "Critical").length }) },
+            { value: "High", label: t("findings.onlyHigh", { count: all.filter((s) => s.severity === "High").length }) },
           ]}
         />
         <Text size="xs" c="dimmed">
@@ -150,7 +158,7 @@ function SetsTab({ severity, onSeverity }: { severity: string; onSeverity: (s: s
               header: t("findings.packages"),
               render: (s) => (
                 <Stack gap={2}>
-                  <Anchor component={Link} to={setPath(s.set, s.severity)} size="sm" fw={600}>
+                  <Anchor component={Link} to={setPath(s.set)} size="sm" fw={600} lineClamp={2}>
                     {s.packages.join(", ")}
                   </Anchor>
                   <Text size="xs" c="dimmed" ff="monospace">
@@ -162,12 +170,7 @@ function SetsTab({ severity, onSeverity }: { severity: string; onSeverity: (s: s
             {
               header: t("findings.vulnerabilitiesLabel"),
               width: 130,
-              render: (s) => (
-                <Group gap={6}>
-                  <SeverityBadge severity={s.severity} size="xs" />
-                  <Text size="sm">{s.vulnerabilities}</Text>
-                </Group>
-              ),
+              render: (s) => <SeverityCounts counts={s.counts} />,
             },
             { header: t("findings.images"), width: 90, render: (s) => <Text size="sm">{s.images}</Text> },
             { header: t("findings.containers"), width: 100, render: (s) => <Text size="sm">{s.containers}</Text> },
@@ -338,9 +341,7 @@ function PackageSearch({ q, onChange }: { q: string; onChange: (q: string) => vo
 export function SetPage() {
   const { t } = useTranslation();
   const { set = "" } = useParams();
-  const [params] = useSearchParams();
-  const severity = params.get("severity") || "Critical";
-  const { data, err, loading } = useLoad<VulnerabilitySetDetail>(() => api.vulnerabilitySet(set, severity), [set, severity]);
+  const { data, err, loading } = useLoad<VulnerabilitySetDetail>(() => api.vulnerabilitySet(set), [set]);
   return (
     <div>
       <BackLink />
@@ -358,7 +359,7 @@ export function SetPage() {
         <>
           <Group gap="lg" mb="md" wrap="wrap">
             <SeverityBadge severity={data.severity} size="md" />
-            <Text size="sm">{t("findings.vulnerabilitiesCount", { count: data.vulnerabilities })}</Text>
+            <SeverityCounts counts={data.counts} />
             <Text size="sm">{t("findings.imagesCount", { count: data.images })}</Text>
             <Text size="sm">{t("findings.containersCount", { count: data.containers })}</Text>
             <Text size="sm" c="dimmed">
@@ -367,7 +368,9 @@ export function SetPage() {
           </Group>
           <Section title={t("findings.packagesAndFixes")} description={t("findings.setFixHint")}>
             <DataTable
-              rows={data.detail.flatMap((p) => p.vulnerabilities.map((v) => ({ p, v })))}
+              rows={data.detail
+                .flatMap((p) => p.vulnerabilities.map((v) => ({ p, v })))
+                .sort((a, b) => severityRank(a.v.severity) - severityRank(b.v.severity) || a.p.name.localeCompare(b.p.name))}
               rowKey={(r) => r.p.purl + r.v.id}
               columns={[
                 {
@@ -382,6 +385,11 @@ export function SetPage() {
                       </Text>
                     </Stack>
                   ),
+                },
+                {
+                  header: t("findings.severityHeader"),
+                  width: 110,
+                  render: (r) => <SeverityBadge severity={r.v.severity} size="xs" />,
                 },
                 {
                   header: t("findings.vulnerability"),

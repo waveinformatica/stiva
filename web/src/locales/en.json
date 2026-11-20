@@ -871,8 +871,8 @@
     "tabSecrets": "Secrets ({{count}})",
     "tabPackages": "Packages ({{count}})",
     "tabRunning": "Running ({{count}})",
-    "setsHint": "A set is the same vulnerable packages with the same vulnerabilities, in one or more running images: one alert and one ticket each.",
-    "noSets": "No running image has vulnerabilities of this severity.",
+    "setsHint": "A set is the packages of an image with critical or high vulnerabilities; images with the same packages share it. One alert and one ticket each, at the highest level.",
+    "noSets": "No running image has critical or high vulnerabilities.",
     "packages": "Packages",
     "package": "Package",
     "version": "Version",
@@ -914,7 +914,7 @@
     "noImages": "No images.",
     "back": "Vulnerabilities",
     "setTitle": "Vulnerability set",
-    "setDescription": "Set {{set}}: the same vulnerable packages in every image below. Fix them once (dependency or base image) and the set goes away.",
+    "setDescription": "Set {{set}}: the same packages with critical or high vulnerabilities in every image below. Update them once (dependency or base image) and the set goes away.",
     "setGone": "No running image carries this set any more: it was fixed or the images stopped.",
     "packagesAndFixes": "Packages and fixed versions",
     "setFixHint": "Update each package to the fixed version, or move to a base image that has it.",
@@ -953,6 +953,9 @@
     "packagesCount_one": "{{count}} package",
     "packagesCount_other": "{{count}} packages",
     "vulnerabilitiesCount_one": "{{count}} vulnerability",
-    "vulnerabilitiesCount_other": "{{count}} vulnerabilities"
+    "vulnerabilitiesCount_other": "{{count}} vulnerabilities",
+    "allSets": "All ({{count}})",
+    "withCritical": "With critical ({{count}})",
+    "onlyHigh": "High only ({{count}})"
   }
 }
