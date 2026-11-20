@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"sort"
+	"strings"
 	"time"
 
 	"registry/internal/digest"
@@ -175,19 +177,9 @@ SELECT r.set, r.severity,
 }
 
 func (m *PostgresMetadataStore) GetVulnerabilitySet(set, severity string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error) {
-	sets, err := m.VulnerabilitySets(registries, []string{severity}, freshAfter)
-	if err != nil {
-		return nil, err
-	}
-	var d *VulnerabilitySetDetail
-	for _, s := range sets {
-		if s.Set == set {
-			d = &VulnerabilitySetDetail{VulnerabilitySet: s}
-		}
-	}
-	if d == nil {
-		return nil, ErrNotFound
-	}
+	// One set only: the summary is counted from its own rows, not from the
+	// list of every set (which costs as much as all of them).
+	d := &VulnerabilitySetDetail{VulnerabilitySet: VulnerabilitySet{Set: set, Severity: severity}}
 	ctx := context.Background()
 	fresh := time.Now().Add(-freshAfter).UnixNano()
 	// Images and where they run.
@@ -225,6 +217,18 @@ SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, p
 	if len(d.ImagesOf) == 0 {
 		return nil, ErrNotFound
 	}
+	namespaces := map[string]bool{}
+	for _, img := range d.ImagesOf {
+		d.Containers += len(img.Placements)
+		for _, p := range img.Placements {
+			namespaces[p.Namespace] = true
+		}
+	}
+	d.Images = len(d.ImagesOf)
+	for ns := range namespaces {
+		d.Namespaces = append(d.Namespaces, ns)
+	}
+	sort.Strings(d.Namespaces)
 	// The packages and vulnerabilities, from one of the images: they all
 	// carry the same set.
 	first := d.ImagesOf[0].ScanTarget
@@ -254,5 +258,22 @@ SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, p
 		}
 		d.Detail = append(d.Detail, sp)
 	}
-	return d, prow.Err()
+	if err := prow.Err(); err != nil {
+		return nil, err
+	}
+	names := map[string]bool{}
+	ids := map[string]bool{}
+	for _, p := range d.Detail {
+		names[p.Name] = true
+		for _, v := range p.Vulnerabilities {
+			ids[v.ID] = true
+		}
+	}
+	for n := range names {
+		d.Packages = append(d.Packages, n)
+	}
+	// As the list orders them (the database collation ignores case).
+	sort.Slice(d.Packages, func(i, j int) bool { return strings.ToLower(d.Packages[i]) < strings.ToLower(d.Packages[j]) })
+	d.Vulnerabilities = len(ids)
+	return d, nil
 }
