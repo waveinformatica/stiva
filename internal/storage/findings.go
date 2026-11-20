@@ -23,20 +23,28 @@ type Placement struct {
 	Platform  string        `json:"platform"`
 }
 
-// VulnerabilitySet is a set of findings of one severity shared by running
-// images: the same (package, vulnerability) pairs. Images built from the same
-// base with the same vulnerabilities share a set; it is the unit of alerting.
+// SetSeverities are the severities that make a package part of an image's
+// vulnerability set: what alerts are raised on.
+var SetSeverities = []string{"Critical", "High"}
+
+// VulnerabilitySet is the set of packages (each at its version) of an image
+// that have Critical or High vulnerabilities. Images built from the same base
+// with the same vulnerable packages share it: it is the unit of alerting, and
+// a new vulnerability on the same packages does not change it. Severity is
+// the highest of its vulnerabilities; Counts has the number of distinct
+// vulnerabilities per severity.
 type VulnerabilitySet struct {
-	Set             string   `json:"set"`
-	Severity        string   `json:"severity"`
-	Packages        []string `json:"packages"` // package names, sorted
-	Vulnerabilities int      `json:"vulnerabilities"`
-	Images          int      `json:"images"`     // distinct image manifests running it
-	Containers      int      `json:"containers"` // running containers
-	Namespaces      []string `json:"namespaces"`
+	Set             string         `json:"set"`
+	Severity        string         `json:"severity"`
+	Packages        []string       `json:"packages"` // package names, sorted
+	Vulnerabilities int            `json:"vulnerabilities"`
+	Counts          map[string]int `json:"counts"`
+	Images          int            `json:"images"`     // distinct image manifests running it
+	Containers      int            `json:"containers"` // running containers
+	Namespaces      []string       `json:"namespaces"`
 }
 
-// SetPackage is a package of a set with the set's vulnerabilities on it.
+// SetPackage is a package of a set with its Critical and High vulnerabilities.
 type SetPackage struct {
 	PURL            string                 `json:"purl"`
 	Name            string                 `json:"name"`
@@ -62,11 +70,11 @@ type VulnerabilitySetDetail struct {
 type FindingsStore interface {
 	// ReplacePlacements replaces what a node runs.
 	ReplacePlacements(node string, ps []Placement, at time.Time) error
-	// VulnerabilitySets lists the sets of the given severities that run, in
-	// the given registries; placements older than freshAfter are ignored.
-	VulnerabilitySets(registries, severities []string, freshAfter time.Duration) ([]VulnerabilitySet, error)
+	// VulnerabilitySets lists the sets that run, in the given registries;
+	// placements older than freshAfter are ignored.
+	VulnerabilitySets(registries []string, freshAfter time.Duration) ([]VulnerabilitySet, error)
 	// GetVulnerabilitySet returns one set, ErrNotFound when nothing runs it.
-	GetVulnerabilitySet(set, severity string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error)
+	GetVulnerabilitySet(set string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error)
 	// What the interface browses (explore.go).
 	ExploreStore
 }
@@ -95,13 +103,14 @@ func (m *PostgresMetadataStore) ReplacePlacements(node string, ps []Placement, a
 }
 
 // setsCTE resolves running containers onto scanned image manifests and the
-// sets those carry. $1 registries, $2 severities, $3 oldest seen_at.
+// sets those carry. $1 registries, $2 SetSeverities, $3 oldest seen_at.
 //   - running: fresh placements.
 //   - resolved: each placement onto the image manifest(s) it runs: the digest
 //     itself when it is an image, the index entry of the node's platform when
 //     it is an index (in every registry and repository holding it).
-//   - image_sets: per scanned image and severity, the md5 of the sorted
-//     (package key, vulnerability) pairs: the set.
+//   - image_sets: per scanned image, the md5 of the sorted keys of its
+//     packages with a Critical or High vulnerability (the set), and the
+//     highest severity among them.
 //
 // resolvedCTE defines running and resolved (above), with the registries and
 // the freshness bound as the given query parameters.
@@ -130,37 +139,45 @@ resolved AS MATERIALIZED (
 var setsCTE = `
 WITH ` + resolvedCTE("$1", "$3") + `,
 image_sets AS (
-	SELECT i.registry, i.repo, i.digest, v.severity,
-	       md5(string_agg(DISTINCT i.package_key || ' ' || v.vulnerability_id, ',' ORDER BY i.package_key || ' ' || v.vulnerability_id)) AS set
+	SELECT i.registry, i.repo, i.digest,
+	       md5(string_agg(DISTINCT i.package_key, ',' ORDER BY i.package_key)) AS set,
+	       CASE WHEN bool_or(v.severity = 'Critical') THEN 'Critical' ELSE 'High' END AS severity
 	  FROM image_packages i JOIN package_vulnerabilities v ON v.package_key = i.package_key
 	 WHERE i.registry = ANY($1) AND v.severity = ANY($2)
 	   AND EXISTS (SELECT 1 FROM resolved x WHERE x.registry = i.registry AND x.repo = i.repo AND x.digest = i.digest)
-	 GROUP BY i.registry, i.repo, i.digest, v.severity
+	 GROUP BY i.registry, i.repo, i.digest
 ),
 running_sets AS (
 	SELECT s.set, s.severity, s.registry, s.repo, s.digest, x.node, x.namespace, x.pod, x.container, x.image, x.pulled, x.platform
 	  FROM image_sets s JOIN resolved x ON x.registry = s.registry AND x.repo = s.repo AND x.digest = s.digest
 )`
 
-func (m *PostgresMetadataStore) VulnerabilitySets(registries, severities []string, freshAfter time.Duration) ([]VulnerabilitySet, error) {
+func (m *PostgresMetadataStore) VulnerabilitySets(registries []string, freshAfter time.Duration) ([]VulnerabilitySet, error) {
+	// The packages and vulnerabilities of a set are those of any one of its
+	// images: they all have the same vulnerable packages.
 	rows, err := m.pool.Query(context.Background(), setsCTE+`,
-set_packages AS (
-	SELECT DISTINCT s.set, s.severity, p.package->>'Name' AS name, v.vulnerability_id
-	  FROM (SELECT DISTINCT set, severity, registry, repo, digest FROM running_sets) s
-	  JOIN image_packages i ON i.registry = s.registry AND i.repo = s.repo AND i.digest = s.digest
-	  JOIN package_vulnerabilities v ON v.package_key = i.package_key AND v.severity = s.severity
+one_image AS (
+	SELECT DISTINCT ON (set) set, registry, repo, digest FROM running_sets ORDER BY set, registry, repo, digest
+),
+set_vulns AS (
+	SELECT DISTINCT o.set, p.package->>'Name' AS name, v.vulnerability_id, v.severity
+	  FROM one_image o
+	  JOIN image_packages i ON i.registry = o.registry AND i.repo = o.repo AND i.digest = o.digest
+	  JOIN package_vulnerabilities v ON v.package_key = i.package_key AND v.severity = ANY($2)
 	  JOIN scan_packages p ON p.key = i.package_key
 )
-SELECT r.set, r.severity,
-       (SELECT array_agg(DISTINCT name ORDER BY name) FROM set_packages sp WHERE sp.set = r.set AND sp.severity = r.severity),
-       (SELECT count(DISTINCT vulnerability_id) FROM set_packages sp WHERE sp.set = r.set AND sp.severity = r.severity),
+SELECT r.set, min(r.severity),
+       (SELECT array_agg(DISTINCT name ORDER BY name) FROM set_vulns sv WHERE sv.set = r.set),
+       (SELECT count(DISTINCT vulnerability_id) FROM set_vulns sv WHERE sv.set = r.set),
+       (SELECT jsonb_object_agg(severity, n) FROM
+          (SELECT severity, count(DISTINCT vulnerability_id) AS n FROM set_vulns sv WHERE sv.set = r.set GROUP BY severity) c),
        count(DISTINCT (r.registry, r.repo, r.digest)),
        count(DISTINCT (r.node, r.namespace, r.pod, r.container)),
        array_agg(DISTINCT r.namespace ORDER BY r.namespace)
   FROM running_sets r
- GROUP BY r.set, r.severity
- ORDER BY r.severity, r.set`,
-		registries, severities, time.Now().Add(-freshAfter).UnixNano())
+ GROUP BY r.set
+ ORDER BY r.set`,
+		registries, SetSeverities, time.Now().Add(-freshAfter).UnixNano())
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +185,11 @@ SELECT r.set, r.severity,
 	out := []VulnerabilitySet{}
 	for rows.Next() {
 		var s VulnerabilitySet
-		if err := rows.Scan(&s.Set, &s.Severity, &s.Packages, &s.Vulnerabilities, &s.Images, &s.Containers, &s.Namespaces); err != nil {
+		var counts []byte
+		if err := rows.Scan(&s.Set, &s.Severity, &s.Packages, &s.Vulnerabilities, &counts, &s.Images, &s.Containers, &s.Namespaces); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(counts, &s.Counts); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -176,18 +197,18 @@ SELECT r.set, r.severity,
 	return out, rows.Err()
 }
 
-func (m *PostgresMetadataStore) GetVulnerabilitySet(set, severity string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error) {
+func (m *PostgresMetadataStore) GetVulnerabilitySet(set string, registries []string, freshAfter time.Duration) (*VulnerabilitySetDetail, error) {
 	// One set only: the summary is counted from its own rows, not from the
 	// list of every set (which costs as much as all of them).
-	d := &VulnerabilitySetDetail{VulnerabilitySet: VulnerabilitySet{Set: set, Severity: severity}}
+	d := &VulnerabilitySetDetail{VulnerabilitySet: VulnerabilitySet{Set: set, Counts: map[string]int{}}}
 	ctx := context.Background()
 	fresh := time.Now().Add(-freshAfter).UnixNano()
 	// Images and where they run.
 	rows, err := m.pool.Query(ctx, setsCTE+`
 SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, platform
-  FROM running_sets WHERE set = $4 AND severity = $5
+  FROM running_sets WHERE set = $4
  ORDER BY registry, repo, digest, namespace, pod, container`,
-		registries, []string{severity}, fresh, set, severity)
+		registries, SetSeverities, fresh, set)
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +260,10 @@ SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, p
 		   FROM (SELECT DISTINCT package_key FROM image_packages
 		          WHERE registry = $1 AND repo = $2 AND digest = $3) i
 		   JOIN scan_packages p ON p.key = i.package_key
-		   JOIN package_vulnerabilities v ON v.package_key = i.package_key AND v.severity = $4
+		   JOIN package_vulnerabilities v ON v.package_key = i.package_key AND v.severity = ANY($4)
 		  GROUP BY p.key, p.purl, p.package->>'Name', p.package->>'Version'
 		  ORDER BY 2, 3`,
-		first.Registry, first.Repo, first.Digest.String(), severity)
+		first.Registry, first.Repo, first.Digest.String(), SetSeverities)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +284,23 @@ SELECT registry, repo, digest, node, namespace, pod, container, image, pulled, p
 	}
 	names := map[string]bool{}
 	ids := map[string]bool{}
+	bySeverity := map[string]map[string]bool{}
 	for _, p := range d.Detail {
 		names[p.Name] = true
 		for _, v := range p.Vulnerabilities {
 			ids[v.ID] = true
+			if bySeverity[v.Severity] == nil {
+				bySeverity[v.Severity] = map[string]bool{}
+			}
+			bySeverity[v.Severity][v.ID] = true
 		}
+	}
+	for sev, set := range bySeverity {
+		d.Counts[sev] = len(set)
+	}
+	d.Severity = "High"
+	if d.Counts["Critical"] > 0 {
+		d.Severity = "Critical"
 	}
 	for n := range names {
 		d.Packages = append(d.Packages, n)

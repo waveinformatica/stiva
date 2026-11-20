@@ -658,35 +658,13 @@ func (h *Handler) scanPutPlacements(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// severitiesQuery reads ?severity=Critical,High; every value must be a
-// severity. Empty means all.
-func severitiesQuery(c *gin.Context) ([]string, bool) {
-	raw := c.Query("severity")
-	if raw == "" {
-		return scanSeverities, true
-	}
-	out := []string{}
-	for _, s := range strings.Split(raw, ",") {
-		if !validSeverity(s) {
-			return400(c, fmt.Sprintf("unknown severity %q", s))
-			return nil, false
-		}
-		out = append(out, s)
-	}
-	return out, true
-}
-
-// scanSets handles GET /api/v1/scan/sets?severity=: the vulnerability sets
-// that run, over the registries the caller can read.
+// scanSets handles GET /api/v1/scan/sets: the vulnerability sets that run,
+// over the registries the caller can read.
 func (h *Handler) scanSets(c *gin.Context) {
 	if !h.findingsReady(c) {
 		return
 	}
-	sev, ok := severitiesQuery(c)
-	if !ok {
-		return
-	}
-	sets, err := h.findings.VulnerabilitySets(h.scanRegistries(c, authz.RegistryRead), sev, placementFreshness)
+	sets, err := h.findings.VulnerabilitySets(h.scanRegistries(c, authz.RegistryRead), placementFreshness)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -694,18 +672,13 @@ func (h *Handler) scanSets(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"sets": sets})
 }
 
-// scanSet handles GET /api/v1/scan/sets/:set?severity=: one set with its
-// packages, vulnerabilities, images and where they run.
+// scanSet handles GET /api/v1/scan/sets/:set: one set with its packages,
+// vulnerabilities, images and where they run.
 func (h *Handler) scanSet(c *gin.Context) {
 	if !h.findingsReady(c) {
 		return
 	}
-	sev := c.Query("severity")
-	if !validSeverity(sev) {
-		return400(c, "severity is required")
-		return
-	}
-	d, err := h.findings.GetVulnerabilitySet(c.Param("set"), sev, h.scanRegistries(c, authz.RegistryRead), placementFreshness)
+	d, err := h.findings.GetVulnerabilitySet(c.Param("set"), h.scanRegistries(c, authz.RegistryRead), placementFreshness)
 	if errors.Is(err, storage.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no running image carries this set"})
 		return
@@ -952,7 +925,7 @@ func (h *Handler) metrics(c *gin.Context) {
 	writeScanMetrics(&b, sums)
 	writeScanFailureMetrics(&b, fails)
 	if h.findings != nil {
-		sets, err := h.findings.VulnerabilitySets(regs, alertSeverities, placementFreshness)
+		sets, err := h.findings.VulnerabilitySets(regs, placementFreshness)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -1003,23 +976,19 @@ func writeScanFailureMetrics(w io.Writer, fails []storage.ScanFailure) {
 	}
 }
 
-// alertSeverities are the severities exported as vulnerability sets: what
-// alerts are raised on (Critical, and High as warnings).
-var alertSeverities = []string{"Critical", "High"}
-
 // maxSetPackagesLabel bounds the package names carried in a set's label.
 const maxSetPackagesLabel = 200
 
 func writeSetMetrics(w io.Writer, sets []storage.VulnerabilitySet) {
 	name := "stiva_vulnerability_set"
-	fmt.Fprintf(w, "# HELP %s Running images sharing a set of vulnerabilities of one severity (same packages, same vulnerabilities).\n# TYPE %s gauge\n", name, name)
+	fmt.Fprintf(w, "# HELP %s Running images sharing a vulnerability set (the same packages with Critical or High vulnerabilities); severity is the highest.\n# TYPE %s gauge\n", name, name)
 	for _, s := range sets {
 		pk := strings.Join(s.Packages, ", ")
 		if len(pk) > maxSetPackagesLabel {
 			pk = strings.ToValidUTF8(pk[:maxSetPackagesLabel], "") + "…"
 		}
-		fmt.Fprintf(w, "%s{set=\"%s\",severity=\"%s\",packages=\"%s\",vulnerabilities=\"%d\",namespaces=\"%s\"} %d\n", name,
-			promEscape(s.Set), promEscape(s.Severity), promEscape(pk), s.Vulnerabilities, promEscape(strings.Join(s.Namespaces, ", ")), s.Images)
+		fmt.Fprintf(w, "%s{set=\"%s\",severity=\"%s\",packages=\"%s\",namespaces=\"%s\"} %d\n", name,
+			promEscape(s.Set), promEscape(s.Severity), promEscape(pk), promEscape(strings.Join(s.Namespaces, ", ")), s.Images)
 	}
 }
 

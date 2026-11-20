@@ -159,3 +159,18 @@ func TestPromEscape(t *testing.T) {
 		t.Errorf("escape: %q", got)
 	}
 }
+
+// Un insieme per immagine: la metrica porta il livello piu' alto e i pacchetti, non il numero di
+// vulnerabilita' (cambierebbe a ogni CVE nuova e con lui l'allarme).
+func TestWriteSetMetrics(t *testing.T) {
+	var b bytes.Buffer
+	writeSetMetrics(&b, []storage.VulnerabilitySet{{
+		Set: "abc", Severity: "Critical", Packages: []string{"openssl", "stdlib"},
+		Vulnerabilities: 3, Counts: map[string]int{"Critical": 1, "High": 2},
+		Images: 2, Containers: 5, Namespaces: []string{"a", "b"},
+	}})
+	want := `stiva_vulnerability_set{set="abc",severity="Critical",packages="openssl, stdlib",namespaces="a, b"} 2` + "\n"
+	if !strings.Contains(b.String(), want) {
+		t.Errorf("manca %q in:\n%s", want, b.String())
+	}
+}
